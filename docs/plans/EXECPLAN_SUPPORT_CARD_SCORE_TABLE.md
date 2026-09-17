@@ -18,7 +18,8 @@ The user can see it working by opening the page, choosing H.I.F., sorting by 凸
 
 - [x] (2026-09-16) Design settled in a grill-me session; twelve decisions recorded in the Decision Log below. Repository scaffolded from `Taka499/project-template@b52b8df`.
 - [x] (2026-09-16) Three ADRs written: `docs/adr/0001` (score definition), `docs/adr/0002` (taxonomy), `docs/adr/0003` (image library).
-- [ ] Milestone 0: prototype the data join for two known cards and prove every effect classifies.
+- [x] (2026-09-16) Milestone 0, build part: `scripts/prototype-join.ts` joins 14 tables, classifies every skill effect of all 202 cards and every parameter effect of the 132 card-granted P-items with zero unclassified pairs (six extension rows needed, see Decision Log D13), discovers the event and P-item join paths, and prints `s_card-3-0016` and `s_card-3-0073` at 凸0–凸4. Branch `feature/m0-prototype-join`.
+- [x] (2026-09-17) Milestone 0, acceptance part: the user confirmed in game that 1人たりとも欠ける事なく at level 60 shows 初期ボーカル+65, 相談選択時ボーカル+14, イベントパラメータ上昇+100%, and that ｖギャルピーーースッｖ at level 60 shows スキルカード削除時ボーカル+11, 初期ボーカル+65, 活動支給・差し入れ選択時ボーカル+17, イベントパラメータ上昇+100%; and accepted decisions D13–D17 as proposed. Milestone 0 is complete.
 - [ ] Milestone 1: generators and committed data (`data/cards.generated.ts`, `data/taxonomy.generated.ts`, `data/levelLimits.generated.ts`).
 - [ ] Milestone 2: scoring engine with two scenario data files; golden tests.
 - [ ] Milestone 3: table UI with thumbnails, filters, sort, breakdown, scenario switcher, folded customize panel.
@@ -41,6 +42,30 @@ The user can see it working by opening the page, choosing H.I.F., sorting by 凸
 
 - Observation: `ProduceStepLessonLevel.yaml` does not contain parameter gain values (fields are `progressLevel`, `limitTurn`, `successThreshold`, `resultTargetValueLimit`), so per-lesson gains in a route profile must come from play knowledge or the wiki, not from the dump.
   Evidence: first record printed on 2026-09-16.
+
+- Observation: The game's filter table (46 rows) does not cover every trigger that support cards and card-granted P-items actually use. Five card triggers have no row: three 「スキルカード獲得時、所持している{好印象,温存,集中}効果のスキルカードが8枚以上の場合」 variants (`p_trigger-get_produce_card-produce_card_search_count-p_card_search-deck_all-effect_group-visible-exam_{review,preservation,lesson_buff}-000-0008_0000`, cards `s_card-3-0103/0104/0106/0107`) and 「相談でスキルカード交換後」 (`p_trigger-buy_shop_item_produce_card`, card `s_card-3-0108`). Two P-item trigger families have no row either: `p_trigger-end_before_audition_refresh-{vocal,dance,visual}-0400_0000` (試験・オーディション前の休憩後) and `p_trigger-end_lesson-lesson_sp-*` (any-stat SP lesson end, which the game table lists only under the stamina-recovery row).
+  Evidence: first prototype run on 2026-09-16 printed eight distinct unmatched (effect type, trigger) pairs with `candidates=0`; after adding six extension rows (D13) the run prints `Unclassified (effectType, trigger) pairs: 0`.
+
+- Observation: P-item and some card triggers carry condition suffixes on top of a taxonomy trigger id, e.g. `p_trigger-start_shop-vocal-0400_0000` (相談選択時, if Vo ≥ 400), `p_trigger-end_lesson-lesson_vocal-stamina_ratio-0500_0000`, `p_trigger-get_produce_card-…-exam_full_power-000-visual-0400_0000`. Matching the longest taxonomy trigger id that is a `-`-delimited prefix resolves all of them; 32 pairs classified this way, 32 658 exactly.
+  Evidence: prototype `Match statistics: exact 32658, prefix 32, via extension rows 268` (counts are per card-level pass, so inflated, but the zero remainder is what matters).
+
+- Observation: `ProduceSkill.activationCount` is a per-run cap on how often a support skill fires: 0 means unlimited, otherwise the skill text says 「（プロデュース中N回）」. Over classified parameter effects the values are 0, 1, 2, 3, 4, 5, 6 and 10 (e.g. Pドリンク獲得時 skills cap at 10, 試験・オーディション終了時 and 活動支給・差し入れ選択時 at 2, スキルカードチェンジ時 at 3). The score must therefore use min(cap, route count), not route count alone.
+  Evidence: prototype `activationCount distribution … 0:17626 1:10790 2:1426 3:762 4:1042 5:102 6:860 10:41`; skill description text 「…ボーカル上昇+11（プロデュース中4回）」.
+
+- Observation: 198 of 202 cards carry a produce-start skill of type `ProduceEffectType_SupportCardEventParameterAdditionValueUp` whose description reads 「このサポートカードのイベントによるパラメータ上昇を50%増加」, value in permil (500/750/1000 across skill levels). It multiplies the card's own event parameter rewards, so D12's event part must apply it. Sibling types for P-points and stamina score 0.
+  Evidence: `ProduceSkill.yaml` row `p_support_skill-common-p_trigger-produce_start-no_description-support_card_event_parameter_addition_value_up-01-001`; `ProduceEffect.yaml` values 500, 750, 1000.
+
+- Observation: SSR cards have three events, unlocking at card level 1, 20 and 40 (110 cards have a third event, all `s_card-3-*`); R and SR cards have two (1 and 20). The plan's "events unlock at level 1 and level 20" was incomplete.
+  Evidence: `ProduceEventSupportCard.yaml` (number, supportCardLevel) pairs: 202×(1,1), 202×(2,20), 110×(3,40).
+
+- Observation: `ProduceItem.fireLimit` 0 means unlimited, not zero: 打倒！墾田永年私財法 (`pitem_00-2-002-0`, fireLimit 0) gives Vo+26 before every audition once Vo ≥ 400. So D11's "value × trigger limit" only works for items with fireLimit ≥ 1; unlimited items need the route count of their trigger's category, which means item effects must be classified like skill effects. 41 of the 132 items granted by card events have parameter effects; the other 91 (including みんなの教科書 and しぼまない思い出 of the two sample cards) only carry exam-time enchants and score 0.
+  Evidence: prototype item report; join path `ProduceItem.skills[].produceItemEffectId → ProduceItemEffect.produceEffectId → ProduceEffect` with the trigger in `ProduceItem.skills[].produceTriggerId`.
+
+- Observation: Every effect referenced by support skills, events and items has `effectValueMin == effectValueMax`, and every support skill has `activationRatePermil` 0 — there are no ranges and no probabilistic skills to model.
+  Evidence: prototype `Effects with min != max: 0`, `Skills with activationRatePermil != 0: 0`.
+
+- Observation: `Produce.yaml` carries the parameter cap as `idolCardParameterGrowthLimit`: `produce-006` レジェンド 3000, `produce-007` 選抜試験 3000, `produce-008` 本戦 3000 (レギュラー 1000, プロ 1500, マスター 1800, N.I.A. プロ 2000, マスター 2600). The plan's 初LEGEND cap of 2800 (from the sibling project) disagrees with the current dump; the H.I.F. cap 3000 is confirmed.
+  Evidence: awk over `Produce.yaml` on 2026-09-16.
 
 
 ## Decision Log
@@ -94,11 +119,31 @@ The user can see it working by opening the page, choosing H.I.F., sorting by 凸
   Rationale: An event fires once per run; fixed data, no route assumption.
   Date/Author: 2026-09-16 / user (D12).
 
+- Decision (D13): The taxonomy is the game's filter table plus a small hand-maintained extension list (`data/taxonomy.extensions.ts` from Milestone 1; `EXTENSION_ROWS` in the prototype) for triggers the game table does not cover. Each extension row has the same shape as a game row (id prefixed `ext-`, a title in the game's own skill/item wording, effect types, trigger ids), an optional `countsAs` pointing at the game row whose route count it shares (the conditional 8枚以上 variants count as their unconditional 獲得時 category; `lesson_sp` counts as SPレッスン終了時), and a source comment naming the cards or items that need it. The generator fails when an effect matches no row and also when an extension row's trigger becomes covered by a game row, so extensions are retired as soon as the game catches up. Six rows exist today (three 8枚以上 variants, 相談でスキルカード交換後, 試験・オーディション前の休憩後, SPレッスン終了時 for `lesson_sp`).
+  Rationale: The game table lags the newest cards (five cards would otherwise be unclassifiable) and never covered P-item triggers. Dropping those cards contradicts D10; silently mapping them to a phase contradicts ADR 0002's "fails loudly". An explicit, audited supplement keeps both. Rejected alternative: exclude the five cards and the affected items and show them as 「未分類」. ADR 0002 carries an addendum dated 2026-09-17 recording this.
+  Date/Author: 2026-09-16 / proposed by the agent from Milestone 0 evidence; accepted by the user 2026-09-17.
+
+- Decision (D14): A trigger id that is not listed verbatim in any taxonomy row classifies to the row (with a matching effect type) whose listed trigger id is the longest `-`-delimited prefix of it; ties across rows fail the build. Under D10 the extra condition segments (`-vocal-0400_0000`, `-stamina_ratio-0500_0000`) are assumed satisfied, so the category's route count applies unchanged.
+  Rationale: Every P-item parameter trigger and the newest card triggers are "category + condition"; the prefix is exactly the category. Rejected: mapping by `phaseType` (loses the per-category granularity the taxonomy provides, e.g. 好印象 vs 温存 card acquisition).
+  Date/Author: 2026-09-16 / proposed by the agent from Milestone 0 evidence; accepted by the user 2026-09-17.
+
+- Decision (D15): A skill effect's per-run occurrences are min(`activationCount`, route count of its category), where `activationCount` 0 means no cap. Amends the formula in Interfaces and Dependencies.
+  Rationale: The game caps most non-lesson triggers (「プロデュース中N回」); ignoring the cap overstates e.g. Pドリンク獲得時 cards.
+  Date/Author: 2026-09-16 / proposed by the agent from Milestone 0 evidence; accepted by the user 2026-09-17.
+
+- Decision (D16): A card-granted P-item's parameter effects are classified with the same taxonomy and prefix rule as skills, and count min(`fireLimit`, route count of the category) times, where `fireLimit` 0 means no cap. This replaces D11's "value × trigger limit" for the unlimited case and equals it otherwise. The item part stays a separate breakdown entry.
+  Rationale: 11 of the 41 parameter-bearing items have `fireLimit` 0 and fire on every occurrence of their trigger; a fixed multiplier cannot express that.
+  Date/Author: 2026-09-16 / proposed by the agent from Milestone 0 evidence; accepted by the user 2026-09-17.
+
+- Decision (D17): The event part is the sum over events unlocked at the card's level (SSR: levels 1, 20, 40; R/SR: 1, 20) of parameter rewards × (1 + `eventBonusPermil` / 1000), where `eventBonusPermil` is the card's `SupportCardEventParameterAdditionValueUp` value at that level (0 when absent). Amends D12.
+  Rationale: 198 of 202 cards carry the bonus and it reaches +100% at 凸4, so omitting it halves the event part of nearly every card.
+  Date/Author: 2026-09-16 / proposed by the agent from Milestone 0 evidence; accepted by the user 2026-09-17.
+
 
 ## Outcomes & Retrospective
 
 
-Nothing implemented yet. To be written at each milestone's end.
+Milestone 0 (2026-09-16): the join is proven end to end and the taxonomy approach holds, with one honest amendment — the game table alone covers 46 categories but not the five newest card triggers nor any P-item trigger, so a six-row audited extension list is needed (D13). The prototype also corrected three formula assumptions the design had made without data: per-skill activation caps (D15), unlimited-fire items (D16), and the own-event +50–100% multiplier that almost every card carries (D17). Lesson: reading every card's data, not two, is what surfaced all of these; the two sample cards alone showed none of them. Accepted 2026-09-17: the user verified both cards' level-60 values in game and accepted D13–D17 as proposed.
 
 
 ## Context and Orientation
@@ -131,7 +176,7 @@ The taxonomy is the list of effect categories. It comes from `SupportCardProduce
 
 A card skill effect belongs to the first row whose `produceEffectTypes` contains the effect's type and whose `produceTriggerIds` contains the effect's trigger id. The 46 titles as of 2026-09-16, in `order`, include 初期パラメータ上昇 (1), パラメータボーナス+ (2), SPレッスン発生率+ (3), レッスン終了時パラメータ上昇 (4), 通常レッスン終了時パラメータ上昇 (5), SPレッスン終了時パラメータ上昇 (6), スキルカード強化時/削除時/チェンジ時/獲得時 variants (7–23), 授業・営業終了時 (24), 試験・オーディション終了時 (25), 活動支給・差し入れ選択時 (26), おでかけ終了時 (27), 相談選択時 (28), 相談でPドリンク交換後 (29), 休む選択時 (30), Pドリンク獲得時 (31), and a tail of stamina, P-point and conditional variants such as SPレッスン終了時所持スキルカードが20枚以上の場合パラメータ上昇 (36).
 
-The upstream data is the GitHub repository `vertesan/gakumasu-diff`, a dump of the game's master tables as YAML, updated every few days (commits on 2026-09-10 and 2026-09-15). Files are fetched raw from `https://raw.githubusercontent.com/vertesan/gakumasu-diff/main/<Table>.yaml`. The tables this plan uses: `SupportCard.yaml` (card identity; fields `id`, `name`, `type`, `rarity`, `planType`, `assetId`, `supportCardLevelLimitId`), the four `SupportCardProduceSkillLevel*.yaml` (card level → skill level), `ProduceSkill.yaml` (skill id + level → up to three `produceEffectIdN`/`produceTriggerIdN` pairs), `ProduceEffect.yaml` (`produceEffectType`, `effectValueMin`, `effectValueMax`), `ProduceTrigger.yaml` (`phaseType`; conditions only in the id string), `SupportCardProduceSkillFilter.yaml` (taxonomy), `SupportCardLevelLimit.yaml` (凸 → level), `ProduceEventSupportCard.yaml` and `ProduceStepEventDetail.yaml` (card events, their unlock level, their effect ids including the granted P-item), and `ProduceItem.yaml` plus its effect/trigger tables (the granted item's parameter effects and trigger limit; the exact fields are to be discovered in Milestone 0). Percent-type effects (`*GrowthRateAddition`) are stored in tenths of a percent (85 means 8.5%); permil types are in thousandths.
+The upstream data is the GitHub repository `vertesan/gakumasu-diff`, a dump of the game's master tables as YAML, updated every few days (commits on 2026-09-10 and 2026-09-15). Files are fetched raw from `https://raw.githubusercontent.com/vertesan/gakumasu-diff/main/<Table>.yaml`. The tables this plan uses: `SupportCard.yaml` (card identity; fields `id`, `name`, `type`, `rarity`, `planType`, `assetId`, `supportCardLevelLimitId`), the four `SupportCardProduceSkillLevel*.yaml` (card level → skill level), `ProduceSkill.yaml` (skill id + level → up to three `produceEffectIdN`/`produceTriggerIdN` pairs), `ProduceEffect.yaml` (`produceEffectType`, `effectValueMin`, `effectValueMax`), `ProduceTrigger.yaml` (`phaseType`; conditions only in the id string), `SupportCardProduceSkillFilter.yaml` (taxonomy), `SupportCardLevelLimit.yaml` (凸 → level), `ProduceEventSupportCard.yaml` and `ProduceStepEventDetail.yaml` (card events, their unlock level, their effect ids including the granted P-item), and `ProduceItem.yaml` plus `ProduceItemEffect.yaml` for the granted item. The P-item join, discovered in Milestone 0, is: `ProduceEventSupportCard.yaml` (`supportCardId`, `number`, `supportCardLevel`, `produceStepEventDetailId`) → `ProduceStepEventDetail.yaml` row (`produceEffectIds`) → `ProduceEffect.yaml` row of type `ProduceEffectType_ProduceReward` whose `produceRewards[]` entry has `resourceType: ProduceResourceType_ProduceItem` and `resourceId: pitem_…` → `ProduceItem.yaml` row (`name`, `fireLimit` with 0 meaning unlimited, `skills[]` of `{produceTriggerId, produceItemEffectId}`) → `ProduceItemEffect.yaml` row (`effectType`; only `ProduceItemEffectType_ProduceEffect` rows carry a `produceEffectId` back into `ProduceEffect.yaml`; `ProduceItemEffectType_ExamStatusEnchant` rows are exam-time effects and score 0). Event parameter rewards are `ProduceEffect` rows of type `{Vocal,Dance,Visual}Addition` listed directly in the event detail's `produceEffectIds`. Support skills additionally carry `activationCount` (0 = unlimited, else the per-run cap) on their `ProduceSkill.yaml` row. Percent-type effects (`*GrowthRateAddition`) are stored in tenths of a percent (85 means 8.5%); permil types are in thousandths.
 
 Scenario facts known today: H.I.F. is `ProduceGroup.yaml` row `produce_group-003`, name 『Hatsuboshi IDOL FESTIVAL』, `ProduceType_HatsuboshiIdolFestival`, produces `produce-007` (選抜試験) and `produce-008` (本戦), parameter cap 3000 (community source, to be confirmed against `ProduceSetting.yaml` in Milestone 2). 初LEGEND is `produce-006` in `produce_group-001`, 18 weeks, cap 2800, with Legend lessons at weeks 4, 7, 12, 14, 16 giving (selected / each non-selected) +140/+55, +180/+60, +260/+70, +370/+90, +570/+115 at perfect clear, and regular lessons at weeks 1, 2, 6, 15 giving +100, +100, +150, +200 to the selected stat only; outings at weeks 3, 5, 11, 13; consultations at 5, 8, 13, 17; 活動支給 at 3, 5, 11, 13; rest at 3, 5, 11, 13, 17; special training at 9 and 17. These numbers were verified against the community wiki in the sibling project `gakumas-hajime-lesson` (`_docs/DATA_COLLECTION.md`, `src/engine/constants.ts`) and are repeated here so this plan stands alone. Whether 初LEGEND lessons count as "SP" for trigger purposes must be settled in Milestone 2 (see its open question).
 
@@ -161,21 +206,49 @@ Milestone 5 adds `.github/workflows/update-data.yml`: weekly, regenerate, run te
 ## Concrete Steps
 
 
-Milestone 0, working directory `/Users/ghensk/Developer/gakumas-supportcards`:
+Milestone 0, working directory `/Users/ghensk/Developer/gakumas-supportcards`, as actually executed on 2026-09-16 (no `bun init`; `package.json`, `tsconfig.json` and `.gitignore` were written by hand so no boilerplate `index.ts`/`README.md` appeared):
 
-    bun init -y
-    bun add -d js-yaml @types/js-yaml @types/bun typescript
+    git checkout -b feature/m0-prototype-join
+    BUN_INSTALL_CACHE_DIR="$TMPDIR/bun-cache" bun add -d js-yaml @types/js-yaml @types/bun typescript
     bun scripts/prototype-join.ts s_card-3-0016 s_card-3-0073
+    bunx tsc --noEmit
 
-Expected transcript shape:
+The `BUN_INSTALL_CACHE_DIR` override is only needed inside the coding agent's sandbox, which cannot write `~/.bun`; a normal shell runs plain `bun add`. `js-yaml` 4 has no default export under Bun's ESM loader, so the script imports `{ load }` by name. Tables are cached in `.cache/gakumasu-diff/` (gitignored); delete the directory to re-fetch.
 
-    Fetched 12 tables (SupportCard 202 rows, ProduceSkill N rows, ...)
-    s_card-3-0016 1人たりとも欠ける事なく  SSR vocal common  levelLimit: 40/45/50/55/60
-      level 60: [初期パラメータ上昇] vocal +35 (skill)  ...
-      event lv1: item pitem_00-3-028-0 みんなの教科書 → ...
-    Unclassified effects: 0
+Observed transcript (abridged):
 
-If `Unclassified effects` is not 0, print each with its effect type and trigger id; the fix is never to drop them but to understand why the filter table has no row (it may be a non-parameter effect the taxonomy legitimately omits, such as `ProduceReward`; those are whitelisted by effect type in one place with a comment).
+    Loaded 14 tables in 2423 ms: SupportCard 202, ProduceSkill 1508, ProduceEffect 2117, ProduceTrigger 179, Filter 46, EventSupportCard 514, EventDetail 6894, ProduceItem 1068, ProduceItemEffect 961
+    Processed 202 cards
+
+    s_card-3-0016 1人たりとも欠ける事なく  SupportCardRarity_Ssr SupportCardType_Vocal ProducePlanType_Common asset=csprt-3-0016 levelLimit: 40/45/50/55/60
+      凸0 (level 40)  own-event params +50%:
+        [初期パラメータ上昇] vocal +52  (max 1/run; exact; @ p_trigger-produce_start-initial)
+        [相談選択時パラメータ上昇] vocal +9  (unlimited; exact; @ p_trigger-start_shop)
+      ...
+      凸4 (level 60)  own-event params +100%:
+        [初期パラメータ上昇] vocal +65  (max 1/run; exact; @ p_trigger-produce_start-initial)
+        [相談選択時パラメータ上昇] vocal +14  (unlimited; exact; @ p_trigger-start_shop)
+      event #1 (unlock lv1): params -; items pitem_00-3-028-0 みんなの教科書 (fireLimit=0: no parameter effect); other -
+      event #2 (unlock lv20): params vocal +20; items -; other -
+      event #3 (unlock lv40): params -; items -; other ProduceEffectType_ProduceCardUpgrade
+
+    s_card-3-0073 ｖギャルピーーースッｖ  SupportCardRarity_Ssr SupportCardType_Vocal ProducePlanType_Plan3 asset=csprt-3-0073 levelLimit: 40/45/50/55/60
+      凸4 (level 60)  own-event params +100%:
+        [スキルカード削除時パラメータ上昇] vocal +11  (unlimited; exact; @ p_trigger-delete_produce_card-0000_0000-p_card_search-deck_all)
+        [初期パラメータ上昇] vocal +65  (max 1/run; exact; @ p_trigger-produce_start-initial)
+        [活動支給・差し入れ選択時パラメータ上昇] vocal +17  (unlimited; exact; @ p_trigger-start_present)
+      event #1 (unlock lv1): params -; items pitem_03-3-184-0 しぼまない思い出 (fireLimit=0: no parameter effect); other -
+      event #2 (unlock lv20): params vocal +20; items -; other -
+
+    === Classification report ===
+    Unclassified (effectType, trigger) pairs: 0
+    Match statistics: exact 32658, prefix 32, via extension rows 268
+    Taxonomy categories used by parameter effects: 40 of 52
+    Cards with an own-event parameter bonus: 198
+    Items granted by card events: 132
+      (41 items with parameter effects, 91 without)
+
+The script exits 1 when the unclassified count is not 0, printing each (effect type, trigger id) pair with the number of candidate rows and one card or item that uses it. The fix is never to drop the pair: either it is a non-parameter effect the taxonomy legitimately omits (add it to `NON_PARAMETER_EFFECT_TYPES` with a comment) or it needs an extension row (D13).
 
 Milestone 1:
 
@@ -206,7 +279,7 @@ Exact commands and transcripts must be updated here as each milestone is execute
 ## Validation and Acceptance
 
 
-Milestone 0 is accepted when the prototype prints zero unclassified effects over all cards and the two sample cards' values at level 60 equal the in-game display (the user checks in game or against hatsuboshi-library's card page).
+Milestone 0 is accepted when the prototype prints zero unclassified effects over all cards and the two sample cards' values at level 60 equal the in-game display (the user checks in game or against hatsuboshi-library's card page). Status 2026-09-17: accepted — zero unclassified pairs (transcript above) and the user confirmed both cards' level-60 values in game.
 
 Milestone 1 is accepted when `bun run generate` is idempotent (second run produces no diff), `bun test` passes, and deliberately corrupting the taxonomy file (delete one row) makes the generator exit non-zero naming the orphaned effect.
 
@@ -243,13 +316,18 @@ In `src/engine/types.ts`, define:
     export type Stat = "vocal" | "dance" | "visual";
     export type Totsu = 0 | 1 | 2 | 3 | 4;
     export interface ClassifiedEffect {
-      categoryId: string;          // SupportCardProduceSkillFilter row id
+      categoryId: string;          // taxonomy row id (game row, or an `ext-` extension row per D13)
       stat: Stat;
-      value: number;               // flat points, or percent for パラメータボーナス+
+      value: number;               // flat points, or tenths of a percent for パラメータボーナス+ (85 = 8.5%)
       kind: "skill" | "event" | "item";
-      triggerLimit?: number;       // items only
+      cap?: number;                // skills: ProduceSkill.activationCount; items: ProduceItem.fireLimit; absent or 0 = unlimited (D15, D16)
+      itemId?: string;             // items only, for the breakdown label
     }
-    export interface Breakpoint { minLevel: number; effects: ClassifiedEffect[] }
+    export interface Breakpoint {
+      minLevel: number;
+      effects: ClassifiedEffect[];
+      eventBonusPermil: number;    // own-event parameter multiplier at this level, 0 when none (D17)
+    }
     export interface Card {
       id: string; name: string; assetId: string;
       type: Stat | "assist"; rarity: "r" | "sr" | "ssr";
@@ -271,6 +349,13 @@ In `src/engine/score.ts`, define:
     export function resolveAtLevel(card: Card, level: number): ClassifiedEffect[];
     export function score(card: Card, totsu: Totsu, scenario: Scenario, profile: RouteProfile): Score;
 
-`score` sums, over resolved effects: for `kind === "skill"` with a percent category, `value/100 × profile.spLessonGain[stat]`; for other skills, `value × (profile.counts[categoryId] ?? 0)`; for events, `value`; for items, `value × triggerLimit`. Categories the profile does not name count 0; the generator's taxonomy test asserts every category id in every shipped profile exists in the taxonomy, so a typo fails the build.
+`score` sums, over resolved effects, with `count(categoryId)` = `profile.counts[categoryId]`, falling back to `profile.counts[countsAs]` for an extension row that names one, else 0, and `occurrences = cap ? min(cap, count) : count`: for `kind === "skill"` with the パラメータボーナス+ category, `value/1000 × profile.spLessonGain[stat]`; for other skills, `value × occurrences` (D15); for events, `value × (1 + breakpoint.eventBonusPermil/1000)` (D17); for items, `value × occurrences` (D16). Categories the profile does not name count 0; the generator's taxonomy test asserts every category id in every shipped profile exists in the taxonomy, so a typo fails the build. (Formulas as amended by decisions D13–D17, accepted 2026-09-17.)
 
-Open question carried to Milestone 2: whether 初LEGEND Legend lessons should be treated as SP lessons for trigger purposes (they are a distinct lesson kind in that scenario). Resolve with the user before writing `hajime-legend.ts`; record the answer in the Decision Log.
+Open question carried to Milestone 2: whether 初LEGEND Legend lessons should be treated as SP lessons for trigger purposes (they are a distinct lesson kind in that scenario). Resolve with the user before writing `hajime-legend.ts`; record the answer in the Decision Log. A second open question from Milestone 0: the dump gives 初LEGEND's `idolCardParameterGrowthLimit` as 3000, not the 2800 stated in Context and Orientation; confirm which the game shows today before writing `hajime-legend.ts`.
+
+
+## Revision notes
+
+
+- 2026-09-16 (Milestone 0 executed): Progress, Surprises & Discoveries, Decision Log (D13–D17, proposed), Outcomes & Retrospective, Context (P-item join path), Concrete Steps (actual commands and transcript), Validation (status) and Interfaces (`cap`, `eventBonusPermil`, amended `score` formula) updated to reflect what the prototype found. Reason: the design's formulas for skills, items and events were written before any data was read; the data showed per-skill caps, unlimited-fire items, an own-event multiplier and gaps in the game's filter table, and the plan must carry those so Milestone 1 does not re-discover them.
+- 2026-09-17 (Milestone 0 accepted): the user verified both sample cards in game and accepted D13–D17; Progress, Decision Log, Outcomes, Validation and Interfaces stamped accordingly; ADR 0002 received an addendum and the `CLAUDE.md` index line for it was updated.

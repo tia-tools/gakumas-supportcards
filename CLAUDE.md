@@ -23,7 +23,7 @@ When writing complex features or significant refactors, use an ExecPlan (as desc
 Cross-plan decisions live in `docs/adr/` (convention: `docs/adr/README.md`). This list is an index, not a home — one line per active decision with a pointer to its ADR; full context, provenance, and lifecycle live in the ADR file. Every non-obvious claim elsewhere in this file must cite its source (`per docs/adr/NNNN` or `per docs/plans/<plan>.md`) so this snapshot stays auditable and rebuildable. When an ADR corrects something an old plan asserted, the ADR wins.
 
 - `docs/adr/0001-score-is-max-performance-parameter-gain-under-all-sp-route.md` — **accepted**: a card's 点数 is its expected Vo+Da+Vi gain over one run under a route profile where every lesson is an SP lesson and every conditional trigger is satisfied; SP発生率+ scores 0.
-- `docs/adr/0002-game-skill-filter-table-is-the-canonical-effect-taxonomy.md` — **accepted**: effect categories come from the game's `SupportCardProduceSkillFilter.yaml`, never hand-defined; an unclassifiable effect fails the data build.
+- `docs/adr/0002-game-skill-filter-table-is-the-canonical-effect-taxonomy.md` — **accepted** (addendum 2026-09-17): effect categories come from the game's `SupportCardProduceSkillFilter.yaml` first, plus an audited extension list for the few triggers that table lacks (retired automatically when the game adds a row); conditional trigger ids match by longest prefix; an unclassifiable effect fails the data build.
 - `docs/adr/0003-owned-image-library-on-r2-served-through-the-app-worker.md` — **accepted**: thumbnails are extracted by us, named `img_general_{assetId}_full.webp`, stored in Cloudflare R2 and served by this app's Worker under `/img/*`.
 
 ## Project Overview
@@ -36,11 +36,14 @@ A static web page for 学園アイドルマスター players showing the サポ�
 
 ## Setup and Development
 
-<!-- How to install dependencies, configure the environment, and run the project locally. Include exact commands. -->
+- Runtime and package manager: Bun. `bun install` installs the dev dependencies (`js-yaml`, `typescript`, type packages). Inside a sandbox that blocks `~/.bun`, run it as `BUN_INSTALL_CACHE_DIR="$TMPDIR/bun-cache" bun install`.
+- Upstream game data is the `vertesan/gakumasu-diff` YAML dump. Scripts read each table from `.cache/gakumasu-diff/<Table>.yaml` when present and otherwise fetch `https://raw.githubusercontent.com/vertesan/gakumasu-diff/main/<Table>.yaml` and cache it there; `.cache/` is gitignored, delete it to force a refresh.
 
 ## Build and Test
 
-<!-- List the commands to build, test, lint, and format. Show expected output for a clean run. -->
+- `bun run prototype s_card-3-0016 s_card-3-0073` — Milestone 0 throwaway join (`scripts/prototype-join.ts`): classifies every support-card effect against the game's filter table and prints the named cards at each 凸; exits non-zero when any (effect type, trigger) pair is unclassified. A clean run ends with `Unclassified (effectType, trigger) pairs: 0`.
+- `bun run type-check` — `tsc --noEmit` over `src/`, `scripts/`, `data/`.
+- `bun test` — unit tests (none yet; they arrive with Milestone 1).
 
 ## Code Style
 
