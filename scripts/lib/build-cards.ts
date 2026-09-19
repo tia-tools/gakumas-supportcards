@@ -8,7 +8,7 @@
  */
 
 import { EVENT_CATEGORY_ID, type Breakpoint, type Card, type CardType, type ClassifiedEffect, type LevelLimits, type Plan, type Rarity } from "../../src/engine/types.ts";
-import { EVENT_BONUS_EFFECT_TYPE, NON_PARAMETER_EFFECT_TYPES, PARAM_ADDITION_TYPES, type Classification, type Classifier } from "./classify.ts";
+import { EVENT_BONUS_EFFECT_TYPE, NON_PARAMETER_EFFECT_TYPES, PARAM_ADDITION_TYPES, lessonStatOf, type Classification, type Classifier } from "./classify.ts";
 import type { RawEventSupportCard, RawProduceEffect, RawProduceItem, RawProduceSkill, RawSkillLevel, RawSupportCard, Tables } from "./tables.ts";
 
 const CARD_TYPE: Readonly<Record<string, CardType>> = {
@@ -174,6 +174,8 @@ class CardBuilder {
         if (c.kind !== "classified") continue;
         const e: ClassifiedEffect = { categoryId: c.row.id, stat: c.stat, value: effect.effectValueMin, kind: "skill" };
         if (skill.activationCount > 0) e.cap = skill.activationCount;
+        const ls = lessonStatOf(triggerId);
+        if (ls) e.triggerStat = ls;
         effects.push(e);
       }
     }
@@ -192,10 +194,13 @@ class CardBuilder {
       if (ie.effectType !== "ProduceItemEffectType_ProduceEffect") continue; // exam-time enchants score 0
       const where = `item ${itemId} ${item.name}`;
       const effect = this.effect(ie.produceEffectId, where);
-      const c = this.classifyOrRecord(effect, sk.produceTriggerId || item.produceTriggerId, where);
+      const triggerId = sk.produceTriggerId || item.produceTriggerId;
+      const c = this.classifyOrRecord(effect, triggerId, where);
       if (c.kind !== "classified") continue;
       const e: ClassifiedEffect = { categoryId: c.row.id, stat: c.stat, value: effect.effectValueMin, kind: "item", itemId, itemName: item.name };
       if (item.fireLimit > 0) e.cap = item.fireLimit;
+      const ls = lessonStatOf(triggerId);
+      if (ls) e.triggerStat = ls;
       out.push(e);
     }
     this.itemEffectsCache.set(itemId, out);

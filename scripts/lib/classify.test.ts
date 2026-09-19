@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import type { ExtensionRow } from "../../data/taxonomy.extensions.ts";
-import { Classifier, mergeTaxonomy, redundantExtensions } from "./classify.ts";
+import { Classifier, lessonStatOf, mergeTaxonomy, redundantExtensions } from "./classify.ts";
 import type { RawFilterRow } from "./tables.ts";
 
 const PARAM = ["ProduceEffectType_VocalAddition", "ProduceEffectType_DanceAddition", "ProduceEffectType_VisualAddition"];
@@ -87,6 +87,23 @@ describe("Classifier.classify", () => {
       expect(c.reason).toBe("ambiguous");
       expect(c.candidates.map((r) => r.id)).toEqual(["a", "b"]);
     }
+  });
+});
+
+describe("lessonStatOf", () => {
+  test("stat-bound lesson-end triggers, with and without SP/normal/condition suffixes", () => {
+    expect(lessonStatOf("p_trigger-end_lesson-lesson_vocal")).toBe("vocal");
+    expect(lessonStatOf("p_trigger-end_lesson-lesson_dance_sp")).toBe("dance");
+    expect(lessonStatOf("p_trigger-end_lesson-lesson_visual_normal")).toBe("visual");
+    expect(lessonStatOf("p_trigger-end_lesson-lesson_vocal-stamina_ratio-0500_0000")).toBe("vocal");
+    expect(lessonStatOf("p_trigger-end_lesson-lesson_visual_sp-visual-0700_0000")).toBe("visual");
+  });
+
+  test("any-stat lesson triggers and non-lesson triggers have no lesson stat", () => {
+    expect(lessonStatOf("p_trigger-end_lesson-lesson_sp")).toBeNull();
+    expect(lessonStatOf("p_trigger-end_lesson-lesson_sp-produce_card_count-0020_0000")).toBeNull();
+    expect(lessonStatOf("p_trigger-end_lesson_before_present-lesson_dance_sp")).toBeNull();
+    expect(lessonStatOf("p_trigger-start_shop")).toBeNull();
   });
 });
 

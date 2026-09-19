@@ -55,6 +55,16 @@ export const PARAM_ADDITION_TYPES: ReadonlySet<string> = new Set([
   "ProduceEffectType_VisualAddition",
 ]);
 
+/**
+ * The lesson stat a lesson-end trigger is bound to (`p_trigger-end_lesson-lesson_vocal…`),
+ * or null for any-stat lesson triggers (`…-lesson_sp…`) and non-lesson triggers.
+ */
+export function lessonStatOf(triggerId: string): Stat | null {
+  const m = /^p_trigger-end_lesson-lesson_(vocal|dance|visual)(?:[_-]|$)/.exec(triggerId);
+  if (!m) return null;
+  return m[1] === "vocal" ? "vocal" : m[1] === "dance" ? "dance" : "visual";
+}
+
 export function statOf(effectType: string): Stat | null {
   if (effectType.startsWith("ProduceEffectType_Vocal")) return "vocal";
   if (effectType.startsWith("ProduceEffectType_Dance")) return "dance";
