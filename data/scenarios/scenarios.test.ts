@@ -1,13 +1,15 @@
 /**
  * Real-data checks over the shipped scenarios and generated data: every
  * category id a profile names exists in the taxonomy (a typo fails the build),
- * every card scores to a finite number at every 凸, and the engine's
- * assumptions about the game's ids hold.
+ * every category the cards use is named by every profile (a category the
+ * profile omits would score 0 indistinguishably from a deliberate 0, so 0 must
+ * be written down), every card scores to a finite number at every 凸, and the
+ * engine's assumptions about the game's ids hold.
  */
 
 import { describe, expect, test } from "bun:test";
 import { PARAMETER_BONUS_CATEGORY_ID, scoreBest, taxonomyMap } from "../../src/engine/score.ts";
-import type { Totsu } from "../../src/engine/types.ts";
+import { EVENT_CATEGORY_ID, type Totsu } from "../../src/engine/types.ts";
 import { CARDS } from "../cards.generated.ts";
 import { LEVEL_LIMITS } from "../levelLimits.generated.ts";
 import { TAXONOMY } from "../taxonomy.generated.ts";
@@ -16,9 +18,17 @@ import { SCENARIOS } from "./index.ts";
 const taxonomy = taxonomyMap(TAXONOMY);
 const TOTSU: Totsu[] = [0, 1, 2, 3, 4];
 
+/** Category ids that at least one card effect carries, minus the event pseudo-category. */
+const CATEGORIES_USED_BY_CARDS: readonly string[] = [...new Set(CARDS.flatMap((c) => c.breakpoints.flatMap((b) => b.effects.map((e) => e.categoryId))))].filter((id) => id !== EVENT_CATEGORY_ID);
+
 describe("shipped scenarios", () => {
   test("the パラメータボーナス+ row id the engine relies on exists in the taxonomy", () => {
     expect(taxonomy.get(PARAMETER_BONUS_CATEGORY_ID)?.title).toBe("パラメータボーナス+");
+  });
+
+  test("every category id the generated cards use exists in the generated taxonomy", () => {
+    expect(CATEGORIES_USED_BY_CARDS.length).toBeGreaterThan(0);
+    for (const id of CATEGORIES_USED_BY_CARDS) expect(taxonomy.has(id)).toBe(true);
   });
 
   test("scenario and profile ids are unique and non-empty", () => {
@@ -37,6 +47,14 @@ describe("shipped scenarios", () => {
         for (const [id, n] of Object.entries(p.counts)) {
           expect(taxonomy.has(id)).toBe(true);
           expect(Number.isInteger(n) && n >= 0).toBe(true);
+        }
+      });
+
+      test(`${s.id}/${p.id}: every category the cards use is named in counts (directly or through countsAs); an omitted category would silently score 0`, () => {
+        for (const id of CATEGORIES_USED_BY_CARDS) {
+          if (id === PARAMETER_BONUS_CATEGORY_ID) continue; // scored from the lesson split, not from a count
+          const key = id in p.counts ? id : taxonomy.get(id)?.countsAs;
+          expect(key !== undefined && key in p.counts, `${id} is not named in ${s.id}/${p.id}; write 0 if it never occurs`).toBe(true);
         }
       });
 
