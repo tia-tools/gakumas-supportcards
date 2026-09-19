@@ -20,7 +20,7 @@ The user can see it working by opening the page, choosing H.I.F., sorting by 凸
 - [x] (2026-09-16) Three ADRs written: `docs/adr/0001` (score definition), `docs/adr/0002` (taxonomy), `docs/adr/0003` (image library).
 - [x] (2026-09-16) Milestone 0, build part: `scripts/prototype-join.ts` joins 14 tables, classifies every skill effect of all 202 cards and every parameter effect of the 132 card-granted P-items with zero unclassified pairs (six extension rows needed, see Decision Log D13), discovers the event and P-item join paths, and prints `s_card-3-0016` and `s_card-3-0073` at 凸0–凸4. Branch `feature/m0-prototype-join`.
 - [x] (2026-09-17) Milestone 0, acceptance part: the user confirmed in game that 1人たりとも欠ける事なく at level 60 shows 初期ボーカル+65, 相談選択時ボーカル+14, イベントパラメータ上昇+100%, and that ｖギャルピーーースッｖ at level 60 shows スキルカード削除時ボーカル+11, 初期ボーカル+65, 活動支給・差し入れ選択時ボーカル+17, イベントパラメータ上昇+100%; and accepted decisions D13–D17 as proposed. Milestone 0 is complete.
-- [ ] Milestone 1: generators and committed data (`data/cards.generated.ts`, `data/taxonomy.generated.ts`, `data/levelLimits.generated.ts`).
+- [x] (2026-09-17) Milestone 1: `scripts/generate-taxonomy.ts` and `scripts/generate-cards.ts` over a shared `scripts/lib/` (tables loader, classifier, card builder, emitters) write `data/taxonomy.generated.ts` (46 game rows + 6 extension rows), `data/cards.generated.ts` (202 cards, 199 with parameter effects) and `data/levelLimits.generated.ts`; `data/taxonomy.extensions.ts` holds the six hand-written rows (D13). 24 unit tests pass; second run is byte-identical; deleting the 相談選択時 row from a copy of the taxonomy makes the generator exit 1 naming five orphaned pairs; dropping one card trips the count guard. Prototype script retired. Branch `feature/m1-generators` (stacked on M0, not yet merged).
 - [ ] Milestone 2: scoring engine with two scenario data files; golden tests.
 - [ ] Milestone 3: table UI with thumbnails, filters, sort, breakdown, scenario switcher, folded customize panel.
 - [ ] Milestone 4: image extraction pipeline and R2 upload; Worker serving static site + `/img/*`.
@@ -63,6 +63,12 @@ The user can see it working by opening the page, choosing H.I.F., sorting by 凸
 
 - Observation: Every effect referenced by support skills, events and items has `effectValueMin == effectValueMax`, and every support skill has `activationRatePermil` 0 — there are no ranges and no probabilistic skills to model.
   Evidence: prototype `Effects with min != max: 0`, `Skills with activationRatePermil != 0: 0`.
+
+- Observation: The redundancy guard for extension rows (D13) must not treat a game row that lists a *longer* trigger id as coverage: the game row 「SPレッスン終了時所持スキルカードが20枚以上の場合」 lists `p_trigger-end_lesson-lesson_sp-produce_card_count-0020_0000`, which extends the extension trigger `p_trigger-end_lesson-lesson_sp` but is a different, conditional category and would never win classification for the plain trigger. The guard therefore fires only when a game row lists the extension's trigger id verbatim or as a `-`-delimited prefix of it — exactly the cases where the game row would win.
+  Evidence: first `bun run generate` on 2026-09-17 exited 1 with "ext-vocaladdition-p_trigger-end_lesson-lesson_sp … is covered by s_card_p_skill_filter-vocaladdition-p_trigger-end_lesson-lesson_sp-produce_card_count-0020_0000" under the eager rule; `scripts/lib/classify.test.ts` pins the corrected rule.
+
+- Observation: Every card has 13–17 breakpoint levels because skills upgrade every few levels, so `data/cards.generated.ts` is 1.7 MB of source; gzipped it is 39 KB.
+  Evidence: `awk` count of `"minLevel"` per card line and `gzip -9 | wc -c` on 2026-09-17.
 
 - Observation: `Produce.yaml` carries the parameter cap as `idolCardParameterGrowthLimit`: `produce-006` レジェンド 3000, `produce-007` 選抜試験 3000, `produce-008` 本戦 3000 (レギュラー 1000, プロ 1500, マスター 1800, N.I.A. プロ 2000, マスター 2600). The plan's 初LEGEND cap of 2800 (from the sibling project) disagrees with the current dump; the H.I.F. cap 3000 is confirmed.
   Evidence: awk over `Produce.yaml` on 2026-09-16.
@@ -250,10 +256,33 @@ Observed transcript (abridged):
 
 The script exits 1 when the unclassified count is not 0, printing each (effect type, trigger id) pair with the number of candidate rows and one card or item that uses it. The fix is never to drop the pair: either it is a non-parameter effect the taxonomy legitimately omits (add it to `NON_PARAMETER_EFFECT_TYPES` with a comment) or it needs an extension row (D13).
 
-Milestone 1:
+Milestone 1, as executed on 2026-09-17:
 
-    bun run generate            # runs scripts/generate-cards.ts and scripts/generate-taxonomy.ts
-    bun test                    # unit tests under src/**/*.test.ts and scripts/**/*.test.ts
+    bun run generate            # scripts/generate-taxonomy.ts && scripts/generate-cards.ts
+    bun test                    # scripts/lib/*.test.ts (24 tests)
+    bunx tsc --noEmit
+
+Observed transcript:
+
+    Wrote data/taxonomy.generated.ts: 46 game rows + 6 extension rows
+    Wrote data/cards.generated.ts: 202 cards (199 with parameter effects)
+    Wrote data/levelLimits.generated.ts: {"r":[20,25,30,35,40],"sr":[30,35,40,45,50],"ssr":[40,45,50,55,60]}
+    Matches: exact 32633, prefix 32; categories used 44
+    Skipped non-parameter effects: SupportCardProduceCardUpgradeProbabilityUp×10868, SupportCardEventStaminaRecoverUp×72, ...
+
+Acceptance checks, using `GAKUMASU_DIFF_CACHE` to point the generator at a modified copy of `.cache/gakumasu-diff`:
+
+    # copy of the tables with the 相談選択時パラメータ上昇 row deleted from SupportCardProduceSkillFilter.yaml
+    Unclassified (effect type, trigger) pairs: 5
+      ProduceEffectType_DanceAddition @ p_trigger-start_shop: no-row (e.g. s_card-2-0009 p_support_skill-common-p_trigger-start_shop-dance_addition-02-001)
+      ...
+      ProduceEffectType_VocalAddition @ p_trigger-start_shop-vocal-0400_0000: no-row (e.g. item pitem_03-2-123-0 切磋琢磨のタオル)
+    exit=1
+    # copy of the tables with the last SupportCard row deleted
+    Card count would drop from 202 to 201; rerun with --allow-fewer if this is a real removal upstream.
+    exit=1
+
+The generated card file is 1.7 MB of source (13–17 breakpoints per card, long category ids) but 39 KB gzipped; whether Milestone 3 needs a leaner encoding is decided there from the measured bundle.
 
 Milestone 2:
 
@@ -359,3 +388,4 @@ Open question carried to Milestone 2: whether 初LEGEND Legend lessons should be
 
 - 2026-09-16 (Milestone 0 executed): Progress, Surprises & Discoveries, Decision Log (D13–D17, proposed), Outcomes & Retrospective, Context (P-item join path), Concrete Steps (actual commands and transcript), Validation (status) and Interfaces (`cap`, `eventBonusPermil`, amended `score` formula) updated to reflect what the prototype found. Reason: the design's formulas for skills, items and events were written before any data was read; the data showed per-skill caps, unlimited-fire items, an own-event multiplier and gaps in the game's filter table, and the plan must carry those so Milestone 1 does not re-discover them.
 - 2026-09-17 (Milestone 0 accepted): the user verified both sample cards in game and accepted D13–D17; Progress, Decision Log, Outcomes, Validation and Interfaces stamped accordingly; ADR 0002 received an addendum and the `CLAUDE.md` index line for it was updated.
+- 2026-09-17 (Milestone 1 executed): Progress, Concrete Steps (commands, transcript, acceptance evidence) and Surprises (redundancy-guard rule, generated file size) updated; the prototype script was removed as planned. Reason: the plan must show the generators' real behaviour and guards so Milestone 2 can build on the committed data without rereading the code.

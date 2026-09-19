@@ -41,9 +41,9 @@ A static web page for 学園アイドルマスター players showing the サポ�
 
 ## Build and Test
 
-- `bun run prototype s_card-3-0016 s_card-3-0073` — Milestone 0 throwaway join (`scripts/prototype-join.ts`): classifies every support-card effect against the game's filter table and prints the named cards at each 凸; exits non-zero when any (effect type, trigger) pair is unclassified. A clean run ends with `Unclassified (effectType, trigger) pairs: 0`.
+- `bun run generate` — runs `scripts/generate-taxonomy.ts` then `scripts/generate-cards.ts`, rewriting `data/taxonomy.generated.ts`, `data/cards.generated.ts` and `data/levelLimits.generated.ts` from the cached tables. Output is deterministic (no timestamps), so a second run yields no diff. Exits 1 without writing when an (effect type, trigger) pair matches no taxonomy row, when a hand-written row in `data/taxonomy.extensions.ts` has become redundant, when an enum value is unknown, or when the card count would drop (`--allow-fewer` overrides the last). `GAKUMASU_DIFF_CACHE=<dir>` points the generators at another table directory.
 - `bun run type-check` — `tsc --noEmit` over `src/`, `scripts/`, `data/`.
-- `bun test` — unit tests (none yet; they arrive with Milestone 1).
+- `bun test` — unit tests, co-located as `*.test.ts` (classification rules and card building against small fixtures).
 
 ## Code Style
 
