@@ -1,0 +1,17 @@
+# dependencies (bun install)
+node_modules
+
+# build output
+dist
+
+# local cache of upstream gakumasu-diff YAML tables (re-fetched on demand)
+.cache
+
+# logs and caches
+*.log
+.eslintcache
+*.tsbuildinfo
+
+# OS / IDE
+.DS_Store
+.idea
