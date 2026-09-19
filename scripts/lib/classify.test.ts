@@ -60,6 +60,12 @@ describe("Classifier.classify", () => {
     expect(c).toEqual({ kind: "non-parameter", reason: "taxonomy-row-without-stat" });
   });
 
+  test("a taxonomy row hit by an effect type that is neither a stat nor an audited non-parameter type is unclassified, not silently 0", () => {
+    const rows = mergeTaxonomy([{ id: "g-all", title: "全パラメータ上昇", order: 99, produceEffectTypes: ["ProduceEffectType_AllParameterAddition"], produceTriggerIds: ["p_trigger-produce_start-initial"] }], []);
+    const c = new Classifier(rows).classify("ProduceEffectType_AllParameterAddition", "p_trigger-produce_start-initial");
+    expect(c).toEqual({ kind: "unclassified", reason: "unknown-effect-type", candidates: rows });
+  });
+
   test("whitelisted non-parameter type with no row is skipped, not an error", () => {
     const c = classifier.classify("ProduceEffectType_ProducePointAddition", "p_trigger-start_shop");
     expect(c).toEqual({ kind: "non-parameter", reason: "whitelisted-type" });

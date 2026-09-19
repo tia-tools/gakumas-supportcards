@@ -156,6 +156,36 @@ describe("buildCards", () => {
     t.eventDetails[1]!.produceEffectIds = ["e-missing"];
     expect(() => buildCards(t, classifier)).toThrow("missing ProduceEffect e-missing");
   });
+
+  test("an item effect of an unknown type throws instead of scoring 0", () => {
+    const t = fixture();
+    t.itemEffects[0]!.effectType = "ProduceItemEffectType_Bogus";
+    expect(() => buildCards(t, classifier)).toThrow('item pitem-x テストアイテム: unknown ProduceItemEffect type "ProduceItemEffectType_Bogus"');
+  });
+
+  test("an event reward of a resource type the engine does not know throws instead of being dropped", () => {
+    const t = fixture();
+    t.effects.find((e) => e.id === "e-grant-item")!.produceRewards = [{ resourceType: "ProduceResourceType_ProduceDrink", resourceId: "pdrink-x" }];
+    expect(() => buildCards(t, classifier)).toThrow('s_card-3-9999 event #1: unsupported reward "ProduceResourceType_ProduceDrink" (pdrink-x)');
+  });
+
+  test("a skill (not an event) granting a P-item throws instead of being skipped as a reward", () => {
+    const t = fixture();
+    t.skills.push(skill("sk-grant", 1, "e-grant-item", "p_trigger-produce_start-no_description", 1));
+    t.skillLevels.push({ supportCardId: "s_card-3-9999", produceSkillId: "sk-grant", produceSkillLevel: 1, supportCardLevel: 1 });
+    expect(() => buildCards(t, classifier)).toThrow("s_card-3-9999 sk-grant: a skill granting a P-item (pitem-x) is not supported");
+  });
+
+  test("a taxonomy row for a non-parameter effect type is counted in the skipped report", () => {
+    const t = fixture();
+    const rows = [...GAME, { id: "g-sp", title: "SPレッスン発生率+", order: 3, produceEffectTypes: ["ProduceEffectType_LessonSpChangeRatePermilAddition"], produceTriggerIds: ["p_trigger-produce_start-no_description"] }];
+    t.effects.push(effect("e-sp", "ProduceEffectType_LessonSpChangeRatePermilAddition", 100));
+    t.skills.push(skill("sk-sp", 1, "e-sp", "p_trigger-produce_start-no_description", 1));
+    t.skillLevels.push({ supportCardId: "s_card-3-9999", produceSkillId: "sk-sp", produceSkillLevel: 1, supportCardLevel: 1 });
+    const r = buildCards(t, new Classifier(mergeTaxonomy(rows, []))).report;
+    expect(r.unclassified).toEqual([]);
+    expect(r.skippedByType.get("ProduceEffectType_LessonSpChangeRatePermilAddition")).toBe(3); // once per breakpoint level (1, 20, 40) the skill is active at
+  });
 });
 
 describe("buildLevelLimits", () => {

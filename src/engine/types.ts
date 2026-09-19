@@ -107,6 +107,11 @@ export interface RouteProfile {
 export interface Scenario {
   id: string;
   name: string;
+  /**
+   * The scenario's final parameter cap (D19), shown as scenario metadata. The
+   * engine does not apply it: a 点数 is a card's marginal gain and the run's
+   * base parameters are unknown, so clamping here would be wrong.
+   */
   parameterCap: number;
   profiles: readonly RouteProfile[];
 }
