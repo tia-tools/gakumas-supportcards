@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import type { ExtensionRow } from "../../data/taxonomy.extensions.ts";
-import { Classifier, mergeTaxonomy, redundantExtensions } from "./classify.ts";
+import { Classifier, lessonStatOf, mergeTaxonomy, redundantExtensions } from "./classify.ts";
 import type { RawFilterRow } from "./tables.ts";
 
 const PARAM = ["ProduceEffectType_VocalAddition", "ProduceEffectType_DanceAddition", "ProduceEffectType_VisualAddition"];
@@ -60,6 +60,12 @@ describe("Classifier.classify", () => {
     expect(c).toEqual({ kind: "non-parameter", reason: "taxonomy-row-without-stat" });
   });
 
+  test("a taxonomy row hit by an effect type that is neither a stat nor an audited non-parameter type is unclassified, not silently 0", () => {
+    const rows = mergeTaxonomy([{ id: "g-all", title: "全パラメータ上昇", order: 99, produceEffectTypes: ["ProduceEffectType_AllParameterAddition"], produceTriggerIds: ["p_trigger-produce_start-initial"] }], []);
+    const c = new Classifier(rows).classify("ProduceEffectType_AllParameterAddition", "p_trigger-produce_start-initial");
+    expect(c).toEqual({ kind: "unclassified", reason: "unknown-effect-type", candidates: rows });
+  });
+
   test("whitelisted non-parameter type with no row is skipped, not an error", () => {
     const c = classifier.classify("ProduceEffectType_ProducePointAddition", "p_trigger-start_shop");
     expect(c).toEqual({ kind: "non-parameter", reason: "whitelisted-type" });
@@ -87,6 +93,23 @@ describe("Classifier.classify", () => {
       expect(c.reason).toBe("ambiguous");
       expect(c.candidates.map((r) => r.id)).toEqual(["a", "b"]);
     }
+  });
+});
+
+describe("lessonStatOf", () => {
+  test("stat-bound lesson-end triggers, with and without SP/normal/condition suffixes", () => {
+    expect(lessonStatOf("p_trigger-end_lesson-lesson_vocal")).toBe("vocal");
+    expect(lessonStatOf("p_trigger-end_lesson-lesson_dance_sp")).toBe("dance");
+    expect(lessonStatOf("p_trigger-end_lesson-lesson_visual_normal")).toBe("visual");
+    expect(lessonStatOf("p_trigger-end_lesson-lesson_vocal-stamina_ratio-0500_0000")).toBe("vocal");
+    expect(lessonStatOf("p_trigger-end_lesson-lesson_visual_sp-visual-0700_0000")).toBe("visual");
+  });
+
+  test("any-stat lesson triggers and non-lesson triggers have no lesson stat", () => {
+    expect(lessonStatOf("p_trigger-end_lesson-lesson_sp")).toBeNull();
+    expect(lessonStatOf("p_trigger-end_lesson-lesson_sp-produce_card_count-0020_0000")).toBeNull();
+    expect(lessonStatOf("p_trigger-end_lesson_before_present-lesson_dance_sp")).toBeNull();
+    expect(lessonStatOf("p_trigger-start_shop")).toBeNull();
   });
 });
 

@@ -26,11 +26,24 @@ export interface TaxonomySource {
 }
 
 /**
- * Effect types the taxonomy has no row for and that carry no parameter value
- * (or are handled outside the taxonomy, like the own-event bonus). A pair with
- * one of these types and no row is skipped; anything else with no row fails.
+ * Audited effect types that carry no parameter value (or are handled outside
+ * the taxonomy, like the own-event bonus). A pair with one of these types is
+ * skipped whether or not a taxonomy row lists it; any other type that is not
+ * a Vocal/Dance/Visual effect fails classification, so a new parameter-bearing
+ * type the game adds cannot vanish silently (ADR 0002 "fails loudly").
  */
 export const NON_PARAMETER_EFFECT_TYPES: ReadonlySet<string> = new Set([
+  // Listed by the game's filter table under non-parameter categories (SP発生率+, スタミナ, Pポイント, 相談割引); score 0 per ADR 0001.
+  "ProduceEffectType_LessonSpChangeRatePermilAddition",
+  "ProduceEffectType_LessonVocalSpChangeRatePermilAddition",
+  "ProduceEffectType_LessonDanceSpChangeRatePermilAddition",
+  "ProduceEffectType_LessonVisualSpChangeRatePermilAddition",
+  "ProduceEffectType_LessonPresentProducePointUp",
+  "ProduceEffectType_MaxStaminaAddition",
+  "ProduceEffectType_ProducePointAdditionDisableTrigger",
+  "ProduceEffectType_ShopProduceDrinkPriceDiscountMultiple",
+  "ProduceEffectType_StaminaRecoverFix",
+  // Not listed by any row.
   "ProduceEffectType_SupportCardProduceCardUpgradeProbabilityUp", // スキルカード強化確率 (every card)
   "ProduceEffectType_SupportCardEventProducePointAdditionValueUp", // own-event P-point bonus
   "ProduceEffectType_SupportCardEventStaminaRecoverUp", // own-event stamina bonus
@@ -41,7 +54,6 @@ export const NON_PARAMETER_EFFECT_TYPES: ReadonlySet<string> = new Set([
   "ProduceEffectType_ProduceCardChange",
   "ProduceEffectType_ProduceCardDelete",
   "ProduceEffectType_ProduceCardDuplicate",
-  "ProduceEffectType_StaminaRecoverFix",
   "ProduceEffectType_ShopPriceDiscountMultiple",
   "ProduceEffectType_CustomizeProduceCardProducePointDownMultiple",
 ]);
@@ -55,6 +67,16 @@ export const PARAM_ADDITION_TYPES: ReadonlySet<string> = new Set([
   "ProduceEffectType_VisualAddition",
 ]);
 
+/**
+ * The lesson stat a lesson-end trigger is bound to (`p_trigger-end_lesson-lesson_vocal…`),
+ * or null for any-stat lesson triggers (`…-lesson_sp…`) and non-lesson triggers.
+ */
+export function lessonStatOf(triggerId: string): Stat | null {
+  const m = /^p_trigger-end_lesson-lesson_(vocal|dance|visual)(?:[_-]|$)/.exec(triggerId);
+  if (!m) return null;
+  return m[1] === "vocal" ? "vocal" : m[1] === "dance" ? "dance" : "visual";
+}
+
 export function statOf(effectType: string): Stat | null {
   if (effectType.startsWith("ProduceEffectType_Vocal")) return "vocal";
   if (effectType.startsWith("ProduceEffectType_Dance")) return "dance";
@@ -65,7 +87,7 @@ export function statOf(effectType: string): Stat | null {
 export type Classification =
   | { kind: "classified"; row: TaxonomySource; stat: Stat; match: "exact" | "prefix" }
   | { kind: "non-parameter"; reason: "taxonomy-row-without-stat" | "whitelisted-type" }
-  | { kind: "unclassified"; reason: "no-row" | "ambiguous"; candidates: readonly TaxonomySource[] };
+  | { kind: "unclassified"; reason: "no-row" | "ambiguous" | "unknown-effect-type"; candidates: readonly TaxonomySource[] };
 
 function coversAsPrefix(listed: string, triggerId: string): boolean {
   return triggerId.startsWith(`${listed}-`);
@@ -96,8 +118,9 @@ export class Classifier {
     }
     if ("candidates" in hit) return hit;
     const stat = statOf(effectType);
-    if (!stat) return { kind: "non-parameter", reason: "taxonomy-row-without-stat" };
-    return { kind: "classified", row: hit.row, stat, match: hit.match };
+    if (stat) return { kind: "classified", row: hit.row, stat, match: hit.match };
+    if (NON_PARAMETER_EFFECT_TYPES.has(effectType)) return { kind: "non-parameter", reason: "taxonomy-row-without-stat" };
+    return { kind: "unclassified", reason: "unknown-effect-type", candidates: [hit.row] };
   }
 
   private longestPrefix(

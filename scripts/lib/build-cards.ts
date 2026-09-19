@@ -8,7 +8,7 @@
  */
 
 import { EVENT_CATEGORY_ID, type Breakpoint, type Card, type CardType, type ClassifiedEffect, type LevelLimits, type Plan, type Rarity } from "../../src/engine/types.ts";
-import { EVENT_BONUS_EFFECT_TYPE, NON_PARAMETER_EFFECT_TYPES, PARAM_ADDITION_TYPES, type Classification, type Classifier } from "./classify.ts";
+import { EVENT_BONUS_EFFECT_TYPE, NON_PARAMETER_EFFECT_TYPES, PARAM_ADDITION_TYPES, lessonStatOf, type Classification, type Classifier } from "./classify.ts";
 import type { RawEventSupportCard, RawProduceEffect, RawProduceItem, RawProduceSkill, RawSkillLevel, RawSupportCard, Tables } from "./tables.ts";
 
 const CARD_TYPE: Readonly<Record<string, CardType>> = {
@@ -31,6 +31,9 @@ const PLAN: Readonly<Record<string, Plan>> = {
   ProducePlanType_Logic: "logic",
   ProducePlanType_Anomaly: "anomaly",
 };
+const ITEM_RESOURCE_TYPE = "ProduceResourceType_ProduceItem";
+/** Reward resources a card event may grant that add no parameter by themselves (a skill card). Anything else fails the build. */
+const NON_PARAMETER_RESOURCE_TYPES: ReadonlySet<string> = new Set(["ProduceResourceType_ProduceCard"]);
 const TOTSU_RANKS = [
   "SupportCardLevelLimitRank_Unknown",
   "SupportCardLevelLimitRank__1",
@@ -42,7 +45,7 @@ const TOTSU_RANKS = [
 export interface UnclassifiedPair {
   effectType: string;
   triggerId: string;
-  reason: "no-row" | "ambiguous";
+  reason: "no-row" | "ambiguous" | "unknown-effect-type";
   candidateRowIds: string[];
   /** One card or item that uses the pair. */
   example: string;
@@ -76,6 +79,11 @@ function groupBy<T>(rows: readonly T[], key: (row: T) => string): Map<string, T[
     out.set(key(r), list);
   }
   return out;
+}
+
+/** Code-unit string order: `localeCompare` depends on the runtime's ICU data, and generated output must be byte-identical across machines. */
+export function byCodeUnit(a: string, b: string): number {
+  return a < b ? -1 : a > b ? 1 : 0;
 }
 
 function effectSortKey(e: ClassifiedEffect): string {
@@ -117,11 +125,13 @@ class CardBuilder {
 
   private classifyOrRecord(effect: RawProduceEffect, triggerId: string, where: string): Classification {
     if (!this.triggerIds.has(triggerId)) throw new Error(`${where}: missing ProduceTrigger ${triggerId}`);
+    const grantedItem = effect.produceRewards.find((r) => r.resourceType === ITEM_RESOURCE_TYPE);
+    if (grantedItem) throw new Error(`${where}: a skill granting a P-item (${grantedItem.resourceId}) is not supported`);
     const c = this.classifier.classify(effect.produceEffectType, triggerId);
     if (c.kind === "classified") {
       this.report.matches[c.match]++;
       this.report.categoriesUsed.add(c.row.id);
-    } else if (c.kind === "non-parameter" && c.reason === "whitelisted-type") {
+    } else if (c.kind === "non-parameter") {
       this.report.skippedByType.set(effect.produceEffectType, (this.report.skippedByType.get(effect.produceEffectType) ?? 0) + 1);
     } else if (c.kind === "unclassified") {
       const dup = this.report.unclassified.some((u) => u.effectType === effect.produceEffectType && u.triggerId === triggerId);
@@ -174,6 +184,8 @@ class CardBuilder {
         if (c.kind !== "classified") continue;
         const e: ClassifiedEffect = { categoryId: c.row.id, stat: c.stat, value: effect.effectValueMin, kind: "skill" };
         if (skill.activationCount > 0) e.cap = skill.activationCount;
+        const ls = lessonStatOf(triggerId);
+        if (ls) e.triggerStat = ls;
         effects.push(e);
       }
     }
@@ -189,13 +201,17 @@ class CardBuilder {
     for (const sk of item.skills) {
       const ie = this.itemEffectById.get(sk.produceItemEffectId);
       if (!ie) throw new Error(`item ${itemId}: missing ProduceItemEffect ${sk.produceItemEffectId}`);
-      if (ie.effectType !== "ProduceItemEffectType_ProduceEffect") continue; // exam-time enchants score 0
+      if (ie.effectType === "ProduceItemEffectType_ExamStatusEnchant") continue; // exam-time enchants score 0
+      if (ie.effectType !== "ProduceItemEffectType_ProduceEffect") throw new Error(`item ${itemId} ${item.name}: unknown ProduceItemEffect type "${ie.effectType}"`);
       const where = `item ${itemId} ${item.name}`;
       const effect = this.effect(ie.produceEffectId, where);
-      const c = this.classifyOrRecord(effect, sk.produceTriggerId || item.produceTriggerId, where);
+      const triggerId = sk.produceTriggerId || item.produceTriggerId;
+      const c = this.classifyOrRecord(effect, triggerId, where);
       if (c.kind !== "classified") continue;
       const e: ClassifiedEffect = { categoryId: c.row.id, stat: c.stat, value: effect.effectValueMin, kind: "item", itemId, itemName: item.name };
       if (item.fireLimit > 0) e.cap = item.fireLimit;
+      const ls = lessonStatOf(triggerId);
+      if (ls) e.triggerStat = ls;
       out.push(e);
     }
     this.itemEffectsCache.set(itemId, out);
@@ -217,7 +233,8 @@ class CardBuilder {
           out.push({ categoryId: EVENT_CATEGORY_ID, stat, value: effect.effectValueMin, kind: "event" });
         } else if (effect.produceEffectType === "ProduceEffectType_ProduceReward") {
           for (const rw of effect.produceRewards) {
-            if (rw.resourceType === "ProduceResourceType_ProduceItem") out.push(...this.itemEffects(rw.resourceId));
+            if (rw.resourceType === ITEM_RESOURCE_TYPE) out.push(...this.itemEffects(rw.resourceId));
+            else if (!NON_PARAMETER_RESOURCE_TYPES.has(rw.resourceType)) throw new Error(`${where}: unsupported reward "${rw.resourceType}" (${rw.resourceId})`);
           }
         } else if (NON_PARAMETER_EFFECT_TYPES.has(effect.produceEffectType)) {
           this.report.skippedByType.set(effect.produceEffectType, (this.report.skippedByType.get(effect.produceEffectType) ?? 0) + 1);
@@ -236,7 +253,7 @@ class CardBuilder {
     const breakpoints: Breakpoint[] = [];
     for (const level of [...levels].sort((a, b) => a - b)) {
       const { effects, eventBonusPermil } = this.skillEffects(raw.id, level);
-      const all = [...effects, ...this.eventEffects(raw.id, level)].sort((a, b) => effectSortKey(a).localeCompare(effectSortKey(b)));
+      const all = [...effects, ...this.eventEffects(raw.id, level)].sort((a, b) => byCodeUnit(effectSortKey(a), effectSortKey(b)));
       const bp: Breakpoint = { minLevel: level, effects: all, eventBonusPermil };
       const prev = breakpoints.at(-1);
       if (prev && JSON.stringify({ ...prev, minLevel: 0 }) === JSON.stringify({ ...bp, minLevel: 0 })) continue;
@@ -285,6 +302,6 @@ export function buildLevelLimits(tables: Tables): LevelLimits {
 
 export function buildCards(tables: Tables, classifier: Classifier): { cards: Card[]; report: BuildReport } {
   const builder = new CardBuilder(tables, classifier);
-  const cards = tables.cards.map((raw) => builder.build(raw)).sort((a, b) => a.id.localeCompare(b.id));
+  const cards = tables.cards.map((raw) => builder.build(raw)).sort((a, b) => byCodeUnit(a.id, b.id));
   return { cards, report: builder.report };
 }

@@ -11,6 +11,7 @@
 
 import { TAXONOMY_EXTENSIONS } from "../data/taxonomy.extensions.ts";
 import type { TaxonomyRow } from "../src/engine/types.ts";
+import { byCodeUnit } from "./lib/build-cards.ts";
 import { redundantExtensions } from "./lib/classify.ts";
 import { emitTaxonomy } from "./lib/emit.ts";
 import { loadTables } from "./lib/tables.ts";
@@ -31,7 +32,7 @@ async function main(): Promise<void> {
   const rows: TaxonomyRow[] = [
     ...tables.filterRows.map((r): TaxonomyRow => ({ id: r.id, title: r.title, order: r.order, source: "game" })),
     ...TAXONOMY_EXTENSIONS.map((r): TaxonomyRow => (r.countsAs ? { id: r.id, title: r.title, order: r.order, source: "extension", countsAs: r.countsAs } : { id: r.id, title: r.title, order: r.order, source: "extension" })),
-  ].sort((a, b) => a.order - b.order || a.id.localeCompare(b.id));
+  ].sort((a, b) => a.order - b.order || byCodeUnit(a.id, b.id));
 
   const badCountsAs = rows.filter((r) => r.countsAs && !gameIds.has(r.countsAs));
   if (badCountsAs.length > 0) {
