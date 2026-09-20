@@ -1,7 +1,8 @@
 import { describe, expect, test } from "bun:test";
 import { IMMUTABLE, imageKey, serveImage, type ImageBucket } from "./img.ts";
 
-const KEY = "img_general_csprt-3-0016_full.webp";
+const FILE = "img_general_csprt-3-0016_full.webp";
+const KEY = `w192/${FILE}`;
 const URL_OK = `https://gakumas-supportcards.tia.run/img/${KEY}`;
 
 function bucket(stored: Record<string, string>): ImageBucket & { calls: string[] } {
@@ -22,7 +23,7 @@ function bucket(stored: Record<string, string>): ImageBucket & { calls: string[]
 describe("imageKey", () => {
   test("accepts only full card art in the game's naming", () => {
     expect(imageKey(`/img/${KEY}`)).toBe(KEY);
-    for (const path of ["/img/", "/img/../secret", `/img/${KEY}/x`, `/img/x/${KEY}`, "/img/img_general_csprt-3-016_full.webp", "/img/img_general_cidol-hski-3-000_1-full.webp", `/img/${KEY}?x`, `/${KEY}`, "/img/img_general_csprt-3-0016_full.png"]) {
+    for (const path of ["/img/", "/img/../secret", `/img/${KEY}/x`, `/img/x/${KEY}`, `/img/${FILE}`, `/img/master/${FILE}`, `/img/w384/${FILE}`, "/img/w192/img_general_csprt-3-016_full.webp", "/img/w192/img_general_cidol-hski-3-000_1-full.webp", `/img/${KEY}?x`, `/${KEY}`, "/img/w192/img_general_csprt-3-0016_full.png"]) {
       expect(imageKey(path)).toBeNull();
     }
   });
@@ -58,6 +59,15 @@ describe("serveImage", () => {
     const b = bucket({ secret: "x" });
     const res = await serveImage(new Request("https://gakumas-supportcards.tia.run/img/secret"), b);
     expect(res.status).toBe(404);
+    expect(b.calls).toEqual([]);
+  });
+
+  test("a master is never served, even though it is in the bucket", async () => {
+    const b = bucket({ [`master/${FILE}`]: "lossless-original", [KEY]: "thumb" });
+    for (const method of ["GET", "HEAD"]) {
+      const res = await serveImage(new Request(`https://gakumas-supportcards.tia.run/img/master/${FILE}`, { method }), b);
+      expect(res.status).toBe(404);
+    }
     expect(b.calls).toEqual([]);
   });
 
