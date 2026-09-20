@@ -1,0 +1,33 @@
+[project]
+name = "gakumas-supportcards-images"
+version = "0.0.0"
+description = "Extracts support card art from the game CDN, converts it to 192 px webp thumbnails and uploads missing ones to R2 (docs/adr/0003)."
+# UnityPy <= 1.10.18 (pinned by GkmasObjectManager) has no wheels for newer interpreters.
+requires-python = ">=3.11,<3.13"
+dependencies = [
+  # Ours
+  "pillow",
+  # Runtime requirements of the vendored GkmasObjectManager checkout (its requirements.txt;
+  # the project is not a package, see vendor/GkmasObjectManager.sha for the pinned commit).
+  "tqdm",
+  "rich",
+  "flask",
+  "PyYAML",
+  "requests",
+  "cryptography",
+  "protobuf",
+  "pandas",
+  "UnityPy<=1.10.18",
+  "pydub",
+]
+
+[dependency-groups]
+dev = ["pytest"]
+
+[tool.uv]
+package = false
+
+[tool.pytest.ini_options]
+testpaths = ["."]
+python_files = ["test_*.py"]
+norecursedirs = ["vendor", "out", ".venv"]
