@@ -35,6 +35,8 @@ A static web page for 学園アイドルマスター players showing the サポ�
 - `scripts/` — Bun generators (`generate-taxonomy.ts`, `generate-cards.ts`) over `scripts/lib/` (tables loader, classifier, card builder, emitters); they write the committed `data/*.generated.ts` (per `docs/plans/EXECPLAN_SUPPORT_CARD_SCORE_TABLE.md` Milestone 1).
 - `data/` — generated taxonomy, cards and level limits; `taxonomy.extensions.ts` (hand-written rows, per `docs/adr/0002`); `data/scenarios/` (one file per scenario with its route profiles, plus golden and real-data tests; same plan, Milestone 2).
 - `src/engine/` — pure scoring engine (`score.ts`, `types.ts`), no DOM, dependencies passed in.
+- `scripts/images/` — Python (uv) image pipeline: `extract.py` downloads card art through a pinned, gitignored GkmasObjectManager checkout and writes 192 × 108 webp thumbnails, `upload.py` sends the ones the deployed site lacks to R2; rules live in pure tested modules (`thumbnail.py`, `decode.py`, `uploads.py`). Setup, commands and the reasons are in `scripts/images/README.md` (per `docs/adr/0003` and plan decisions D30–D32).
+- `infra/worker/` — the Cloudflare Worker for `gakumas-supportcards.tia.run`: static assets from `dist/` plus `/img/*` from the R2 bucket `tia-assets` (`img.ts`, `worker.ts`, `wrangler.toml`); deploy and verify steps in `infra/worker/README.md`.
 - `src/app/` — the Preact page, entered from `index.html` → `src/main.tsx`: pure `url-state.ts` (view state ⇄ query string) and `rows.ts` (score, filter, sort) with tests, and the components that render them (same plan, Milestone 3). The generated card data ships inline in the bundle (58 KB gzipped, per plan decision D28).
 
 ## Setup and Development
@@ -44,10 +46,11 @@ A static web page for 学園アイドルマスター players showing the サポ�
 
 ## Build and Test
 
-- `bun run dev` — Vite dev server at `http://localhost:5173`; `bun run build` writes `dist/`; `bun run preview` serves it. Thumbnails resolve to `/img/*`, which only exists behind the deployed Worker (per `docs/adr/0003`), so locally the cells show the card name instead.
+- `bun run dev` — Vite dev server at `http://localhost:5173`; `bun run build` writes `dist/`; `bun run preview` serves it. Thumbnails resolve to `/img/*`: in production the Worker serves them from R2 (per `docs/adr/0003`); the dev server serves them from `scripts/images/out/webp` when the images have been extracted locally, and otherwise the cells fall back to the card name.
 - `bun run generate` — runs `scripts/generate-taxonomy.ts` then `scripts/generate-cards.ts`, rewriting `data/taxonomy.generated.ts`, `data/cards.generated.ts` and `data/levelLimits.generated.ts` from the cached tables. Output is deterministic (no timestamps), so a second run yields no diff. Exits 1 without writing when an (effect type, trigger) pair matches no taxonomy row or hits a row with an effect type that is neither a stat nor an audited non-parameter type, when a hand-written row in `data/taxonomy.extensions.ts` has become redundant, when an enum value, item effect type or event reward resource is unknown, when a skill grants a P-item, or when the card count would drop (`--allow-fewer` overrides the last). `GAKUMASU_DIFF_CACHE=<dir>` points the generators at another table directory.
-- `bun run type-check` — `tsc --noEmit` over `src/`, `scripts/`, `data/`.
-- `bun test` — unit tests, co-located as `*.test.ts`: generator rules against small fixtures (`scripts/lib/`), the scoring engine against fixture cards (`src/engine/score.test.ts`), and a real-data check that every shipped route profile names only existing categories, names every category the generated cards use (an omitted category would silently score 0, so 0 must be written), and scores all cards finitely (`data/scenarios/scenarios.test.ts`).
+- `bun run type-check` — `tsc --noEmit` over `src/`, `scripts/`, `data/`, `infra/` and `vite.config.ts`.
+- `uv run pytest` in `scripts/images/` — hermetic tests of the image pipeline rules (naming, thumbnail format, Unity-version fallback, upload planning, released-cards-only); needs `uv sync` first, no network and no vendored checkout.
+- `bun test` — unit tests, co-located as `*.test.ts`: the Worker's image handler against a fake bucket (`infra/worker/img.test.ts`), generator rules against small fixtures (`scripts/lib/`), the scoring engine against fixture cards (`src/engine/score.test.ts`), and a real-data check that every shipped route profile names only existing categories, names every category the generated cards use (an omitted category would silently score 0, so 0 must be written), and scores all cards finitely (`data/scenarios/scenarios.test.ts`).
 
 ## Code Style
 
