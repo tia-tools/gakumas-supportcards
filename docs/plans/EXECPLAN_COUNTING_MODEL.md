@@ -4,7 +4,7 @@ This ExecPlan is a living document. The sections `Progress`, `Surprises & Discov
 
 This document must be maintained in accordance with `docs/PLANS.md` at the repository root.
 
-Design confirmed by the user on 2026-09-21; implementation has not started and waits for the user's go-ahead (see Progress).
+Design confirmed by the user on 2026-09-21. The user gave the go-ahead the same day; Milestone 0 is done and its findings are recorded below (see Progress).
 
 
 ## Purpose / Big Picture
@@ -21,7 +21,8 @@ After this plan, a route profile states how often each kind of thing happens in 
 - [x] (2026-09-21) Design interview started (`grill-me`). Facts gathered from the game data before the first question: 81 parameter-bearing triggers reduce to 19 phase types (see Surprises & Discoveries).
 - [x] (2026-09-21) Design interview: decisions C0–C9 recorded; ADR 0004 (counting model, supersedes 0002), ADR 0005 (never publish an unscoreable number) and an addendum to ADR 0001 written; `CLAUDE.md` index updated.
 - [x] (2026-09-21) The user confirmed that this plan reflects the shared understanding, and asked that implementation not start yet. The next session begins at Milestone 0 only when the user says so.
-- [ ] Milestone 0: prototype trigger parser over the real data; equivalence table from today's counts to the new profile fields; find where skill description text lives for labels.
+- [x] (2026-09-21) The user gave the go-ahead. Work happens in the git worktree `.claude/worktrees/counting-model` on branch `feature/counting-model-m0`, created from `feature/counting-model`, which stays checked out in the main checkout.
+- [x] (2026-09-21) Milestone 0: `scripts/prototype-occasions.ts` parses all 80 parameter-bearing triggers with 0 unplaced pieces, gives every one of the 41 counts of all four profiles a home, and shows that the wording of a trigger comes from `produceDescriptions[].text`. Findings: Surprises & Discoveries (five new entries), decisions C10–C13 (the user accepted C13, the one number that needed their eye).
 - [ ] Milestone 1: generators emit occasions, filters and conditions; shape rules and the hidden-card list.
 - [ ] Milestone 2: new engine beside the old one, profiles restated, 816-row equivalence test, goldens on a frozen snapshot, old engine and taxonomy extensions removed.
 - [ ] Milestone 3: the four-section panel with nested bounded inputs, folding, and new URL keys.
@@ -43,6 +44,21 @@ After this plan, a route profile states how often each kind of thing happens in 
 
 - Observation: Effect-group filters never compete within one run. Every support card whose skill carries an `effect_group-visible-exam_*` filter is restricted to one plan, and the group always belongs to that plan: 好調 (`parameter_buff`, 4 cards) and 集中 (`lesson_buff`, 3) only on センス (`Plan1`) cards; 好印象 (`review`, 8), やる気 (`card_play_aggressive`, 1) and 元気 (`block`, 3) only on ロジック (`Plan2`) cards; 全力 (`full_power`, 1) and 温存 (`preservation`, 9) only on アノマリー (`Plan3`) cards; 強気 (`concentration`) appears only on P-items. No common-plan card uses an effect-group filter. So the nine effect-group numbers of a profile are three small independent sets, one per plan, and the panel can show only the set of the plan being looked at.
   Evidence: a throwaway script joining `SupportCardProduceSkillLevel*.yaml`, `ProduceSkill.yaml` and `SupportCard.yaml` on 2026-09-21 printed exactly one plan per effect group.
+
+- Observation (Milestone 0): The trailing `NNNN_NNNN` of a threshold piece is a range, minimum then maximum, where 0000 on either side means unbounded. `p_trigger-start_customize-dance-0000_0900` is worded 「特別指導開始時、ダンスが900以下の場合」 on the P-item 大満足レポート♪, and `stamina_ratio-0500_0000` is 「体力が50%以上」. So the `0000_0000` that follows `get_produce_card`, `delete_produce_card` and `upgrade_produce_card` is an unbounded range, a piece with no meaning, and a condition needs both numbers. The shape rule of C4 is unchanged: a name followed by `NNNN_NNNN` is a condition.
+  Evidence: `bun scripts/prototype-occasions.ts --verbose`, 2026-09-21, line `StartCustomize  dance<=900   <- p_trigger-start_customize-dance-0000_0900`.
+
+- Observation (Milestone 0): A 「8枚以上」 trigger is not an acquisition of a card of that effect group; it is any acquisition while 8 or more cards of the group are held. The skill text of `p_trigger-get_produce_card-produce_card_search_count-p_card_search-deck_all-effect_group-visible-exam_review-000-0008_0000` reads 「スキルカード獲得時、所持している好印象効果のスキルカードが8枚以上の場合、ボーカル上昇+11（プロデュース中4回）」. In the id, everything between `produce_card_search_count` and the closing range describes the cards that are counted (the condition's subject), not the card being acquired. Today's profiles count these four triggers like the unconditional effect-group acquisition (10, 14, 10, 10 in H.I.F.; 6 in 初LEGEND; two of them through `countsAs`), whereas read literally with the condition at the maximum they count every acquisition (20; 12). Every skill that uses one of them is capped at 4 per run, so no score moves: min(4, 14) = min(4, 20). See C11.
+  Evidence: the prototype's `DIFF old 14 new 20 cap 4  count differs, capped count equal: no score moves` lines, the same in kind for all four profiles.
+
+- Observation (Milestone 0): One card-granted P-item combines an occasion, a filter and a condition that no profile has a number for. 限界への挑戦券 (`pitem_03-2-134-0`) fires on `p_trigger-upgrade_produce_card-0000_0000-p_card_search-deck_all-effect_group-visible-exam_preservation-000-dance-0700_0000`, 「温存効果のスキルカード強化時、ダンスが700以上の場合」, at most 3 times. Today it is matched by prefix to the plain "skill card upgraded" row and so ignores the 温存 filter altogether: it counts 0 in the three H.I.F. profiles (no upgrades) and 3 in 初LEGEND (every upgrade, a provisional guess of the agent). The new model needs `filters.UpgradeProduceCard.effectGroup`. See C13.
+  Evidence: the prototype's `NO NUMBER for filters.UpgradeProduceCard.effectGroup.preservation` lines.
+
+- Observation (Milestone 0): The wording a player sees is in the data, on the skill or the item, not on the trigger. Rows of `ProduceSkill.yaml` and of `ProduceItem.yaml` both carry `produceDescriptions`, a list of fragments whose `text` fields concatenate to the full sentence (「SPレッスン終了時、所持スキルカードが20枚以上の場合、ダンス上昇+8（プロデュース中4回）」; item texts contain newlines). The part before the first 「{ボーカル|ダンス|ビジュアル}上昇+」 is the trigger's wording, and it is the same for every user of a trigger for 79 of the 80 triggers; the exception is an item whose text names another effect first (「…の場合、ランダムなトラブルカードを削除」), which a rule "cut after the last 場合, else after the first 時 or 後" fixes. The two `produce_start` triggers have no clause at all (「初期ダンス上昇+10」). `p_trigger-end_before_audition_refresh` is worded 「試験・オーディション開始時」 in the game, not "after the rest before an audition". So breakdown labels can be taken from the data and no dictionary of ours is needed for triggers. Names for the panel's inputs (occasions, families, members) are a different matter and are still ours to write, about 19 + 6 + 15 short strings, with the filter table's titles as a source where a row exists (ADR 0004).
+  Evidence: `trigger wording from produceDescriptions[].text: 79 of 80 triggers give exactly one clause`, 2026-09-21.
+
+- Observation (Milestone 0): The count in this section's first observation moves from 81 triggers to 80, still 19 phase types, and its list of phase types is wrong in one place: `UpgradeProduceCard` is in use (4 triggers) and was left out. The earlier script also walked P-items that no support card grants, which is where `…-for_hajime_legend_ssr` came from; no trigger used by a support card carries a `for_` piece today. Over all 181 rows of `ProduceTrigger.yaml` the prototype parser leaves 17 unparsed, none used by a card: `lesson_hard` and `lesson_{stat}_hard` (8, a new member in the lesson slot, which C4 would count by the family default), `lesson` after `end_lesson_before_present` (4), four bare words after `end_step_event_business` (`produce_card`, `produce_drink`, `produce_point`, `stamina`), and `p_trigger-none-stamina_ratio-0000_0800`, whose phase type is `ProducePhaseType_Unknown`.
+  Evidence: the prototype's summary block `all 181 rows of ProduceTrigger.yaml: 17 do not parse, by piece:`.
 
 ## Decision Log
 
@@ -89,6 +105,22 @@ Decisions of this plan are numbered C1, C2, … to keep them apart from the D-nu
   Rationale: Automating the current model would automate its manual stops.
   Date/Author: 2026-09-21 / agent.
 
+- Decision (C10): A condition is keyed `{occasion}/{kind}[{subject}]{bound}` — `EndLesson/produce_card_count>=20`, `GetProduceCard/produce_card_search_count[effectGroup.review]>=8`, `StartCustomize/dance<=900` — without the trigger's filters. The engine takes the minimum of the occasion's count, each filter's count and each stated condition's count, as the Interfaces sketch already said; nesting 「所持スキルカード20枚以上」 under the SP lesson input is the panel's business (C6), done by bounding the input by the smallest parent among the triggers that use the condition. The lesson-stat filter (`lesson_vocal`) is never a profile number: the lesson split carries it, as `triggerStat` does today. SP and normal are a family of their own, `lessonKind`, with members `sp` and `normal`.
+  Rationale: Keying by filter as well would give one 「ダンス700以上」 input per effect group under skill card acquisition, eight inputs where the player has one answer. Found by writing the prototype.
+  Date/Author: 2026-09-21 / agent.
+
+- Decision (C11): The four 「8枚以上」 conditions are restated by what the game says — any acquisition, condition at the maximum — and the numbers today's profiles hold for them are dropped, not carried over as lowered condition defaults. C7's "every shipped profile starts with no condition entry" stands.
+  Rationale: The old numbers were a reading of the trigger that the skill text contradicts, not a judgment about the route. C8 is about published numbers, and none moves, because every user of these triggers is capped at 4 per run; the 816-row test will prove it rather than this paragraph.
+  Date/Author: 2026-09-21 / agent.
+
+- Decision (C12): The parser keeps an explicit list of pieces that mean nothing for counting (`initial` and `no_description` after `produce_start`, `deck_all` and the `1` of `…-ssr-deck_all-1` inside a card search, the unbounded range `0000_0000`, the `visible` and `000` around an effect group). The slot after `p_card_search-` holds members of three families (card type, rarity, name), so a never-seen word there cannot be given a family by position alone; Milestone 1 treats it as a piece of unknown kind (hide and ask, C4's last rule), while a never-seen `exam_*` effect group and a never-seen lesson kind do take their family default.
+  Rationale: C4 assumed one family per position; the data has one position with three. Asking is the only honest answer for that slot.
+  Date/Author: 2026-09-21 / agent.
+
+- Decision (C13): `filters.UpgradeProduceCard.effectGroup.default` is carried over as the profile's count of upgrades — 0 in the three H.I.F. profiles, 3 in 初LEGEND — so that the P-item 限界への挑戦券 keeps today's score through the migration.
+  Rationale: C8, no number moves in the migration. In 初LEGEND it is very likely an overstatement (not all of 3 upgrades hit a 温存 card), but that profile's counts are already marked as the agent's provisional guesses awaiting the user's route sheet, and lowering it afterwards is an ordinary data edit with a visible diff.
+  Date/Author: 2026-09-21 / agent, proposed at the end of Milestone 0; accepted by the user the same day.
+
 
 ## Outcomes & Retrospective
 
@@ -133,13 +165,34 @@ Milestone 0:
 
     bun scripts/prototype-occasions.ts
 
-Expected shape of the output, to be replaced by the real transcript when it runs:
+The game tables must be in `.cache/gakumasu-diff/`; in a fresh worktree, copy that directory from the main checkout or let the script fetch the tables. Transcript of 2026-09-21, shortened:
 
-    triggers parsed: 81 | occasions: 19 | unplaced pieces: 0
-    EndLesson  lesson=sp  produce_card_count>=20        <- s_card_p_skill_filter-…-end_lesson-lesson_sp-produce_card_count-0020_0000
-    hif/sashiire  counts[…get_produce_card-…-exam_review-000] = 14  ->  filters.GetProduceCard.effectGroup.members.review
+    triggers parsed: 80 | occasions: 19 | unplaced pieces: 0
+
+    all 181 rows of ProduceTrigger.yaml: 17 do not parse, by piece:
+      lesson_hard  x5  e.g. p_trigger-end_lesson-lesson_hard
+      …
+    == hif/sashiire: 41 counts -> 19 occasions, 18 filter members, 2 stated conditions; without a home: 0
+      counts[…get_produce_card-produce_card_search_count-…-exam_full_power-000-0008_0000] = 10  ->  conditions["GetProduceCard/produce_card_search_count[effectGroup.full_power]>=8"] = 10   ** parent is 20: C7 says profiles ship no such entry **
+      filters.EndLesson.lessonKind: normal 0, sp 8
+      filters.GetProduceCard.cardType: mental 13, active 7
+      filters.GetProduceCard.effectGroup: parameter_buff 10, lesson_buff 10, card_play_aggressive 10, review 14, concentration 10, full_power 10, preservation 10, block 12
+      filters.GetProduceCard.rarity: ssr 10
+      …
+      DIFF old 14 new 20 cap 4  count differs, capped count equal: no score moves  <- p_trigger-get_produce_card-produce_card_search_count-…-exam_review-000-0008_0000
+      DIFF old 0 new 0 cap 3  NO NUMBER for filters.UpgradeProduceCard.effectGroup.preservation  <- p_trigger-upgrade_produce_card-…-exam_preservation-000-dance-0700_0000 [item pitem_03-2-134-0 限界への挑戦券]
     …
     category counts without a home: 0
+
+    trigger wording from produceDescriptions[].text: 79 of 80 triggers give exactly one clause
+
+`bun scripts/prototype-occasions.ts --verbose` adds one line per parsed trigger, per restated count and per trigger wording:
+
+    EndLesson  lessonKind=sp  produce_card_count>=20   <- p_trigger-end_lesson-lesson_sp-produce_card_count-0020_0000
+    counts[…get_produce_card-0000_0000-p_card_search-deck_all-effect_group-visible-exam_review-000] = 14  ->  filters.GetProduceCard.effectGroup.members.review
+    SPレッスン終了時、所持スキルカードが20枚以上の場合   <- p_trigger-end_lesson-lesson_sp-produce_card_count-0020_0000
+
+The "2 stated conditions" and their `**` lines are the 「8枚以上」 numbers that decision C11 drops; the `DIFF … no score moves` lines are the same finding seen from the cards' side, and the `NO NUMBER` line is what decision C13 answers.
 
 Milestones 1 to 4 each end with the same three commands, all of which must succeed:
 
@@ -189,8 +242,8 @@ In `scripts/lib/parse-trigger.ts`:
 
     export interface ParsedTrigger {
       occasion: string;                       // ProduceTrigger.phaseType without its "ProducePhaseType_" prefix, e.g. "EndLesson"
-      filters: FilterRef[];                   // e.g. { family: "effectGroup", member: "review" }
-      conditions: ConditionRef[];             // e.g. { kind: "produce_card_count", threshold: 20 }
+      filters: FilterRef[];                   // e.g. { family: "effectGroup", member: "review" }; families today: lessonStat, lessonKind, cardType, rarity, cardName, effectGroup
+      conditions: ConditionRef[];             // e.g. { kind: "produce_card_count", subject: [], min: 20, max: 0 }; 0 = unbounded; subject = the held cards a produce_card_search_count counts (C10, C11)
       scenario?: string;                      // from a for_{scenario} piece (C5)
     }
     export type ParseResult = { kind: "parsed"; trigger: ParsedTrigger } | { kind: "unknown-piece"; piece: string };
@@ -221,3 +274,4 @@ It starts from `profile.occasions[effect.occasion]`, takes the minimum with each
 - 2026-09-21: Draft created during the design interview with the purpose, the facts gathered from the data, the vocabulary (C0) and the first decision (C1).
 - 2026-09-21 (later): Interview completed. Decision Log C2–C9, the effect-group and plan observation, and all remaining sections written. Reason: the judgment calls are settled; what remains before implementation is the user's confirmation.
 - 2026-09-21 (confirmation): The user confirmed the design; the draft banner and Progress now say so, and that implementation waits for an explicit go-ahead.
+- 2026-09-21 (Milestone 0): Go-ahead received, prototype written and run. Progress, five observations, decisions C10–C13, the real transcript and the corrected `ParsedTrigger` sketch added. Reason: Milestone 0 exists to correct the plan before Milestone 1 builds on it.
