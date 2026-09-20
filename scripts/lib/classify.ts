@@ -67,6 +67,13 @@ export const PARAM_ADDITION_TYPES: ReadonlySet<string> = new Set([
   "ProduceEffectType_VisualAddition",
 ]);
 
+/** パラメータボーナス+: the value is tenths of a percent of the stat's gain over the run, not points per occurrence. */
+export const PARAM_BONUS_TYPES: ReadonlySet<string> = new Set([
+  "ProduceEffectType_VocalGrowthRateAddition",
+  "ProduceEffectType_DanceGrowthRateAddition",
+  "ProduceEffectType_VisualGrowthRateAddition",
+]);
+
 /**
  * The lesson stat a lesson-end trigger is bound to (`p_trigger-end_lesson-lesson_vocal…`),
  * or null for any-stat lesson triggers (`…-lesson_sp…`) and non-lesson triggers.
