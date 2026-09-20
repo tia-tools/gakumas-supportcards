@@ -1,4 +1,4 @@
-from uploads import card_keys, plan_uploads, publishable
+from uploads import card_keys, plan_uploads, publishable, select_renditions, upload_order
 
 
 def test_only_missing_keys_are_planned_sorted_and_deduplicated():
@@ -35,3 +35,14 @@ def test_art_without_a_card_is_held_back():
     keep, held = publishable(["img_general_csprt-3-0109_full.webp", "img_general_csprt-3-0016_full.webp"], allowed)
     assert keep == ["img_general_csprt-3-0016_full.webp"]
     assert held == ["img_general_csprt-3-0109_full.webp"]
+
+
+def test_the_master_is_written_before_the_thumbnail():
+    assert upload_order("x.webp", "master/", "w192/") == ["master/x.webp", "w192/x.webp"]
+
+
+def test_a_single_rendition_can_be_selected_without_changing_the_order():
+    keys = ["master/a.webp", "w192/a.webp", "master/b.webp", "w192/b.webp"]
+    assert select_renditions(keys, "all", "master/", "w192/") == keys
+    assert select_renditions(keys, "master", "master/", "w192/") == ["master/a.webp", "master/b.webp"]
+    assert select_renditions(keys, "w192", "master/", "w192/") == ["w192/a.webp", "w192/b.webp"]

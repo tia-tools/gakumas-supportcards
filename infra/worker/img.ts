@@ -17,8 +17,12 @@ export interface ImageBucket {
   get(key: string): Promise<StoredImageBody | null>;
 }
 
-/** Filenames are the game's own (`img_general_{assetId}_full.webp`); nothing else is ever looked up. */
-const IMAGE_PATH = /^\/img\/(img_general_csprt-\d-\d{4}_full\.webp)$/;
+/**
+ * Only the public thumbnail rendition is ever looked up: bucket prefix `w192/`, file names the
+ * game's own (`img_general_{assetId}_full.webp`). The lossless originals sit in the same bucket
+ * under `master/` and are deliberately unreachable from the web (plan decision D35).
+ */
+const IMAGE_PATH = /^\/img\/(w192\/img_general_csprt-\d-\d{4}_full\.webp)$/;
 
 /** Filenames never change meaning, so a served image is cacheable forever. */
 export const IMMUTABLE = "public, max-age=31536000, immutable";
