@@ -58,6 +58,38 @@ export const HAJIME_LEGEND: Scenario = {
       name: "標準",
       lessonSplits: LESSON_SPLITS,
       parameterBonusBase: bonusBase,
+      occasions: {
+        ProduceStart: 1, // プロデュース開始
+        EndLesson: 5, // レッスン終了
+        EndStepEventSchool: 4, // 授業・営業終了
+        EndAudition: 2, // 試験・オーディション終了
+        EndBeforeAuditionRefresh: 2, // 試験・オーディション開始 (試験前の休憩後)
+        StartPresent: 4, // 活動支給・差し入れ選択
+        EndStepEventActivity: 0, // おでかけ終了
+        StartShop: 4, // 相談選択
+        StartRefresh: 0, // 休む選択
+        StartCustomize: 1, // 特別指導開始
+        GetProduceCard: 12, // スキルカード獲得
+        DeleteProduceCard: 3, // スキルカード削除
+        UpgradeProduceCard: 3, // スキルカード強化
+        ChangeProduceCard: 2, // スキルカードチェンジ
+        CustomizeProduceCard: 2, // スキルカードカスタマイズ
+        BuyShopItemProduceCard: 2, // 相談でスキルカード交換
+        GetProduceDrink: 8, // Pドリンク獲得
+        BuyShopItemProduceDrink: 4, // 相談でPドリンク交換
+        GetProduceItem: 2, // Pアイテム獲得
+      },
+      filters: {
+        EndLesson: { lessonKind: { members: { sp: 5, normal: 0 } } }, // every lesson is an SP lesson (docs/adr/0001)
+        UpgradeProduceCard: { cardType: { members: { mental: 3, active: 3 } }, effectGroup: { default: 3 } }, // effectGroup: carried over as every upgrade (C13)
+        DeleteProduceCard: { cardType: { members: { mental: 3, active: 3 } } },
+        ChangeProduceCard: { cardName: { members: { starter: 2 } } }, // 名前に「基本」を含む
+        GetProduceCard: {
+          cardType: { members: { mental: 8, active: 4 } },
+          effectGroup: { default: 6 },
+          rarity: { members: { ssr: 4 } },
+        },
+      },
       counts: {
         [`${F}produce_start-initial`]: 1, // 初期パラメータ上昇
         [`${F}end_lesson-lesson_vocal`]: 5, // レッスン終了時 (5 レジェンドレッスン)
