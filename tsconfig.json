@@ -18,5 +18,5 @@
     "jsx": "react-jsx",
     "jsxImportSource": "preact"
   },
-  "include": ["src/**/*", "scripts/**/*", "data/**/*"]
+  "include": ["src/**/*", "scripts/**/*", "data/**/*", "vite.config.ts"]
 }
