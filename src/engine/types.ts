@@ -18,6 +18,38 @@ export type EffectKind = "skill" | "event" | "item";
 /** Pseudo category id used by event parameter rewards, which have no trigger. */
 export const EVENT_CATEGORY_ID = "event";
 
+/**
+ * Which occurrences of an occasion qualify (docs/adr/0004; decision C0 of
+ * docs/plans/EXECPLAN_COUNTING_MODEL.md): a Vocal lesson, an SP lesson, a
+ * mental skill card, an SSR card, a card named 「基本」, a 好印象 card.
+ */
+export type FilterFamily = "lessonStat" | "lessonKind" | "cardType" | "rarity" | "cardName" | "effectGroup";
+export interface FilterRef {
+  family: FilterFamily;
+  member: string;
+}
+
+/** A state of the run that must hold when the occasion happens: a stat, stamina, or a number of held cards within a range. */
+export interface ConditionRef {
+  /** The game's own word: `vocal`, `stamina_ratio`, `produce_card_count`, `produce_card_search_count`, … */
+  kind: string;
+  /** `produce_card_search_count` only: which held cards are counted; absent = all of them. */
+  subject?: FilterRef[];
+  /** Inclusive bounds as written in the trigger id (`0500` for 50% stamina); 0 = unbounded on that side. */
+  min: number;
+  max: number;
+}
+
+/** A trigger id read as occasion, filters and conditions (decisions C1–C5, C10–C12 of the same plan). */
+export interface ParsedTrigger {
+  /** `ProduceTrigger.phaseType` without its `ProducePhaseType_` prefix, e.g. `EndLesson`. */
+  occasion: string;
+  filters?: FilterRef[];
+  conditions?: ConditionRef[];
+  /** Set when the trigger fires in one scenario only: that scenario's id here, or the game's token for one this site does not ship. */
+  scenario?: string;
+}
+
 export interface ClassifiedEffect {
   /** Taxonomy row id (game row, `ext-` extension row, or EVENT_CATEGORY_ID). */
   categoryId: string;
@@ -41,6 +73,20 @@ export interface ClassifiedEffect {
    * non-lesson triggers.
    */
   triggerStat?: Stat;
+  /**
+   * The effect's trigger as occasion, filters and conditions; absent for
+   * `kind: "event"`, which has no trigger. Lives beside `categoryId` until
+   * Milestone 2 of docs/plans/EXECPLAN_COUNTING_MODEL.md removes the latter.
+   */
+  trigger?: ParsedTrigger;
+}
+
+/** A card the table must not show because one of its effects cannot be counted (docs/adr/0005). */
+export interface HeldCard {
+  id: string;
+  name: string;
+  /** One line per distinct cause, naming the trigger piece or effect type a person has to decide about. */
+  reasons: string[];
 }
 
 export interface Breakpoint {
