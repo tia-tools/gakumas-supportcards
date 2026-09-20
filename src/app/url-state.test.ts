@@ -9,7 +9,7 @@ const taxonomy: TaxonomyRow[] = [
   { id: `${G}start_shop`, title: "相談選択時", order: 28, source: "game" },
   { id: "ext-vocaladdition-p_trigger-end_before_audition_refresh", title: "試験前の休憩後", order: 101, source: "extension" },
 ];
-const profile = (id: string) => ({ id, name: id, counts: {}, lessonSplits: [{ vocal: 1, dance: 0, visual: 0 }, { vocal: 0, dance: 1, visual: 0 }], parameterBonusBase: () => 0 });
+const profile = (id: string) => ({ id, name: id, counts: {}, occasions: {}, filters: {}, lessonSplits: [{ vocal: 1, dance: 0, visual: 0 }, { vocal: 0, dance: 1, visual: 0 }], parameterBonusBase: () => 0 });
 const scenarios: Scenario[] = [
   { id: "a", name: "A", parameterCap: 0, profiles: [profile("a1"), profile("a2")] },
   { id: "b", name: "B", parameterCap: 0, profiles: [profile("b1")] },
