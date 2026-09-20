@@ -34,3 +34,17 @@ def publishable(keys: Iterable[str], allowed: set[str]) -> tuple[list[str], list
     """(keys to consider, keys held back because no card in the data uses them), both sorted."""
     ks = sorted(set(keys))
     return [k for k in ks if k in allowed], [k for k in ks if k not in allowed]
+
+
+def upload_order(file_name: str, master_prefix: str, thumbnail_prefix: str) -> list[str]:
+    """Bucket keys to write for one card, in order. The private master goes first and the public
+    thumbnail last, because "missing" is asked of the public thumbnail: a thumbnail that is served
+    then always implies a master that is stored, even when a run dies between the two."""
+    return [f"{master_prefix}{file_name}", f"{thumbnail_prefix}{file_name}"]
+
+
+def select_renditions(keys: list[str], rendition: str, master_prefix: str, thumbnail_prefix: str) -> list[str]:
+    """Keeps the order and drops the keys of the rendition that was not asked for. `rendition` is
+    "all", "master" or "w192"; re-sending only masters is what a change of the master rule needs."""
+    prefix = {"all": "", "master": master_prefix, "w192": thumbnail_prefix}[rendition]
+    return [k for k in keys if k.startswith(prefix)]
