@@ -49,10 +49,11 @@ export const TAXONOMY: readonly TaxonomyRow[] = [
   {"id":"s_card_p_skill_filter-vocaladdition-p_trigger-start_customize","title":"特別指導開始時パラメータ上昇","order":37,"source":"game"},
   {"id":"s_card_p_skill_filter-vocaladdition-p_trigger-change_produce_card-p_card_search-deck_all-starter","title":"名前に「基本」を含むスキルカードチェンジ時パラメータ上昇","order":38,"source":"game"},
   {"id":"s_card_p_skill_filter-vocaladdition-p_trigger-end_audition-produce_card_search_count-p_card_search-deck_all-0015_0000","title":"試験・オーディション終了時所持スキルカードが15枚以上の場合パラメータ上昇","order":39,"source":"game"},
+  {"id":"s_card_p_skill_filter-vocaladdition-p_trigger-get_produce_card-produce_card_search_count-p_card_search-deck_all-effect_group-visible-exam_full_power-000-0008_0000","title":"スキルカード獲得時所持している全力効果のスキルカードが8枚以上の場合パラメータ上昇","order":40,"source":"game"},
+  {"id":"s_card_p_skill_filter-vocaladdition-p_trigger-get_produce_card-produce_card_search_count-p_card_search-deck_all-effect_group-visible-exam_preservation-000-0008_0000","title":"スキルカード獲得時所持している温存効果のスキルカードが8枚以上の場合パラメータ上昇","order":41,"source":"game"},
+  {"id":"s_card_p_skill_filter-vocaladdition-p_trigger-buy_shop_item_produce_card","title":"相談でスキルカード交換後パラメータ上昇","order":42,"source":"game"},
   {"id":"ext-vocaladdition-p_trigger-get_produce_card-produce_card_search_count-exam_review-0008","title":"スキルカード獲得時、所持している好印象効果のスキルカードが8枚以上の場合パラメータ上昇","order":101,"source":"extension","countsAs":"s_card_p_skill_filter-vocaladdition-p_trigger-get_produce_card-0000_0000-p_card_search-deck_all-effect_group-visible-exam_review-000"},
-  {"id":"ext-vocaladdition-p_trigger-get_produce_card-produce_card_search_count-exam_preservation-0008","title":"スキルカード獲得時、所持している温存効果のスキルカードが8枚以上の場合パラメータ上昇","order":102,"source":"extension","countsAs":"s_card_p_skill_filter-vocaladdition-p_trigger-get_produce_card-0000_0000-p_card_search-deck_all-effect_group-visible-exam_preservation-000"},
   {"id":"ext-vocaladdition-p_trigger-get_produce_card-produce_card_search_count-exam_lesson_buff-0008","title":"スキルカード獲得時、所持している集中効果のスキルカードが8枚以上の場合パラメータ上昇","order":103,"source":"extension","countsAs":"s_card_p_skill_filter-vocaladdition-p_trigger-get_produce_card-0000_0000-p_card_search-deck_all-effect_group-visible-exam_lesson_buff-000"},
-  {"id":"ext-vocaladdition-p_trigger-buy_shop_item_produce_card","title":"相談でスキルカード交換後パラメータ上昇","order":104,"source":"extension"},
   {"id":"ext-vocaladdition-p_trigger-end_before_audition_refresh","title":"試験・オーディション前の休憩後パラメータ上昇","order":105,"source":"extension"},
   {"id":"ext-vocaladdition-p_trigger-end_lesson-lesson_sp","title":"SPレッスン終了時パラメータ上昇","order":106,"source":"extension","countsAs":"s_card_p_skill_filter-vocaladdition-p_trigger-end_lesson-lesson_vocal_sp"},
 ];
