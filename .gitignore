@@ -15,3 +15,14 @@ dist
 # OS / IDE
 .DS_Store
 .idea
+
+# image extraction (Milestone 4): third-party checkout, virtualenv and downloaded art are never committed
+scripts/images/vendor
+scripts/images/out
+scripts/images/.venv
+
+# wrangler working directory
+.wrangler
+
+# python bytecode
+__pycache__

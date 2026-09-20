@@ -36,15 +36,6 @@ export const TAXONOMY_EXTENSIONS: readonly ExtensionRow[] = [
     countsAs: "s_card_p_skill_filter-vocaladdition-p_trigger-get_produce_card-0000_0000-p_card_search-deck_all-effect_group-visible-exam_review-000",
   },
   {
-    // s_card-3-0104 インタビューお願いします, s_card-3-0106 食レポ、得意かも！ (2026-09-16)
-    id: "ext-vocaladdition-p_trigger-get_produce_card-produce_card_search_count-exam_preservation-0008",
-    title: "スキルカード獲得時、所持している温存効果のスキルカードが8枚以上の場合パラメータ上昇",
-    order: 102,
-    produceEffectTypes: PARAM_ADDITIONS,
-    produceTriggerIds: ["p_trigger-get_produce_card-produce_card_search_count-p_card_search-deck_all-effect_group-visible-exam_preservation-000-0008_0000"],
-    countsAs: "s_card_p_skill_filter-vocaladdition-p_trigger-get_produce_card-0000_0000-p_card_search-deck_all-effect_group-visible-exam_preservation-000",
-  },
-  {
     // s_card-3-0107 大切な思い出、またひとつ (2026-09-16)
     id: "ext-vocaladdition-p_trigger-get_produce_card-produce_card_search_count-exam_lesson_buff-0008",
     title: "スキルカード獲得時、所持している集中効果のスキルカードが8枚以上の場合パラメータ上昇",
@@ -52,14 +43,6 @@ export const TAXONOMY_EXTENSIONS: readonly ExtensionRow[] = [
     produceEffectTypes: PARAM_ADDITIONS,
     produceTriggerIds: ["p_trigger-get_produce_card-produce_card_search_count-p_card_search-deck_all-effect_group-visible-exam_lesson_buff-000-0008_0000"],
     countsAs: "s_card_p_skill_filter-vocaladdition-p_trigger-get_produce_card-0000_0000-p_card_search-deck_all-effect_group-visible-exam_lesson_buff-000",
-  },
-  {
-    // s_card-3-0108 風紀が乱れるぞ！ (2026-09-16); the game table has only the Pドリンク variant (order 29)
-    id: "ext-vocaladdition-p_trigger-buy_shop_item_produce_card",
-    title: "相談でスキルカード交換後パラメータ上昇",
-    order: 104,
-    produceEffectTypes: PARAM_ADDITIONS,
-    produceTriggerIds: ["p_trigger-buy_shop_item_produce_card"],
   },
   {
     // P-items 打倒！墾田永年私財法, 手作りのご褒美, お姉さま大百科 (fire before every audition once the stat is ≥ 400)

@@ -74,7 +74,9 @@ export const HIF: Scenario = {
         [`${F}get_produce_card-0000_0000-p_card_search-deck_all-effect_group-visible-exam_review-000`]: 14, // 好印象効果のスキルカード獲得時パラメータ上昇
         [`${F}get_produce_card-0000_0000-p_card_search-deck_all-effect_group-visible-exam_concentration-000`]: 10, // 強気効果のスキルカード獲得時パラメータ上昇
         [`${F}get_produce_card-0000_0000-p_card_search-deck_all-effect_group-visible-exam_full_power-000`]: 10, // 全力効果のスキルカード獲得時パラメータ上昇
+        [`${F}get_produce_card-produce_card_search_count-p_card_search-deck_all-effect_group-visible-exam_full_power-000-0008_0000`]: 10, // 全力効果のスキルカードが8枚以上の場合の獲得時 — same count as the unconditional row above (D13, D10)
         [`${F}get_produce_card-0000_0000-p_card_search-deck_all-effect_group-visible-exam_preservation-000`]: 10, // 温存効果のスキルカード獲得時パラメータ上昇
+        [`${F}get_produce_card-produce_card_search_count-p_card_search-deck_all-effect_group-visible-exam_preservation-000-0008_0000`]: 10, // 温存効果のスキルカードが8枚以上の場合の獲得時 — same count as the unconditional row above (D13, D10)
         [`${F}end_step_event_school`]: 6, // 授業・営業終了時パラメータ上昇
         [`${F}end_audition`]: 5, // 試験・オーディション終了時パラメータ上昇
         [`${F}start_present`]: 5, // 活動支給・差し入れ選択時パラメータ上昇
@@ -91,7 +93,7 @@ export const HIF: Scenario = {
         [`${F}start_customize`]: 0, // 特別指導開始時パラメータ上昇
         [`${F}change_produce_card-p_card_search-deck_all-starter`]: 4, // 名前に「基本」を含むスキルカードチェンジ時パラメータ上昇
         [`${F}end_audition-produce_card_search_count-p_card_search-deck_all-0015_0000`]: 5, // 試験・オーディション終了時所持スキルカードが15枚以上の場合パラメータ上昇
-        "ext-vocaladdition-p_trigger-buy_shop_item_produce_card": 2, // 相談でスキルカード交換後パラメータ上昇
+        [`${F}buy_shop_item_produce_card`]: 2, // 相談でスキルカード交換後パラメータ上昇
         "ext-vocaladdition-p_trigger-end_before_audition_refresh": 4, // 試験・オーディション前の休憩後パラメータ上昇
       },
     },
@@ -123,7 +125,9 @@ export const HIF: Scenario = {
         [`${F}get_produce_card-0000_0000-p_card_search-deck_all-effect_group-visible-exam_review-000`]: 14, // 好印象効果のスキルカード獲得時パラメータ上昇
         [`${F}get_produce_card-0000_0000-p_card_search-deck_all-effect_group-visible-exam_concentration-000`]: 10, // 強気効果のスキルカード獲得時パラメータ上昇
         [`${F}get_produce_card-0000_0000-p_card_search-deck_all-effect_group-visible-exam_full_power-000`]: 10, // 全力効果のスキルカード獲得時パラメータ上昇
+        [`${F}get_produce_card-produce_card_search_count-p_card_search-deck_all-effect_group-visible-exam_full_power-000-0008_0000`]: 10, // 全力効果のスキルカードが8枚以上の場合の獲得時 — same count as the unconditional row above (D13, D10)
         [`${F}get_produce_card-0000_0000-p_card_search-deck_all-effect_group-visible-exam_preservation-000`]: 10, // 温存効果のスキルカード獲得時パラメータ上昇
+        [`${F}get_produce_card-produce_card_search_count-p_card_search-deck_all-effect_group-visible-exam_preservation-000-0008_0000`]: 10, // 温存効果のスキルカードが8枚以上の場合の獲得時 — same count as the unconditional row above (D13, D10)
         [`${F}end_step_event_school`]: 6, // 授業・営業終了時パラメータ上昇
         [`${F}end_audition`]: 5, // 試験・オーディション終了時パラメータ上昇
         [`${F}start_present`]: 1, // 活動支給・差し入れ選択時パラメータ上昇
@@ -140,7 +144,7 @@ export const HIF: Scenario = {
         [`${F}start_customize`]: 0, // 特別指導開始時パラメータ上昇
         [`${F}change_produce_card-p_card_search-deck_all-starter`]: 4, // 名前に「基本」を含むスキルカードチェンジ時パラメータ上昇
         [`${F}end_audition-produce_card_search_count-p_card_search-deck_all-0015_0000`]: 5, // 試験・オーディション終了時所持スキルカードが15枚以上の場合パラメータ上昇
-        "ext-vocaladdition-p_trigger-buy_shop_item_produce_card": 0, // 相談でスキルカード交換後パラメータ上昇
+        [`${F}buy_shop_item_produce_card`]: 0, // 相談でスキルカード交換後パラメータ上昇
         "ext-vocaladdition-p_trigger-end_before_audition_refresh": 4, // 試験・オーディション前の休憩後パラメータ上昇
       },
     },
@@ -172,7 +176,9 @@ export const HIF: Scenario = {
         [`${F}get_produce_card-0000_0000-p_card_search-deck_all-effect_group-visible-exam_review-000`]: 14, // 好印象効果のスキルカード獲得時パラメータ上昇
         [`${F}get_produce_card-0000_0000-p_card_search-deck_all-effect_group-visible-exam_concentration-000`]: 10, // 強気効果のスキルカード獲得時パラメータ上昇
         [`${F}get_produce_card-0000_0000-p_card_search-deck_all-effect_group-visible-exam_full_power-000`]: 10, // 全力効果のスキルカード獲得時パラメータ上昇
+        [`${F}get_produce_card-produce_card_search_count-p_card_search-deck_all-effect_group-visible-exam_full_power-000-0008_0000`]: 10, // 全力効果のスキルカードが8枚以上の場合の獲得時 — same count as the unconditional row above (D13, D10)
         [`${F}get_produce_card-0000_0000-p_card_search-deck_all-effect_group-visible-exam_preservation-000`]: 10, // 温存効果のスキルカード獲得時パラメータ上昇
+        [`${F}get_produce_card-produce_card_search_count-p_card_search-deck_all-effect_group-visible-exam_preservation-000-0008_0000`]: 10, // 温存効果のスキルカードが8枚以上の場合の獲得時 — same count as the unconditional row above (D13, D10)
         [`${F}end_step_event_school`]: 6, // 授業・営業終了時パラメータ上昇
         [`${F}end_audition`]: 5, // 試験・オーディション終了時パラメータ上昇
         [`${F}start_present`]: 4, // 活動支給・差し入れ選択時パラメータ上昇
@@ -189,7 +195,7 @@ export const HIF: Scenario = {
         [`${F}start_customize`]: 0, // 特別指導開始時パラメータ上昇
         [`${F}change_produce_card-p_card_search-deck_all-starter`]: 4, // 名前に「基本」を含むスキルカードチェンジ時パラメータ上昇
         [`${F}end_audition-produce_card_search_count-p_card_search-deck_all-0015_0000`]: 5, // 試験・オーディション終了時所持スキルカードが15枚以上の場合パラメータ上昇
-        "ext-vocaladdition-p_trigger-buy_shop_item_produce_card": 0, // 相談でスキルカード交換後パラメータ上昇
+        [`${F}buy_shop_item_produce_card`]: 0, // 相談でスキルカード交換後パラメータ上昇
         "ext-vocaladdition-p_trigger-end_before_audition_refresh": 4, // 試験・オーディション前の休憩後パラメータ上昇
       },
     },

@@ -93,10 +93,12 @@ export const HAJIME_LEGEND: Scenario = {
         [`${F}get_produce_card-0000_0000-p_card_search-deck_all-effect_group-visible-exam_review-000`]: 6, // guess
         [`${F}get_produce_card-0000_0000-p_card_search-deck_all-effect_group-visible-exam_concentration-000`]: 6, // guess
         [`${F}get_produce_card-0000_0000-p_card_search-deck_all-effect_group-visible-exam_full_power-000`]: 6, // guess
+        [`${F}get_produce_card-produce_card_search_count-p_card_search-deck_all-effect_group-visible-exam_full_power-000-0008_0000`]: 6, // 全力効果のスキルカードが8枚以上の場合の獲得時 — same count as the unconditional row above (D13, D10)
         [`${F}get_produce_card-0000_0000-p_card_search-deck_all-effect_group-visible-exam_preservation-000`]: 6, // guess
+        [`${F}get_produce_card-produce_card_search_count-p_card_search-deck_all-effect_group-visible-exam_preservation-000-0008_0000`]: 6, // 温存効果のスキルカードが8枚以上の場合の獲得時 — same count as the unconditional row above (D13, D10)
         [`${F}get_produce_card-0000_0000-p_card_search-deck_all-effect_group-visible-exam_block-000`]: 6, // guess
         [`${F}get_produce_card-p_card_search-ssr-deck_all-1`]: 4, // guess
-        "ext-vocaladdition-p_trigger-buy_shop_item_produce_card": 2, // 相談でスキルカード交換後 — guess
+        [`${F}buy_shop_item_produce_card`]: 2, // 相談でスキルカード交換後 — guess
         "ext-vocaladdition-p_trigger-end_before_audition_refresh": 2, // 試験前の休憩後 (中間, 最終; 試験前回復 70%)
       },
     },

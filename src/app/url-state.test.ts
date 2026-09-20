@@ -7,7 +7,7 @@ import { categoryKeyMap, defaultViewState, parseViewState, serializeViewState, s
 const G = "s_card_p_skill_filter-vocaladdition-p_trigger-";
 const taxonomy: TaxonomyRow[] = [
   { id: `${G}start_shop`, title: "相談選択時", order: 28, source: "game" },
-  { id: "ext-vocaladdition-p_trigger-buy_shop_item_produce_card", title: "相談で交換後", order: 101, source: "extension" },
+  { id: "ext-vocaladdition-p_trigger-end_before_audition_refresh", title: "試験前の休憩後", order: 101, source: "extension" },
 ];
 const profile = (id: string) => ({ id, name: id, counts: {}, lessonSplits: [{ vocal: 1, dance: 0, visual: 0 }, { vocal: 0, dance: 1, visual: 0 }], parameterBonusBase: () => 0 });
 const scenarios: Scenario[] = [
@@ -21,7 +21,7 @@ const serialize = (s: ViewState) => serializeViewState(s, scenarios).toString();
 describe("shortCategoryKey", () => {
   test("strips the game prefix and marks extension rows", () => {
     expect(shortCategoryKey(`${G}start_shop`)).toBe("start_shop");
-    expect(shortCategoryKey("ext-vocaladdition-p_trigger-buy_shop_item_produce_card")).toBe("ext-buy_shop_item_produce_card");
+    expect(shortCategoryKey("ext-vocaladdition-p_trigger-end_before_audition_refresh")).toBe("ext-end_before_audition_refresh");
     expect(shortCategoryKey("event")).toBe("event");
   });
 
@@ -58,8 +58,8 @@ describe("parseViewState", () => {
   });
 
   test("overrides are keyed by short id and must be non-negative integers", () => {
-    const s = parse("c.start_shop=7&c.ext-buy_shop_item_produce_card=0&c.unknown=3&c.start_shop2=-1");
-    expect(s.overrides).toEqual({ [`${G}start_shop`]: 7, "ext-vocaladdition-p_trigger-buy_shop_item_produce_card": 0 });
+    const s = parse("c.start_shop=7&c.ext-end_before_audition_refresh=0&c.unknown=3&c.start_shop2=-1");
+    expect(s.overrides).toEqual({ [`${G}start_shop`]: 7, "ext-vocaladdition-p_trigger-end_before_audition_refresh": 0 });
   });
 
   test("real scenarios: default is the first shipped scenario and profile", () => {
