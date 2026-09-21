@@ -11,6 +11,7 @@ import { conditionKey, missingNumbers, occasionOfConditionKey } from "../../src/
 import { scoreBest } from "../../src/engine/score.ts";
 import type { Totsu } from "../../src/engine/types.ts";
 import { CARDS } from "../cards.generated.ts";
+import { HELD } from "../held.generated.ts";
 import { LEVEL_LIMITS } from "../levelLimits.generated.ts";
 import { SCENARIOS } from "./index.ts";
 
@@ -43,8 +44,9 @@ describe("shipped scenarios", () => {
 
   for (const s of SCENARIOS) {
     for (const p of s.profiles) {
-      test(`${s.id}/${p.id}: every occasion and filter the cards' triggers need has a number; a missing one would silently count 0`, () => {
-        const missing = new Set(CARDS.flatMap((c) => c.breakpoints.flatMap((b) => b.effects.flatMap((e) => (e.trigger ? missingNumbers(e.trigger, p) : [])))));
+      test(`${s.id}/${p.id}: every occasion and filter the published cards' triggers need has a number; a missing one would silently count 0, so the generator holds such a card`, () => {
+        const held = new Set(HELD.map((h) => h.id));
+        const missing = new Set(CARDS.filter((c) => !held.has(c.id)).flatMap((c) => c.breakpoints.flatMap((b) => b.effects.flatMap((e) => (e.trigger ? missingNumbers(e.trigger, p) : [])))));
         expect([...missing]).toEqual([]);
       });
 

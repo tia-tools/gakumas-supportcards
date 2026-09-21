@@ -6,7 +6,7 @@
  */
 
 import { score, scoreBest, type ScoreContext } from "../engine/score.ts";
-import type { Card, CardType, Plan, Rarity, Score, Totsu } from "../engine/types.ts";
+import type { Card, CardType, HeldCard, Plan, Rarity, Score, Totsu } from "../engine/types.ts";
 import type { SortSpec } from "./url-state.ts";
 
 export type ScoresByTotsu = readonly [Score, Score, Score, Score, Score];
@@ -22,6 +22,12 @@ export interface RowFilter {
   types: readonly CardType[];
   plans: readonly Plan[];
   rarities: readonly Rarity[];
+}
+
+/** The cards the table may show: a held card has an effect that cannot be counted, so no number of it is published (docs/adr/0005). */
+export function withoutHeld(cards: readonly Card[], held: readonly HeldCard[]): Card[] {
+  const ids = new Set(held.map((h) => h.id));
+  return cards.filter((c) => !ids.has(c.id));
 }
 
 /** `split` is an index into the profile's presets; null scores each 凸 under the card's best preset (D26). */

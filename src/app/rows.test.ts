@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import type { Card, ParsedTrigger, RouteProfile } from "../engine/types.ts";
-import { buildRows, filterRows, formatPoints, sortRows } from "./rows.ts";
+import { buildRows, filterRows, formatPoints, sortRows, withoutHeld } from "./rows.ts";
 
 const SHOP: ParsedTrigger = { occasion: "StartShop" };
 const VISUAL_LESSON: ParsedTrigger = { occasion: "EndLesson", filters: [{ family: "lessonStat", member: "visual" }] };
@@ -41,6 +41,13 @@ describe("buildRows", () => {
     expect(best.scores[4]!.lessons).toEqual({ vocal: 0, dance: 1, visual: 3 });
     const fixed = buildRows([lessonVi], ctx, 0)[0]!;
     expect(fixed.scores[4]!.total).toBe(0); // Vo3 preset: no visual lessons
+  });
+});
+
+describe("withoutHeld", () => {
+  test("drops exactly the held cards and keeps the order of the rest", () => {
+    expect(withoutHeld([shopVo, lessonVi, empty], [{ id: "s-lesson", name: "s-lesson", reasons: ["a piece of unknown kind"] }]).map((c) => c.id)).toEqual(["s-shop", "s-empty"]);
+    expect(withoutHeld([shopVo, lessonVi], [])).toEqual([shopVo, lessonVi]);
   });
 });
 
