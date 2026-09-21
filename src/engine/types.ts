@@ -4,8 +4,10 @@
  *
  * Vocabulary (see docs/plans/EXECPLAN_SUPPORT_CARD_SCORE_TABLE.md § Context):
  * a card's skills change value at certain card levels ("breakpoints"); a 凸
- * (limit break, 0–4) sets the card's maximum level; a category is a row of
- * the effect taxonomy (the game's filter table plus our extension rows).
+ * (limit break, 0–4) sets the card's maximum level. How often an effect fires
+ * is counted by occasion, filters and conditions (docs/adr/0004): something that
+ * happens in a run, which of its occurrences qualify, and what state of the run
+ * must hold at that moment.
  */
 
 export type Stat = "vocal" | "dance" | "visual";
@@ -15,15 +17,16 @@ export type Plan = "common" | "sense" | "logic" | "anomaly";
 export type Totsu = 0 | 1 | 2 | 3 | 4;
 export type EffectKind = "skill" | "event" | "item";
 
-/** Pseudo category id used by event parameter rewards, which have no trigger. */
-export const EVENT_CATEGORY_ID = "event";
-
 /**
  * Which occurrences of an occasion qualify (docs/adr/0004; decision C0 of
  * docs/plans/EXECPLAN_COUNTING_MODEL.md): a Vocal lesson, an SP lesson, a
  * mental skill card, an SSR card, a card named 「基本」, a 好印象 card.
  */
-export type FilterFamily = "lessonStat" | "lessonKind" | "cardType" | "rarity" | "cardName" | "effectGroup";
+export const FILTER_FAMILIES = ["lessonStat", "lessonKind", "cardType", "rarity", "cardName", "effectGroup"] as const;
+export type FilterFamily = (typeof FILTER_FAMILIES)[number];
+export function isFilterFamily(x: string): x is FilterFamily {
+  return FILTER_FAMILIES.some((f) => f === x);
+}
 export interface FilterRef {
   family: FilterFamily;
   member: string;
@@ -62,8 +65,6 @@ export interface ParsedTrigger {
 }
 
 export interface ClassifiedEffect {
-  /** Taxonomy row id (game row, `ext-` extension row, or EVENT_CATEGORY_ID). */
-  categoryId: string;
   stat: Stat;
   /** Flat points, or tenths of a percent for パラメータボーナス+ (85 = 8.5%). */
   value: number;
@@ -77,17 +78,8 @@ export interface ClassifiedEffect {
   itemId?: string;
   itemName?: string;
   /**
-   * Lesson-end triggers are per lesson stat in the game data (`lesson_vocal`,
-   * `lesson_dance`, `lesson_visual`): the effect fires only after lessons of
-   * that stat, so its count is capped by the route's lessons of that stat.
-   * Absent for triggers that fire on any lesson (`lesson_sp`) and for
-   * non-lesson triggers.
-   */
-  triggerStat?: Stat;
-  /**
    * The effect's trigger as occasion, filters and conditions; absent for
-   * `kind: "event"`, which has no trigger. Lives beside `categoryId` until
-   * Milestone 2 of docs/plans/EXECPLAN_COUNTING_MODEL.md removes the latter.
+   * `kind: "event"`, a card's own サポートイベント reward, which has no trigger.
    */
   trigger?: ParsedTrigger;
   /** True for パラメータボーナス+: `value` is tenths of a percent of the profile's bonus base, not points per occurrence. */
@@ -120,17 +112,6 @@ export interface Card {
   breakpoints: Breakpoint[];
 }
 
-export interface TaxonomyRow {
-  id: string;
-  /** Category label as shown in game. */
-  title: string;
-  /** Game display order; extension rows use 100+. */
-  order: number;
-  source: "game" | "extension";
-  /** Extension rows only: the game row whose route count this row shares. */
-  countsAs?: string;
-}
-
 /** Card level at 凸0..凸4, per rarity. */
 export type LevelLimits = Record<Rarity, readonly [number, number, number, number, number]>;
 
@@ -138,20 +119,14 @@ export type LevelLimits = Record<Rarity, readonly [number, number, number, numbe
 export type LessonSplit = Readonly<Record<Stat, number>>;
 
 /**
- * One way of playing a scenario (decision D2): how many times each taxonomy
- * category's trigger occurs in a run, which lesson splits a player may choose,
- * and how much parameter パラメータボーナス+ multiplies for a stat trained by a
- * given number of lessons (decisions D4, D25, D26).
+ * One way of playing a scenario (decision D2): how often each occasion happens
+ * in a run and how many of those each filter and condition selects, which lesson
+ * splits a player may choose, and how much parameter パラメータボーナス+ multiplies
+ * for a stat trained by a given number of lessons (decisions D4, D25, D26).
  */
 export interface RouteProfile {
   id: string;
   name: string;
-  /**
-   * Category id → occurrences per run. Extension rows fall back to their `countsAs` row. Unlisted = 0.
-   * The old counting model, read by `score()` without `scenarioId`; removed together with the
-   * taxonomy once the page uses the fields below (docs/plans/EXECPLAN_COUNTING_MODEL.md, C16).
-   */
-  counts: Readonly<Record<string, number>>;
   /** Occasion (the game's phase type, e.g. `EndLesson`) → times it happens in a run. Unlisted = 0. */
   occasions: Readonly<Record<string, number>>;
   /**
@@ -201,8 +176,6 @@ export interface ScoreParts {
 /** One line of the breakdown shown when hovering a number. */
 export interface BreakdownLine {
   kind: EffectKind | "bonus";
-  categoryId: string;
-  title: string;
   stat: Stat;
   /** The effect's raw value: flat points, or tenths of a percent for `kind: "bonus"`. */
   value: number;
@@ -210,6 +183,8 @@ export interface BreakdownLine {
   count: number;
   points: number;
   itemName?: string;
+  /** The effect's trigger, from which the page words the line; absent for events. */
+  trigger?: ParsedTrigger;
 }
 
 export interface Score {

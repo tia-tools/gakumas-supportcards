@@ -19,19 +19,25 @@ export interface CountContext {
 }
 
 function boundOf(c: ConditionRef): string {
-  if (c.min > 0 && c.max > 0) return `${c.min}..${c.max}`;
-  return c.max > 0 ? `<=${c.max}` : `>=${c.min}`;
+  if (c.min > 0 && c.max > 0) return `${c.min}to${c.max}`;
+  return c.max > 0 ? `le${c.max}` : `ge${c.min}`;
 }
 
 /**
- * The name a profile (and a URL override) uses for a condition: occasion, the
- * game's word, the counted cards if any, and the bound — `EndLesson/produce_card_count>=20`,
- * `GetProduceCard/produce_card_search_count[effectGroup.review]>=8`, `StartCustomize/dance<=900`.
+ * The name a profile and a URL override use for a condition: occasion, the
+ * game's word, the counted cards if any, and the bound — `EndLesson.produce_card_count.ge20`,
+ * `GetProduceCard.produce_card_search_count-effectGroup.review.ge8`, `StartCustomize.dance.le900`.
+ * Only letters, digits, `.`, `-` and `_`, so it survives a query string unescaped.
  * The trigger's filters are not part of it (C10).
  */
 export function conditionKey(occasion: string, c: ConditionRef): string {
-  const subject = c.subject?.length ? `[${c.subject.map((f) => `${f.family}.${f.member}`).join(",")}]` : "";
-  return `${occasion}/${c.kind}${subject}${boundOf(c)}`;
+  const subject = (c.subject ?? []).map((f) => `-${f.family}.${f.member}`).join("");
+  return `${occasion}.${c.kind}${subject}.${boundOf(c)}`;
+}
+
+/** The occasion a condition key belongs to. */
+export function occasionOfConditionKey(key: string): string {
+  return key.slice(0, key.indexOf("."));
 }
 
 function isStat(member: string): member is Stat {

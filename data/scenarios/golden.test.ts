@@ -8,16 +8,16 @@
  *
  * The cards are frozen copies (golden.snapshot.ts), not the live generated data:
  * goldens pin the engine, so a game rebalance must not fail them (decision C8 of
- * docs/plans/EXECPLAN_COUNTING_MODEL.md). They are scored by occasions, filters
- * and conditions; that this equals the old category counts on the live data is
- * equivalence.test.ts's job.
+ * docs/plans/EXECPLAN_COUNTING_MODEL.md). The totals are the ones the former
+ * category-count model published: the migration to occasions, filters and
+ * conditions was proven to change no score over all 204 cards × 4 profiles × 凸0–4
+ * before that model was deleted (same plan, Milestone 2).
  */
 
 import { describe, expect, test } from "bun:test";
-import { scoreBest, taxonomyMap } from "../../src/engine/score.ts";
+import { scoreBest } from "../../src/engine/score.ts";
 import type { RouteProfile } from "../../src/engine/types.ts";
 import { LEVEL_LIMITS } from "../levelLimits.generated.ts";
-import { TAXONOMY } from "../taxonomy.generated.ts";
 import { GOLDEN_CARDS } from "./golden.snapshot.ts";
 import { HAJIME_LEGEND } from "./hajime-legend.ts";
 import { HIF } from "./hif.ts";
@@ -43,11 +43,11 @@ const GOLDEN: Golden[] = [
   { id: "s_card-2-0078", name: "こんにゃくなきもだめし", covers: "condition 所持スキルカード20枚以上 on SP lessons, capped ×4 of 8", totsu0: 180.5, totsu4: 270 },
 ];
 
-const DECK_20 = "EndLesson/produce_card_count>=20";
+const DECK_20 = "EndLesson.produce_card_count.ge20";
 
 const sashiire = HIF.profiles.find((p) => p.id === "sashiire");
 if (!sashiire) throw new Error("H.I.F. profile sashiire missing");
-const base = { taxonomy: taxonomyMap(TAXONOMY), limits: LEVEL_LIMITS };
+const base = { limits: LEVEL_LIMITS };
 const ctx = { ...base, profile: sashiire, scenarioId: HIF.id };
 
 function card(id: string) {

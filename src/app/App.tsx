@@ -2,24 +2,24 @@ import { useMemo } from "preact/hooks";
 import { CARDS } from "../../data/cards.generated.ts";
 import { LEVEL_LIMITS } from "../../data/levelLimits.generated.ts";
 import { SCENARIOS } from "../../data/scenarios/index.ts";
-import { TAXONOMY } from "../../data/taxonomy.generated.ts";
-import { taxonomyMap } from "../engine/score.ts";
 import type { Totsu } from "../engine/types.ts";
 import { Controls } from "./Controls.tsx";
 import { CustomizePanel } from "./CustomizePanel.tsx";
 import { ScoreTable } from "./ScoreTable.tsx";
-import { applyOverrides, buildRows, filterRows, sortRows } from "./rows.ts";
+import { applyOverrides, buildPanel, triggersOf } from "./panel.ts";
+import { buildRows, filterRows, sortRows } from "./rows.ts";
 import { resolveSelection } from "./url-state.ts";
-import { useUrlState } from "./useUrlState.ts";
-
-const TAXONOMY_MAP = taxonomyMap(TAXONOMY);
+import { ALL_TRIGGERS, useUrlState } from "./useUrlState.ts";
 
 export function App() {
   const [state, update] = useUrlState();
   const { scenario, profile } = resolveSelection(state, SCENARIOS);
 
-  const scored = useMemo(() => buildRows(CARDS, { profile: applyOverrides(profile, state.overrides), taxonomy: TAXONOMY_MAP, limits: LEVEL_LIMITS }, state.split), [profile, state.overrides, state.split]);
+  const scored = useMemo(() => buildRows(CARDS, { scenarioId: scenario.id, profile: applyOverrides(profile, state.overrides), limits: LEVEL_LIMITS }, state.split), [scenario, profile, state.overrides, state.split]);
   const rows = useMemo(() => sortRows(filterRows(scored, state), state.sort), [scored, state.types, state.plans, state.rarities, state.sort]);
+
+  // Which inputs the panel folds away depends on the cards in view, not on their order.
+  const sections = useMemo(() => buildPanel(profile, state.overrides, ALL_TRIGGERS, triggersOf(rows.map((r) => r.card))), [profile, state.overrides, rows]);
 
   const onSort = (totsu: Totsu): void => update({ sort: { totsu, desc: state.sort.totsu === totsu ? !state.sort.desc : true } });
 
@@ -34,7 +34,7 @@ export function App() {
       <section class="rounded-lg border border-slate-200 bg-white p-3">
         <Controls scenarios={SCENARIOS} scenario={scenario} profile={profile} state={state} update={update} />
       </section>
-      <CustomizePanel profile={profile} taxonomy={TAXONOMY} overrides={state.overrides} onChange={(overrides) => update({ overrides })} />
+      <CustomizePanel profileName={profile.name} sections={sections} overrides={state.overrides} onChange={(overrides) => update({ overrides })} />
       <section class="rounded-lg border border-slate-200 bg-white overflow-visible">
         <ScoreTable rows={rows} sort={state.sort} onSort={onSort} />
       </section>

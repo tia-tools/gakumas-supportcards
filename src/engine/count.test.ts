@@ -1,11 +1,10 @@
 import { describe, expect, test } from "bun:test";
-import { conditionKey, missingNumbers, occurrences, type CountContext } from "./count.ts";
+import { conditionKey, missingNumbers, occasionOfConditionKey, occurrences, type CountContext } from "./count.ts";
 import type { ClassifiedEffect, ParsedTrigger, RouteProfile } from "./types.ts";
 
 const PROFILE: RouteProfile = {
   id: "p",
   name: "p",
-  counts: {},
   occasions: { EndLesson: 8, GetProduceCard: 20, StartShop: 3 },
   filters: {
     EndLesson: { lessonKind: { members: { sp: 6, normal: 2 } } },
@@ -17,7 +16,7 @@ const PROFILE: RouteProfile = {
 const ctx: CountContext = { scenarioId: "hif", profile: PROFILE, lessons: { vocal: 7, dance: 1, visual: 0 } };
 
 function effect(trigger: ParsedTrigger, cap?: number): ClassifiedEffect {
-  const e: ClassifiedEffect = { categoryId: "unused", stat: "vocal", value: 10, kind: "skill", trigger };
+  const e: ClassifiedEffect = { stat: "vocal", value: 10, kind: "skill", trigger };
   if (cap !== undefined) e.cap = cap;
   return e;
 }
@@ -58,7 +57,7 @@ describe("occurrences", () => {
 
   test("a stated condition is a bounded count, and the effect's cap is reached as long as enough occasions qualify (C2)", () => {
     const trigger: ParsedTrigger = { occasion: "EndLesson", filters: [{ family: "lessonKind", member: "sp" }], conditions: [DECK_20] };
-    const stated = (n: number): CountContext => ({ ...ctx, profile: { ...PROFILE, conditions: { "EndLesson/produce_card_count>=20": n } } });
+    const stated = (n: number): CountContext => ({ ...ctx, profile: { ...PROFILE, conditions: { "EndLesson.produce_card_count.ge20": n } } });
     expect(occurrences(effect(trigger, 4), stated(8))).toBe(4);
     expect(occurrences(effect(trigger, 4), stated(4))).toBe(4);
     expect(occurrences(effect(trigger, 4), stated(3))).toBe(3);
@@ -72,18 +71,19 @@ describe("occurrences", () => {
 
   test("the cap applies last; an effect without a trigger counts 0", () => {
     expect(occurrences(effect({ occasion: "GetProduceCard" }, 2), ctx)).toBe(2);
-    expect(occurrences({ categoryId: "event", stat: "vocal", value: 10, kind: "event" }, ctx)).toBe(0);
+    expect(occurrences({ stat: "vocal", value: 10, kind: "event" }, ctx)).toBe(0);
   });
 });
 
 describe("conditionKey", () => {
   test("occasion, the game's word, counted cards and bound — without the trigger's filters (C10)", () => {
-    expect(conditionKey("EndLesson", DECK_20)).toBe("EndLesson/produce_card_count>=20");
-    expect(conditionKey("StartCustomize", { kind: "dance", min: 0, max: 900 })).toBe("StartCustomize/dance<=900");
-    expect(conditionKey("StartShop", { kind: "stamina_ratio", min: 300, max: 800 })).toBe("StartShop/stamina_ratio300..800");
-    expect(conditionKey("GetProduceCard", { kind: "produce_card_search_count", subject: [{ family: "effectGroup", member: "review" }], min: 8, max: 0 })).toBe(
-      "GetProduceCard/produce_card_search_count[effectGroup.review]>=8",
-    );
+    expect(conditionKey("EndLesson", DECK_20)).toBe("EndLesson.produce_card_count.ge20");
+    expect(conditionKey("StartCustomize", { kind: "dance", min: 0, max: 900 })).toBe("StartCustomize.dance.le900");
+    expect(conditionKey("StartShop", { kind: "stamina_ratio", min: 300, max: 800 })).toBe("StartShop.stamina_ratio.300to800");
+    const held = conditionKey("GetProduceCard", { kind: "produce_card_search_count", subject: [{ family: "effectGroup", member: "review" }], min: 8, max: 0 });
+    expect(held).toBe("GetProduceCard.produce_card_search_count-effectGroup.review.ge8");
+    expect(occasionOfConditionKey(held)).toBe("GetProduceCard");
+    expect(encodeURIComponent(held)).toBe(held); // survives a query string unescaped
   });
 });
 

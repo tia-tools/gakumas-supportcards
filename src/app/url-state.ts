@@ -1,17 +1,19 @@
 /**
  * The view state of the table and its encoding in the URL query string (plan
  * decision D9: a filtered, sorted view is shareable). Pure: parsing and
- * serialising take the scenarios and taxonomy as arguments, and only values
- * that differ from the defaults are written.
+ * serialising take the scenarios and the adjustable count keys as arguments, and
+ * only values that differ from the defaults are written.
  *
  * Query parameters:
  *   s=<scenario id>  p=<profile id>  ls=<lesson-split preset index; absent = best preset (D26)>
  *   type=vocal,dance  plan=sense,logic  rarity=ssr   (comma-separated; absent = all)
  *   sort=4d           (凸 column 0–4 followed by d or a; default 4d)
- *   c.<short category id>=<count>   route-count override (D2), see `shortCategoryKey`
+ *   o.<Occasion>=<n>  f.<Occasion>.<family>.<member>=<n>  w.<condition key>=<n>
+ *                     count overrides (D2), keyed as in src/app/panel.ts. The `c.<category>`
+ *                     keys of the former counting model are ignored.
  */
 
-import type { CardType, Plan, Rarity, Scenario, TaxonomyRow, Totsu } from "../engine/types.ts";
+import type { CardType, Plan, Rarity, RouteProfile, Scenario, Totsu } from "../engine/types.ts";
 
 export interface SortSpec {
   totsu: Totsu;
@@ -27,7 +29,7 @@ export interface ViewState {
   plans: readonly Plan[];
   rarities: readonly Rarity[];
   sort: SortSpec;
-  /** Full category id → count overriding the profile's route count. */
+  /** Count key (`o.…`, `f.…`, `w.…`; see src/app/panel.ts) → the player's number in place of the profile's. */
   overrides: Readonly<Record<string, number>>;
 }
 
@@ -37,28 +39,10 @@ export const RARITIES: readonly Rarity[] = ["r", "sr", "ssr"];
 export const TOTSUS: readonly Totsu[] = [0, 1, 2, 3, 4];
 export const DEFAULT_SORT: SortSpec = { totsu: 4, desc: true };
 
-/** Prefixes every category id in the taxonomy carries; stripped from URL keys and restored on parse. */
-const KEY_PREFIXES = ["s_card_p_skill_filter-vocaladdition-p_trigger-", "ext-vocaladdition-p_trigger-"] as const;
+/** The count keys a player may override under a profile (`adjustableKeys` of src/app/panel.ts, with the shipped cards bound). */
+export type AdjustableKeys = (profile: RouteProfile) => ReadonlySet<string>;
 
-/** `s_card_p_skill_filter-vocaladdition-p_trigger-start_shop` → `start_shop`; extension rows keep an `ext-` marker. */
-export function shortCategoryKey(categoryId: string): string {
-  const [game, ext] = KEY_PREFIXES;
-  if (categoryId.startsWith(game)) return categoryId.slice(game.length);
-  if (categoryId.startsWith(ext)) return `ext-${categoryId.slice(ext.length)}`;
-  return categoryId;
-}
-
-/** Short key → full category id for every taxonomy row; throws when two rows would share a key. */
-export function categoryKeyMap(taxonomy: readonly TaxonomyRow[]): ReadonlyMap<string, string> {
-  const out = new Map<string, string>();
-  for (const row of taxonomy) {
-    const key = shortCategoryKey(row.id);
-    const prev = out.get(key);
-    if (prev !== undefined && prev !== row.id) throw new Error(`short category key "${key}" is shared by ${prev} and ${row.id}`);
-    out.set(key, row.id);
-  }
-  return out;
-}
+const OVERRIDE_KEY = /^[ofw]\./;
 
 export function defaultViewState(scenarios: readonly Scenario[]): ViewState {
   const scenario = scenarios[0];
@@ -88,19 +72,17 @@ function parseSort(raw: string | null): SortSpec {
   return { totsu: Number(m[1]) as Totsu, desc: m[2] === "d" };
 }
 
-function parseOverrides(params: URLSearchParams, keys: ReadonlyMap<string, string>): Record<string, number> {
+function parseOverrides(params: URLSearchParams, adjustable: ReadonlySet<string>): Record<string, number> {
   const out: Record<string, number> = {};
   for (const [name, raw] of params) {
-    if (!name.startsWith("c.")) continue;
-    const id = keys.get(name.slice(2));
     const n = Number(raw);
-    if (id !== undefined && Number.isInteger(n) && n >= 0) out[id] = n;
+    if (OVERRIDE_KEY.test(name) && adjustable.has(name) && raw !== "" && Number.isInteger(n) && n >= 0) out[name] = n;
   }
   return out;
 }
 
 /** Tolerant: an unknown or malformed value falls back to its default rather than failing. */
-export function parseViewState(params: URLSearchParams, scenarios: readonly Scenario[], taxonomy: readonly TaxonomyRow[]): ViewState {
+export function parseViewState(params: URLSearchParams, scenarios: readonly Scenario[], adjustable: AdjustableKeys): ViewState {
   const base = defaultViewState(scenarios);
   const partial: ViewState = { ...base, scenarioId: params.get("s") ?? base.scenarioId, profileId: params.get("p") ?? base.profileId };
   const { scenario, profile } = resolveSelection(partial, scenarios);
@@ -115,7 +97,7 @@ export function parseViewState(params: URLSearchParams, scenarios: readonly Scen
     plans: parseList(params.get("plan"), PLANS),
     rarities: parseList(params.get("rarity"), RARITIES),
     sort: parseSort(params.get("sort")),
-    overrides: parseOverrides(params, categoryKeyMap(taxonomy)),
+    overrides: parseOverrides(params, adjustable(profile)),
   };
 }
 
@@ -130,6 +112,6 @@ export function serializeViewState(state: ViewState, scenarios: readonly Scenari
   if (state.plans.length > 0) out.set("plan", state.plans.join(","));
   if (state.rarities.length > 0) out.set("rarity", state.rarities.join(","));
   if (state.sort.totsu !== DEFAULT_SORT.totsu || state.sort.desc !== DEFAULT_SORT.desc) out.set("sort", `${state.sort.totsu}${state.sort.desc ? "d" : "a"}`);
-  for (const [id, n] of Object.entries(state.overrides)) out.set(`c.${shortCategoryKey(id)}`, String(n));
+  for (const [key, n] of Object.entries(state.overrides)) out.set(key, String(n));
   return out;
 }

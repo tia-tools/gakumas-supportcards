@@ -2,9 +2,18 @@
 
 import type { BreakdownLine, Score } from "../engine/types.ts";
 import { formatPoints } from "./rows.ts";
+import { triggerLabel } from "./count-labels.ts";
 import { STAT_SHORT, STAT_TEXT } from "./labels.ts";
 
 const KIND_LABEL: Readonly<Record<BreakdownLine["kind"], string>> = { skill: "スキル", event: "イベント", item: "Pアイテム", bonus: "ボーナス" };
+
+/** What the line is a reward for: the card's own event, the run-long bonus, the starting parameters, or a trigger in words. */
+function title(line: BreakdownLine): string {
+  if (line.kind === "event") return "サポートイベント";
+  if (line.kind === "bonus") return "パラメータボーナス";
+  if (!line.trigger) return "";
+  return line.trigger.occasion === "ProduceStart" ? "初期パラメータ" : triggerLabel(line.trigger);
+}
 
 function factor(line: BreakdownLine): string {
   switch (line.kind) {
@@ -40,7 +49,7 @@ export function Breakdown({ score }: { score: Score }) {
             <tr key={i} class="align-top">
               <td class="pr-2 text-slate-500 whitespace-nowrap">{KIND_LABEL[line.kind]}</td>
               <td class="pr-2">
-                {line.title}
+                {title(line)}
                 {line.itemName && <span class="text-slate-500">（{line.itemName}）</span>}
               </td>
               <td class={`pr-2 whitespace-nowrap ${STAT_TEXT[line.stat]}`}>{STAT_SHORT[line.stat]}</td>

@@ -5,11 +5,15 @@
 
 import { useCallback, useEffect, useState } from "preact/hooks";
 import { SCENARIOS } from "../../data/scenarios/index.ts";
-import { TAXONOMY } from "../../data/taxonomy.generated.ts";
+import { CARDS } from "../../data/cards.generated.ts";
+import { adjustableKeys, triggersOf } from "./panel.ts";
 import { parseViewState, serializeViewState, type ViewState } from "./url-state.ts";
 
+/** Every distinct trigger on the shipped cards: decides which count inputs exist. */
+export const ALL_TRIGGERS = triggersOf(CARDS);
+
 function readState(): ViewState {
-  return parseViewState(new URLSearchParams(window.location.search), SCENARIOS, TAXONOMY);
+  return parseViewState(new URLSearchParams(window.location.search), SCENARIOS, (profile) => adjustableKeys(profile, ALL_TRIGGERS));
 }
 
 export type UpdateViewState = (patch: Partial<ViewState>) => void;
