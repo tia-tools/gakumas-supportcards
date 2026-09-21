@@ -1,42 +1,18 @@
 import { describe, expect, test } from "bun:test";
 import { SCENARIOS } from "../../data/scenarios/index.ts";
-import { TAXONOMY } from "../../data/taxonomy.generated.ts";
-import type { Scenario, TaxonomyRow } from "../engine/types.ts";
-import { categoryKeyMap, defaultViewState, parseViewState, serializeViewState, shortCategoryKey, type ViewState } from "./url-state.ts";
+import type { Scenario } from "../engine/types.ts";
+import { defaultViewState, parseViewState, serializeViewState, type ViewState } from "./url-state.ts";
 
-const G = "s_card_p_skill_filter-vocaladdition-p_trigger-";
-const taxonomy: TaxonomyRow[] = [
-  { id: `${G}start_shop`, title: "相談選択時", order: 28, source: "game" },
-  { id: "ext-vocaladdition-p_trigger-end_before_audition_refresh", title: "試験前の休憩後", order: 101, source: "extension" },
-];
-const profile = (id: string) => ({ id, name: id, counts: {}, occasions: {}, filters: {}, lessonSplits: [{ vocal: 1, dance: 0, visual: 0 }, { vocal: 0, dance: 1, visual: 0 }], parameterBonusBase: () => 0 });
+/** Stands in for `adjustableKeys` of ./panel.ts: profile a2 has one input fewer. */
+const adjustable = (p: { id: string }): ReadonlySet<string> => new Set(p.id === "a2" ? ["o.StartShop"] : ["o.StartShop", "f.GetProduceCard.effectGroup.review", "w.EndLesson.produce_card_count.ge20"]);
+const profile = (id: string) => ({ id, name: id, occasions: {}, filters: {}, lessonSplits: [{ vocal: 1, dance: 0, visual: 0 }, { vocal: 0, dance: 1, visual: 0 }], parameterBonusBase: () => 0 });
 const scenarios: Scenario[] = [
   { id: "a", name: "A", parameterCap: 0, profiles: [profile("a1"), profile("a2")] },
   { id: "b", name: "B", parameterCap: 0, profiles: [profile("b1")] },
 ];
 
-const parse = (q: string) => parseViewState(new URLSearchParams(q), scenarios, taxonomy);
+const parse = (q: string) => parseViewState(new URLSearchParams(q), scenarios, adjustable);
 const serialize = (s: ViewState) => serializeViewState(s, scenarios).toString();
-
-describe("shortCategoryKey", () => {
-  test("strips the game prefix and marks extension rows", () => {
-    expect(shortCategoryKey(`${G}start_shop`)).toBe("start_shop");
-    expect(shortCategoryKey("ext-vocaladdition-p_trigger-end_before_audition_refresh")).toBe("ext-end_before_audition_refresh");
-    expect(shortCategoryKey("event")).toBe("event");
-  });
-
-  test("is unique over the real taxonomy", () => {
-    expect(categoryKeyMap(TAXONOMY).size).toBe(TAXONOMY.length);
-  });
-
-  test("categoryKeyMap throws on a collision", () => {
-    const rows: TaxonomyRow[] = [
-      { id: `${G}x`, title: "", order: 1, source: "game" },
-      { id: "x", title: "", order: 2, source: "game" },
-    ];
-    expect(() => categoryKeyMap(rows)).toThrow('short category key "x" is shared');
-  });
-});
 
 describe("parseViewState", () => {
   test("empty query is the default state", () => {
@@ -57,13 +33,19 @@ describe("parseViewState", () => {
     expect(parse("s=b&p=a2").profileId).toBe("b1");
   });
 
-  test("overrides are keyed by short id and must be non-negative integers", () => {
-    const s = parse("c.start_shop=7&c.ext-end_before_audition_refresh=0&c.unknown=3&c.start_shop2=-1");
-    expect(s.overrides).toEqual({ [`${G}start_shop`]: 7, "ext-vocaladdition-p_trigger-end_before_audition_refresh": 0 });
+  test("overrides are keyed like the panel's inputs and must be non-negative integers", () => {
+    const s = parse("o.StartShop=7&f.GetProduceCard.effectGroup.review=0&w.EndLesson.produce_card_count.ge20=3");
+    expect(s.overrides).toEqual({ "o.StartShop": 7, "f.GetProduceCard.effectGroup.review": 0, "w.EndLesson.produce_card_count.ge20": 3 });
+    expect(parse("o.StartShop=-1&o.StartShop=1.5&f.GetProduceCard.effectGroup.review=").overrides).toEqual({});
+  });
+
+  test("a key the chosen profile does not let the player adjust is ignored, as are the c. keys of the former model", () => {
+    expect(parse("o.EndLesson=3&o.Bogus=1&c.start_shop=7&sort=2a").overrides).toEqual({});
+    expect(parse("p=a2&o.StartShop=2&f.GetProduceCard.effectGroup.review=5").overrides).toEqual({ "o.StartShop": 2 });
   });
 
   test("real scenarios: default is the first shipped scenario and profile", () => {
-    const s = parseViewState(new URLSearchParams(""), SCENARIOS, TAXONOMY);
+    const s = parseViewState(new URLSearchParams(""), SCENARIOS, adjustable);
     expect(s.scenarioId).toBe("hif");
     expect(s.profileId).toBe("sashiire");
   });
@@ -83,10 +65,10 @@ describe("serializeViewState", () => {
       plans: ["logic"],
       rarities: ["sr", "ssr"],
       sort: { totsu: 2, desc: false },
-      overrides: { [`${G}start_shop`]: 5 },
+      overrides: { "o.StartShop": 5, "w.EndLesson.produce_card_count.ge20": 3 },
     };
     const q = serialize(state);
-    expect(q).toBe("s=b&p=b1&ls=1&type=dance%2Cassist&plan=logic&rarity=sr%2Cssr&sort=2a&c.start_shop=5");
+    expect(q).toBe("s=b&p=b1&ls=1&type=dance%2Cassist&plan=logic&rarity=sr%2Cssr&sort=2a&o.StartShop=5&w.EndLesson.produce_card_count.ge20=3");
     expect(parse(q)).toEqual(state);
   });
 
