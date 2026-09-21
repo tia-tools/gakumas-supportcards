@@ -2,19 +2,19 @@
  * Builds the card records (`Card` from src/engine/types.ts) from the raw
  * tables: resolves each card's skills at every breakpoint level, folds in the
  * card's events (parameter rewards and granted P-items) at their unlock
- * levels, and records the own-event parameter bonus. Pure: takes tables and a
- * classifier, returns cards plus a report; throws only on data the design
- * cannot represent (unknown enum values, dangling ids).
+ * levels, and records the own-event parameter bonus. Pure: takes tables,
+ * returns cards plus a report; throws only on data the design cannot represent
+ * (unknown enum values, dangling ids).
  *
- * An effect that cannot be counted — a trigger piece of unknown kind, an effect
- * type that is neither a stat nor audited as non-parameter, or (until
- * Milestone 2 of docs/plans/EXECPLAN_COUNTING_MODEL.md removes categories) a
- * pair no taxonomy row covers — is left out and its card is reported as held,
- * so the rest of an update can publish (docs/adr/0005).
+ * An effect that cannot be counted — a trigger piece of unknown kind
+ * (scripts/lib/parse-trigger.ts) or an effect type that is neither a parameter
+ * type nor audited as non-parameter (scripts/lib/effect-types.ts) — is left out
+ * and its card is reported as held, so the rest of an update can publish
+ * (docs/adr/0005).
  */
 
-import { EVENT_CATEGORY_ID, type Breakpoint, type Card, type CardType, type ClassifiedEffect, type HeldCard, type LevelLimits, type ParsedTrigger, type Plan, type Rarity, type Stat } from "../../src/engine/types.ts";
-import { EVENT_BONUS_EFFECT_TYPE, NON_PARAMETER_EFFECT_TYPES, PARAM_ADDITION_TYPES, PARAM_BONUS_TYPES, lessonStatOf, statOf, type Classifier } from "./classify.ts";
+import { type Breakpoint, type Card, type CardType, type ClassifiedEffect, type HeldCard, type LevelLimits, type ParsedTrigger, type Plan, type Rarity, type Stat } from "../../src/engine/types.ts";
+import { EVENT_BONUS_EFFECT_TYPE, NON_PARAMETER_EFFECT_TYPES, PARAM_ADDITION_TYPES, PARAM_BONUS_TYPES, parameterStatOf } from "./effect-types.ts";
 import { parseTrigger, type ParseResult } from "./parse-trigger.ts";
 import type { RawEventSupportCard, RawProduceEffect, RawProduceItem, RawProduceSkill, RawSkillLevel, RawSupportCard, Tables } from "./tables.ts";
 
@@ -54,10 +54,8 @@ export interface BuildReport {
   held: HeldCard[];
   /** Occurrences of skipped non-parameter effect types, by type. */
   skippedByType: Map<string, number>;
-  /** Number of (effect, trigger) resolutions by match kind. */
-  matches: { exact: number; prefix: number };
-  /** Category ids actually used by at least one parameter effect. */
-  categoriesUsed: Set<string>;
+  /** Occasions actually used by at least one parameter effect. */
+  occasionsUsed: Set<string>;
 }
 
 function mapEnum<T>(table: Readonly<Record<string, T>>, value: string, what: string, cardId: string): T {
@@ -86,7 +84,7 @@ export function byCodeUnit(a: string, b: string): number {
 }
 
 function effectSortKey(e: ClassifiedEffect): string {
-  return `${e.kind}|${e.categoryId}|${e.stat}|${e.itemId ?? ""}|${e.value}`;
+  return `${e.kind}|${e.bonus ? 0 : 1}|${JSON.stringify(e.trigger ?? null)}|${e.stat}|${e.itemId ?? ""}|${e.value}`;
 }
 
 class CardBuilder {
@@ -101,12 +99,9 @@ class CardBuilder {
   private readonly eventsByCard: Map<string, RawEventSupportCard[]>;
   private readonly itemEffectsCache = new Map<string, { effects: ClassifiedEffect[]; held: string[] }>();
   private readonly heldReasons = new Map<string, Set<string>>();
-  readonly report: BuildReport = { held: [], skippedByType: new Map(), matches: { exact: 0, prefix: 0 }, categoriesUsed: new Set() };
+  readonly report: BuildReport = { held: [], skippedByType: new Map(), occasionsUsed: new Set() };
 
-  constructor(
-    tables: Tables,
-    private readonly classifier: Classifier,
-  ) {
+  constructor(tables: Tables) {
     this.skillByIdLevel = index(tables.skills, (s) => `${s.id}:${s.level}`);
     this.effectById = index(tables.effects, (e) => e.id);
     this.phaseByTrigger = new Map(tables.triggers.map((t) => [t.id, t.phaseType]));
@@ -132,13 +127,12 @@ class CardBuilder {
    * What a (effect, trigger) pair contributes: a countable parameter effect,
    * nothing (an audited non-parameter type), or the reason its card is held.
    */
-  private resolve(effect: RawProduceEffect, triggerId: string, where: string): { categoryId: string; stat: Stat; trigger: ParsedTrigger; bonus: boolean } | { held: string } | null {
+  private resolve(effect: RawProduceEffect, triggerId: string, where: string): { stat: Stat; trigger: ParsedTrigger; bonus: boolean } | { held: string } | null {
     const phaseType = this.phaseByTrigger.get(triggerId);
     if (phaseType === undefined) throw new Error(`${where}: missing ProduceTrigger ${triggerId}`);
     const grantedItem = effect.produceRewards.find((r) => r.resourceType === ITEM_RESOURCE_TYPE);
     if (grantedItem) throw new Error(`${where}: a skill granting a P-item (${grantedItem.resourceId}) is not supported`);
-    const bonus = PARAM_BONUS_TYPES.has(effect.produceEffectType);
-    const stat = bonus || PARAM_ADDITION_TYPES.has(effect.produceEffectType) ? statOf(effect.produceEffectType) : null;
+    const stat = parameterStatOf(effect.produceEffectType);
     if (!stat) {
       if (!NON_PARAMETER_EFFECT_TYPES.has(effect.produceEffectType)) return { held: `${where}: effect type ${effect.produceEffectType} is neither a stat nor audited as non-parameter` };
       this.skip(effect.produceEffectType);
@@ -150,11 +144,8 @@ class CardBuilder {
       this.parsedTriggers.set(triggerId, parsed);
     }
     if (parsed.kind === "unknown-piece") return { held: `${where}: trigger ${triggerId} has a piece of unknown kind: ${parsed.piece}` };
-    const c = this.classifier.classify(effect.produceEffectType, triggerId);
-    if (c.kind !== "classified") return { held: `${where}: no single taxonomy row covers ${effect.produceEffectType} @ ${triggerId} (categories go away in Milestone 2 of the counting-model plan)` };
-    this.report.matches[c.match]++;
-    this.report.categoriesUsed.add(c.row.id);
-    return { categoryId: c.row.id, stat, trigger: parsed.trigger, bonus };
+    this.report.occasionsUsed.add(parsed.trigger.occasion);
+    return { stat, trigger: parsed.trigger, bonus: PARAM_BONUS_TYPES.has(effect.produceEffectType) };
   }
 
   private hold(cardId: string, reason: string): void {
@@ -201,10 +192,8 @@ class CardBuilder {
           this.hold(cardId, r.held);
           continue;
         }
-        const e: ClassifiedEffect = { categoryId: r.categoryId, stat: r.stat, value: effect.effectValueMin, kind: "skill" };
+        const e: ClassifiedEffect = { stat: r.stat, value: effect.effectValueMin, kind: "skill" };
         if (skill.activationCount > 0) e.cap = skill.activationCount;
-        const ls = lessonStatOf(triggerId);
-        if (ls) e.triggerStat = ls;
         e.trigger = r.trigger;
         if (r.bonus) e.bonus = true;
         effects.push(e);
@@ -234,10 +223,8 @@ class CardBuilder {
         held.push(r.held);
         continue;
       }
-      const e: ClassifiedEffect = { categoryId: r.categoryId, stat: r.stat, value: effect.effectValueMin, kind: "item", itemId, itemName: item.name };
+      const e: ClassifiedEffect = { stat: r.stat, value: effect.effectValueMin, kind: "item", itemId, itemName: item.name };
       if (item.fireLimit > 0) e.cap = item.fireLimit;
-      const ls = lessonStatOf(triggerId);
-      if (ls) e.triggerStat = ls;
       e.trigger = r.trigger;
       if (r.bonus) e.bonus = true;
       out.push(e);
@@ -259,7 +246,7 @@ class CardBuilder {
         const effect = this.effect(effectId, where);
         if (PARAM_ADDITION_TYPES.has(effect.produceEffectType)) {
           const stat = effect.produceEffectType.includes("Vocal") ? "vocal" : effect.produceEffectType.includes("Dance") ? "dance" : "visual";
-          out.push({ categoryId: EVENT_CATEGORY_ID, stat, value: effect.effectValueMin, kind: "event" });
+          out.push({ stat, value: effect.effectValueMin, kind: "event" });
         } else if (effect.produceEffectType === "ProduceEffectType_ProduceReward") {
           for (const rw of effect.produceRewards) {
             if (rw.resourceType === ITEM_RESOURCE_TYPE) {
@@ -334,8 +321,8 @@ export function buildLevelLimits(tables: Tables): LevelLimits {
   return { r: five("r"), sr: five("sr"), ssr: five("ssr") };
 }
 
-export function buildCards(tables: Tables, classifier: Classifier): { cards: Card[]; report: BuildReport } {
-  const builder = new CardBuilder(tables, classifier);
+export function buildCards(tables: Tables): { cards: Card[]; report: BuildReport } {
+  const builder = new CardBuilder(tables);
   const cards = tables.cards.map((raw) => builder.build(raw)).sort((a, b) => byCodeUnit(a.id, b.id));
   builder.report.held.sort((a, b) => byCodeUnit(a.id, b.id));
   return { cards, report: builder.report };

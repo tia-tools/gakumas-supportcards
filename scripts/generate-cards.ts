@@ -13,8 +13,6 @@
  */
 
 import { existsSync } from "node:fs";
-import { TAXONOMY_EXTENSIONS } from "../data/taxonomy.extensions.ts";
-import { Classifier, liveExtensions, mergeTaxonomy } from "./lib/classify.ts";
 import { buildCards, buildLevelLimits } from "./lib/build-cards.ts";
 import { emitCards, emitHeld, emitLevelLimits } from "./lib/emit.ts";
 import { loadTables } from "./lib/tables.ts";
@@ -34,8 +32,7 @@ async function main(): Promise<void> {
   const allowFewer = process.argv.includes("--allow-fewer");
   const tables = await loadTables();
 
-  const classifier = new Classifier(mergeTaxonomy(tables.filterRows, liveExtensions(tables.filterRows, TAXONOMY_EXTENSIONS)));
-  const { cards, report } = buildCards(tables, classifier);
+  const { cards, report } = buildCards(tables);
   const levelLimits = buildLevelLimits(tables);
 
   const before = await committedCardCount();
@@ -53,7 +50,7 @@ async function main(): Promise<void> {
   console.log(`Wrote ${HELD_PATH}: ${report.held.length} held cards`);
   for (const h of report.held) for (const reason of h.reasons) console.log(`  HELD ${h.id} ${h.name} — ${reason}`);
   console.log(`Wrote ${LIMITS_PATH}: ${JSON.stringify(levelLimits)}`);
-  console.log(`Matches: exact ${report.matches.exact}, prefix ${report.matches.prefix}; categories used ${report.categoriesUsed.size}`);
+  console.log(`Occasions used: ${[...report.occasionsUsed].sort().join(", ")}`);
   const skipped = [...report.skippedByType].sort((a, b) => b[1] - a[1]).map(([t, n]) => `${t.replace("ProduceEffectType_", "")}×${n}`);
   console.log(`Skipped non-parameter effects: ${skipped.join(", ")}`);
 }
