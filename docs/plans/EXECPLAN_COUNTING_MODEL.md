@@ -26,8 +26,8 @@ After this plan, a route profile states how often each kind of thing happens in 
 - [x] (2026-09-21) Milestone 1, on branch `feature/counting-model-m1`: `scripts/lib/parse-trigger.ts` with tests for every piece kind and the shape rules; every generated effect carries `trigger`; `data/held.generated.ts` (empty on today's data); the generators no longer stop on a missing or redundant filter row. The three acceptance experiments pass (transcript in Concrete Steps). Decisions C14–C15.
 - [x] (2026-09-21) Milestone 2, on branch `feature/counting-model-m2`, except the deletions: `src/engine/count.ts`; `score()` counts occasions, filters and conditions when given a `scenarioId`; all four profiles restated beside their `counts`; `data/scenarios/equivalence.test.ts` finds 816 rows × 凸0–4 identical line by line; goldens on `data/scenarios/golden.snapshot.ts` with こんにゃくなきもだめし as the tenth card and the −15 acceptance check. Decisions C16–C17.
 - [x] (2026-09-21) Milestone 3, code and tests, on branch `feature/counting-model-m3`: `src/app/panel.ts` (panel model, `applyOverrides`, URL keys `o.` / `f.` / `w.`), `src/app/count-labels.ts`, the rebuilt `CustomizePanel.tsx`, the page scoring by occasions, breakdown lines worded from the trigger; then the deletions of C16 (old counting path, `counts`, `categoryId`, `triggerStat`, taxonomy generator and data, extensions, classifier, equivalence test, prototype; the filter table is no longer loaded). 136 tests pass; the bundle is 56 KB gzipped. Decisions C18–C19.
-- [x] (2026-09-22) Milestone 3, acceptance by eye: the user looked at the page and judged the panel "fine for now", so readability may come back as later feedback rather than as part of this plan. Background: the agent could not drive a browser (the Chrome extension was not connected), so the panel has been verified through its model's tests only — four sections, SP lessons bounded by lessons, 20枚以上 bounded by SP lessons, ロジック leaving 好印象, やる気 and 元気 in view, overrides round-tripping through the URL — and not as rendered. The user has to open `bun run dev`, check those five points on the page and say whether the panel is readable.
-- [ ] Milestone 4: update gates — hidden cards, score-stability check — ready for the first plan's weekly action.
+- [x] (2026-09-22) Milestone 3, acceptance by eye: asked to check the page at the dev server, the user answered "Panel is fine for now", so readability may come back as later feedback rather than as part of this plan. Background: the agent could not drive a browser (the Chrome extension was not connected), so the panel has been verified through its model's tests only — four sections, SP lessons bounded by lessons, 20枚以上 bounded by SP lessons, ロジック leaving 好印象, やる気 and 元気 in view, overrides round-tripping through the URL — and never saw it rendered.
+- [x] (2026-09-22) Milestone 4, on branch `feature/counting-model-m4`: the generator also holds a card whose trigger needs a number some shipped profile lacks (`scripts/lib/profile-gate.ts`); the page shows `withoutHeld(CARDS, HELD)`; `bun run generate` writes `data/scores.generated.json` and `scripts/check-score-stability.ts` compares it with the committed one. The acceptance experiments pass (transcript in Concrete Steps). Decision C20. All milestones are done; what remains is the close-out ritual (`close-out` skill) and merging the milestone branches, both the user's call.
 
 
 ## Surprises & Discoveries
@@ -146,6 +146,10 @@ Decisions of this plan are numbered C1, C2, … to keep them apart from the D-nu
   Rationale: Milestone 0 showed that the trigger's wording can be cut out of a skill's text, but a P-item with two skills has one text for both, the cut needs a rule per sentence shape, and the panel needs names for occasions, families and members regardless, which no game text supplies on its own. One dictionary serves both, keeps the generated data free of repeated sentences (the bundle went from 70 KB to 56 KB gzipped once `categoryId` left and no label arrived), and degrades visibly rather than wrongly. A test over the shipped data fails when any panel input still shows a raw game word.
   Date/Author: 2026-09-21 / agent.
 
+- Decision (C20): The score-stability check compares snapshots of published scores, not two sets of card data. `bun run generate` writes `data/scores.generated.json` — per card that is not held, a hash of its generated record and its 点数 at 凸0–4 under every shipped route profile — and `scripts/check-score-stability.ts` recomputes the scores from the working tree and compares them with the snapshot committed at a git ref (default `HEAD`) or given as a file: a card whose hash is unchanged must have unchanged scores; new, removed and newly held cards are free. It also fails when the working tree's own snapshot is stale. Separately, the generator holds a card when any shipped profile lacks a number one of its triggers needs (a phase type no profile counts, a never-seen member of a family without a default), so the hidden-card list has one home, `data/held.generated.ts`, for both kinds of reason.
+  Rationale: Scoring old and new card data with the same engine and profiles can never disagree for an unchanged card, so that comparison would be vacuous; what has to be pinned is what was published, and only a committed snapshot records it without checking out and running old code. The known blind spot: a parser change that reads an unchanged trigger id differently changes the card's generated record, so its hash, and is let through; the parser's unit tests and the golden scores cover that side. The check is meant for the unattended update; a deliberate profile or engine change fails it by design and is resolved by reviewing the listed moves and committing the regenerated snapshot.
+  Date/Author: 2026-09-22 / agent.
+
 
 ## Outcomes & Retrospective
 
@@ -234,6 +238,29 @@ Milestone 1 acceptance, run on 2026-09-21 with a temporary script (deleted after
       Wrote data/held.generated.ts: 0 held cards
 
 In (c) the nine held cards are exactly the nine that have a 休む選択時 skill (decision C15). The new tests were shown to fail by breaking their rules: making an unknown `for_` token parse, and making `hold()` forget its reasons, turned 6 tests red.
+
+Milestone 4 acceptance, run on 2026-09-22 with a temporary script (deleted afterwards). The replay downloads the 13 tables of `vertesan/gakumasu-diff` at commit `db320b2` (2026-09-15, the data this repository's generation of 2026-09-17 used) into a scratch directory, generates from them, keeps that `data/scores.generated.json` as the base, generates from today's tables (upstream `75eb2a9`, 2026-09-20) and runs the check with `--base-file`. Shortened transcript:
+
+    == replay: generate from upstream 2026-09-15 tables: exit 0
+      Wrote data/cards.generated.ts: 202 cards (199 with parameter effects, previously 204)
+    == replay: generate from today's tables: exit 0
+      Wrote data/cards.generated.ts: 204 cards (201 with parameter effects, previously 202)
+    == replay: check against the snapshot from before the update: exit 0
+      Compared with …/scores.before.json: 204 cards now, 2 new, 0 gone or held, 0 with changed data, 0 unexplained score moves.
+    == hand-edited profile (差し入れ育成 StartPresent 5 -> 4), not regenerated: exit 1
+      Compared with …/scores.today.json: 204 cards now, 0 new, 0 gone or held, 0 with changed data, 31 unexplained score moves.
+      data/scores.generated.json is not what the working tree scores to; run `bun run generate`.
+        MOVED s_card-1-0006 ひたむき居残りレッスン [hif/sashiire]: [53,61,83,88.5,93] -> [49,57,75,80.5,85] with unchanged card data
+        …
+    == held: generate with an invented piece of unknown kind: exit 0
+        HELD s_card-2-0076 ゆるるんあくび顔 — item pitem_03-2-130-0 居眠り注意！: trigger p_trigger-start_shop-visual-0400_0000-mystery has a piece of unknown kind: mystery
+      Wrote data/scores.generated.json: 203 cards × 4 route profiles
+    == held: what the table would show: exit 0
+      held list: ゆるるんあくび顔 | table shows 203 of 204 cards; ゆるるんあくび顔 shown: false
+    == held: check against today's snapshot (a newly held card is free to leave): exit 0
+      Compared with …/scores.today.json: 203 cards now, 0 new, 1 gone or held, 0 with changed data, 0 unexplained score moves.
+
+The replay is of the data, not of the code of 2026-09-20: both sides are generated and scored by today's generator and engine, which is what the weekly action will do. The new tests were shown to fail by removing the data-hash rule from `unexplainedMoves` (one test red).
 
 Milestones 1 to 4 each end with the same three commands, all of which must succeed:
 
@@ -337,3 +364,4 @@ It starts from `profile.occasions[effect.occasion]`, takes the minimum with each
 - 2026-09-21 (Milestone 1): Progress, decisions C14–C15, the acceptance transcript and the Interfaces section brought in line with the code (`trigger` nested, types in `src/engine/types.ts`, `FilterCounts`). Reason: the sketch was written before the parser existed.
 - 2026-09-21 (Milestone 2): Progress, decisions C16–C17; the deletions moved from Milestone 2 to the end of Milestone 3 in Progress. Reason: the page's override panel still depends on the old counts, found when starting Milestone 2.
 - 2026-09-21 (Milestone 3): Progress split into "code and tests" (done) and "acceptance by eye" (open, the agent had no browser); decisions C18–C19. Reason: the milestone's last criterion is the user's judgment of readability, which no test can stand in for.
+- 2026-09-22 (Milestone 4): Progress, decision C20, the acceptance transcript; Plan of Work and Validation left as written, with C20 recording how the check differs from their wording ("compares the scores of the committed data with the freshly generated data"). Reason: a comparison of card data alone turned out to be vacuous.
