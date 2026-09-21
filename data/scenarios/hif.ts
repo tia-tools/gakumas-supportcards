@@ -13,7 +13,6 @@
 
 import type { LessonSplit, Scenario } from "../../src/engine/types.ts";
 
-const F = "s_card_p_skill_filter-vocaladdition-p_trigger-";
 const LESSONS = 8;
 
 /**
@@ -85,49 +84,6 @@ export const HIF: Scenario = {
           rarity: { members: { ssr: 10 } },
         },
       },
-      counts: {
-        [`${F}produce_start-initial`]: 1, // 初期パラメータ上昇
-        [`${F}end_lesson-lesson_vocal`]: 8, // レッスン終了時パラメータ上昇
-        [`${F}end_lesson-lesson_vocal_normal`]: 0, // 通常レッスン終了時パラメータ上昇
-        [`${F}end_lesson-lesson_vocal_sp`]: 8, // SPレッスン終了時パラメータ上昇
-        [`${F}upgrade_produce_card-0000_0000-p_card_search-deck_all`]: 0, // スキルカード強化時パラメータ上昇
-        [`${F}upgrade_produce_card-0000_0000-p_card_search-mental_skill-deck_all`]: 0, // メンタルスキルカード強化時パラメータ上昇
-        [`${F}upgrade_produce_card-0000_0000-p_card_search-active_skill-deck_all`]: 0, // アクティブスキルカード強化時パラメータ上昇
-        [`${F}delete_produce_card-0000_0000-p_card_search-deck_all`]: 6, // スキルカード削除時パラメータ上昇
-        [`${F}delete_produce_card-0000_0000-p_card_search-mental_skill-deck_all`]: 6, // メンタルスキルカード削除時パラメータ上昇
-        [`${F}delete_produce_card-0000_0000-p_card_search-active_skill-deck_all`]: 6, // アクティブスキルカード削除時パラメータ上昇
-        [`${F}change_produce_card`]: 4, // スキルカードチェンジ時パラメータ上昇
-        [`${F}get_produce_card-0000_0000-p_card_search-deck_all`]: 20, // スキルカード獲得時パラメータ上昇
-        [`${F}get_produce_card-0000_0000-p_card_search-mental_skill-deck_all`]: 13, // メンタルスキルカード獲得時パラメータ上昇
-        [`${F}get_produce_card-0000_0000-p_card_search-active_skill-deck_all`]: 7, // アクティブスキルカード獲得時パラメータ上昇
-        [`${F}get_produce_card-0000_0000-p_card_search-deck_all-effect_group-visible-exam_parameter_buff-000`]: 10, // 好調効果のスキルカード獲得時パラメータ上昇
-        [`${F}get_produce_card-0000_0000-p_card_search-deck_all-effect_group-visible-exam_lesson_buff-000`]: 10, // 集中効果のスキルカード獲得時パラメータ上昇
-        [`${F}get_produce_card-0000_0000-p_card_search-deck_all-effect_group-visible-exam_card_play_aggressive-000`]: 10, // やる気効果のスキルカード獲得時パラメータ上昇
-        [`${F}get_produce_card-0000_0000-p_card_search-deck_all-effect_group-visible-exam_review-000`]: 14, // 好印象効果のスキルカード獲得時パラメータ上昇
-        [`${F}get_produce_card-0000_0000-p_card_search-deck_all-effect_group-visible-exam_concentration-000`]: 10, // 強気効果のスキルカード獲得時パラメータ上昇
-        [`${F}get_produce_card-0000_0000-p_card_search-deck_all-effect_group-visible-exam_full_power-000`]: 10, // 全力効果のスキルカード獲得時パラメータ上昇
-        [`${F}get_produce_card-produce_card_search_count-p_card_search-deck_all-effect_group-visible-exam_full_power-000-0008_0000`]: 10, // 全力効果のスキルカードが8枚以上の場合の獲得時 — same count as the unconditional row above (D13, D10)
-        [`${F}get_produce_card-0000_0000-p_card_search-deck_all-effect_group-visible-exam_preservation-000`]: 10, // 温存効果のスキルカード獲得時パラメータ上昇
-        [`${F}get_produce_card-produce_card_search_count-p_card_search-deck_all-effect_group-visible-exam_preservation-000-0008_0000`]: 10, // 温存効果のスキルカードが8枚以上の場合の獲得時 — same count as the unconditional row above (D13, D10)
-        [`${F}end_step_event_school`]: 6, // 授業・営業終了時パラメータ上昇
-        [`${F}end_audition`]: 5, // 試験・オーディション終了時パラメータ上昇
-        [`${F}start_present`]: 5, // 活動支給・差し入れ選択時パラメータ上昇
-        [`${F}end_step_event_activity`]: 1, // おでかけ終了時パラメータ上昇
-        [`${F}start_shop`]: 3, // 相談選択時パラメータ上昇
-        [`${F}buy_shop_item_produce_drink`]: 8, // 相談でPドリンク交換後パラメータ上昇
-        [`${F}start_refresh`]: 0, // 休む選択時パラメータ上昇
-        [`${F}get_produce_drink`]: 16, // Pドリンク獲得時パラメータ上昇
-        [`${F}customize_produce_card`]: 2, // スキルカードカスタマイズ時パラメータ上昇
-        [`${F}get_produce_card-0000_0000-p_card_search-deck_all-effect_group-visible-exam_block-000`]: 12, // 元気効果のスキルカード獲得時パラメータ上昇
-        [`${F}get_produce_card-p_card_search-ssr-deck_all-1`]: 10, // スキルカード（SSR）獲得時パラメータ上昇
-        [`${F}get_produce_item`]: 3, // Pアイテム獲得時パラメータ上昇
-        [`${F}end_lesson-lesson_sp-produce_card_count-0020_0000`]: 8, // SPレッスン終了時所持スキルカードが20枚以上の場合パラメータ上昇
-        [`${F}start_customize`]: 0, // 特別指導開始時パラメータ上昇
-        [`${F}change_produce_card-p_card_search-deck_all-starter`]: 4, // 名前に「基本」を含むスキルカードチェンジ時パラメータ上昇
-        [`${F}end_audition-produce_card_search_count-p_card_search-deck_all-0015_0000`]: 5, // 試験・オーディション終了時所持スキルカードが15枚以上の場合パラメータ上昇
-        [`${F}buy_shop_item_produce_card`]: 2, // 相談でスキルカード交換後パラメータ上昇
-        "ext-vocaladdition-p_trigger-end_before_audition_refresh": 4, // 試験・オーディション前の休憩後パラメータ上昇
-      },
     },
     {
       id: "odekake",
@@ -168,49 +124,6 @@ export const HIF: Scenario = {
           rarity: { members: { ssr: 10 } },
         },
       },
-      counts: {
-        [`${F}produce_start-initial`]: 1, // 初期パラメータ上昇
-        [`${F}end_lesson-lesson_vocal`]: 8, // レッスン終了時パラメータ上昇
-        [`${F}end_lesson-lesson_vocal_normal`]: 0, // 通常レッスン終了時パラメータ上昇
-        [`${F}end_lesson-lesson_vocal_sp`]: 8, // SPレッスン終了時パラメータ上昇
-        [`${F}upgrade_produce_card-0000_0000-p_card_search-deck_all`]: 0, // スキルカード強化時パラメータ上昇
-        [`${F}upgrade_produce_card-0000_0000-p_card_search-mental_skill-deck_all`]: 0, // メンタルスキルカード強化時パラメータ上昇
-        [`${F}upgrade_produce_card-0000_0000-p_card_search-active_skill-deck_all`]: 0, // アクティブスキルカード強化時パラメータ上昇
-        [`${F}delete_produce_card-0000_0000-p_card_search-deck_all`]: 6, // スキルカード削除時パラメータ上昇
-        [`${F}delete_produce_card-0000_0000-p_card_search-mental_skill-deck_all`]: 6, // メンタルスキルカード削除時パラメータ上昇
-        [`${F}delete_produce_card-0000_0000-p_card_search-active_skill-deck_all`]: 6, // アクティブスキルカード削除時パラメータ上昇
-        [`${F}change_produce_card`]: 4, // スキルカードチェンジ時パラメータ上昇
-        [`${F}get_produce_card-0000_0000-p_card_search-deck_all`]: 20, // スキルカード獲得時パラメータ上昇
-        [`${F}get_produce_card-0000_0000-p_card_search-mental_skill-deck_all`]: 13, // メンタルスキルカード獲得時パラメータ上昇
-        [`${F}get_produce_card-0000_0000-p_card_search-active_skill-deck_all`]: 7, // アクティブスキルカード獲得時パラメータ上昇
-        [`${F}get_produce_card-0000_0000-p_card_search-deck_all-effect_group-visible-exam_parameter_buff-000`]: 10, // 好調効果のスキルカード獲得時パラメータ上昇
-        [`${F}get_produce_card-0000_0000-p_card_search-deck_all-effect_group-visible-exam_lesson_buff-000`]: 10, // 集中効果のスキルカード獲得時パラメータ上昇
-        [`${F}get_produce_card-0000_0000-p_card_search-deck_all-effect_group-visible-exam_card_play_aggressive-000`]: 10, // やる気効果のスキルカード獲得時パラメータ上昇
-        [`${F}get_produce_card-0000_0000-p_card_search-deck_all-effect_group-visible-exam_review-000`]: 14, // 好印象効果のスキルカード獲得時パラメータ上昇
-        [`${F}get_produce_card-0000_0000-p_card_search-deck_all-effect_group-visible-exam_concentration-000`]: 10, // 強気効果のスキルカード獲得時パラメータ上昇
-        [`${F}get_produce_card-0000_0000-p_card_search-deck_all-effect_group-visible-exam_full_power-000`]: 10, // 全力効果のスキルカード獲得時パラメータ上昇
-        [`${F}get_produce_card-produce_card_search_count-p_card_search-deck_all-effect_group-visible-exam_full_power-000-0008_0000`]: 10, // 全力効果のスキルカードが8枚以上の場合の獲得時 — same count as the unconditional row above (D13, D10)
-        [`${F}get_produce_card-0000_0000-p_card_search-deck_all-effect_group-visible-exam_preservation-000`]: 10, // 温存効果のスキルカード獲得時パラメータ上昇
-        [`${F}get_produce_card-produce_card_search_count-p_card_search-deck_all-effect_group-visible-exam_preservation-000-0008_0000`]: 10, // 温存効果のスキルカードが8枚以上の場合の獲得時 — same count as the unconditional row above (D13, D10)
-        [`${F}end_step_event_school`]: 6, // 授業・営業終了時パラメータ上昇
-        [`${F}end_audition`]: 5, // 試験・オーディション終了時パラメータ上昇
-        [`${F}start_present`]: 1, // 活動支給・差し入れ選択時パラメータ上昇
-        [`${F}end_step_event_activity`]: 5, // おでかけ終了時パラメータ上昇
-        [`${F}start_shop`]: 3, // 相談選択時パラメータ上昇
-        [`${F}buy_shop_item_produce_drink`]: 3, // 相談でPドリンク交換後パラメータ上昇
-        [`${F}start_refresh`]: 0, // 休む選択時パラメータ上昇
-        [`${F}get_produce_drink`]: 11, // Pドリンク獲得時パラメータ上昇
-        [`${F}customize_produce_card`]: 2, // スキルカードカスタマイズ時パラメータ上昇
-        [`${F}get_produce_card-0000_0000-p_card_search-deck_all-effect_group-visible-exam_block-000`]: 12, // 元気効果のスキルカード獲得時パラメータ上昇
-        [`${F}get_produce_card-p_card_search-ssr-deck_all-1`]: 10, // スキルカード（SSR）獲得時パラメータ上昇
-        [`${F}get_produce_item`]: 3, // Pアイテム獲得時パラメータ上昇
-        [`${F}end_lesson-lesson_sp-produce_card_count-0020_0000`]: 8, // SPレッスン終了時所持スキルカードが20枚以上の場合パラメータ上昇
-        [`${F}start_customize`]: 0, // 特別指導開始時パラメータ上昇
-        [`${F}change_produce_card-p_card_search-deck_all-starter`]: 4, // 名前に「基本」を含むスキルカードチェンジ時パラメータ上昇
-        [`${F}end_audition-produce_card_search_count-p_card_search-deck_all-0015_0000`]: 5, // 試験・オーディション終了時所持スキルカードが15枚以上の場合パラメータ上昇
-        [`${F}buy_shop_item_produce_card`]: 0, // 相談でスキルカード交換後パラメータ上昇
-        "ext-vocaladdition-p_trigger-end_before_audition_refresh": 4, // 試験・オーディション前の休憩後パラメータ上昇
-      },
     },
     {
       id: "generic-contest",
@@ -250,49 +163,6 @@ export const HIF: Scenario = {
           effectGroup: { default: 10, members: { review: 14, block: 12 } },
           rarity: { members: { ssr: 7 } },
         },
-      },
-      counts: {
-        [`${F}produce_start-initial`]: 1, // 初期パラメータ上昇
-        [`${F}end_lesson-lesson_vocal`]: 8, // レッスン終了時パラメータ上昇
-        [`${F}end_lesson-lesson_vocal_normal`]: 0, // 通常レッスン終了時パラメータ上昇
-        [`${F}end_lesson-lesson_vocal_sp`]: 8, // SPレッスン終了時パラメータ上昇
-        [`${F}upgrade_produce_card-0000_0000-p_card_search-deck_all`]: 0, // スキルカード強化時パラメータ上昇
-        [`${F}upgrade_produce_card-0000_0000-p_card_search-mental_skill-deck_all`]: 0, // メンタルスキルカード強化時パラメータ上昇
-        [`${F}upgrade_produce_card-0000_0000-p_card_search-active_skill-deck_all`]: 0, // アクティブスキルカード強化時パラメータ上昇
-        [`${F}delete_produce_card-0000_0000-p_card_search-deck_all`]: 9, // スキルカード削除時パラメータ上昇
-        [`${F}delete_produce_card-0000_0000-p_card_search-mental_skill-deck_all`]: 9, // メンタルスキルカード削除時パラメータ上昇
-        [`${F}delete_produce_card-0000_0000-p_card_search-active_skill-deck_all`]: 9, // アクティブスキルカード削除時パラメータ上昇
-        [`${F}change_produce_card`]: 4, // スキルカードチェンジ時パラメータ上昇
-        [`${F}get_produce_card-0000_0000-p_card_search-deck_all`]: 20, // スキルカード獲得時パラメータ上昇
-        [`${F}get_produce_card-0000_0000-p_card_search-mental_skill-deck_all`]: 13, // メンタルスキルカード獲得時パラメータ上昇
-        [`${F}get_produce_card-0000_0000-p_card_search-active_skill-deck_all`]: 7, // アクティブスキルカード獲得時パラメータ上昇
-        [`${F}get_produce_card-0000_0000-p_card_search-deck_all-effect_group-visible-exam_parameter_buff-000`]: 10, // 好調効果のスキルカード獲得時パラメータ上昇
-        [`${F}get_produce_card-0000_0000-p_card_search-deck_all-effect_group-visible-exam_lesson_buff-000`]: 10, // 集中効果のスキルカード獲得時パラメータ上昇
-        [`${F}get_produce_card-0000_0000-p_card_search-deck_all-effect_group-visible-exam_card_play_aggressive-000`]: 10, // やる気効果のスキルカード獲得時パラメータ上昇
-        [`${F}get_produce_card-0000_0000-p_card_search-deck_all-effect_group-visible-exam_review-000`]: 14, // 好印象効果のスキルカード獲得時パラメータ上昇
-        [`${F}get_produce_card-0000_0000-p_card_search-deck_all-effect_group-visible-exam_concentration-000`]: 10, // 強気効果のスキルカード獲得時パラメータ上昇
-        [`${F}get_produce_card-0000_0000-p_card_search-deck_all-effect_group-visible-exam_full_power-000`]: 10, // 全力効果のスキルカード獲得時パラメータ上昇
-        [`${F}get_produce_card-produce_card_search_count-p_card_search-deck_all-effect_group-visible-exam_full_power-000-0008_0000`]: 10, // 全力効果のスキルカードが8枚以上の場合の獲得時 — same count as the unconditional row above (D13, D10)
-        [`${F}get_produce_card-0000_0000-p_card_search-deck_all-effect_group-visible-exam_preservation-000`]: 10, // 温存効果のスキルカード獲得時パラメータ上昇
-        [`${F}get_produce_card-produce_card_search_count-p_card_search-deck_all-effect_group-visible-exam_preservation-000-0008_0000`]: 10, // 温存効果のスキルカードが8枚以上の場合の獲得時 — same count as the unconditional row above (D13, D10)
-        [`${F}end_step_event_school`]: 6, // 授業・営業終了時パラメータ上昇
-        [`${F}end_audition`]: 5, // 試験・オーディション終了時パラメータ上昇
-        [`${F}start_present`]: 4, // 活動支給・差し入れ選択時パラメータ上昇
-        [`${F}end_step_event_activity`]: 1, // おでかけ終了時パラメータ上昇
-        [`${F}start_shop`]: 4, // 相談選択時パラメータ上昇
-        [`${F}buy_shop_item_produce_drink`]: 0, // 相談でPドリンク交換後パラメータ上昇
-        [`${F}start_refresh`]: 0, // 休む選択時パラメータ上昇
-        [`${F}get_produce_drink`]: 7, // Pドリンク獲得時パラメータ上昇
-        [`${F}customize_produce_card`]: 2, // スキルカードカスタマイズ時パラメータ上昇
-        [`${F}get_produce_card-0000_0000-p_card_search-deck_all-effect_group-visible-exam_block-000`]: 12, // 元気効果のスキルカード獲得時パラメータ上昇
-        [`${F}get_produce_card-p_card_search-ssr-deck_all-1`]: 7, // スキルカード（SSR）獲得時パラメータ上昇
-        [`${F}get_produce_item`]: 6, // Pアイテム獲得時パラメータ上昇
-        [`${F}end_lesson-lesson_sp-produce_card_count-0020_0000`]: 8, // SPレッスン終了時所持スキルカードが20枚以上の場合パラメータ上昇
-        [`${F}start_customize`]: 0, // 特別指導開始時パラメータ上昇
-        [`${F}change_produce_card-p_card_search-deck_all-starter`]: 4, // 名前に「基本」を含むスキルカードチェンジ時パラメータ上昇
-        [`${F}end_audition-produce_card_search_count-p_card_search-deck_all-0015_0000`]: 5, // 試験・オーディション終了時所持スキルカードが15枚以上の場合パラメータ上昇
-        [`${F}buy_shop_item_produce_card`]: 0, // 相談でスキルカード交換後パラメータ上昇
-        "ext-vocaladdition-p_trigger-end_before_audition_refresh": 4, // 試験・オーディション前の休憩後パラメータ上昇
       },
     },
   ],

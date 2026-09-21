@@ -1,37 +1,22 @@
 /**
  * Real-data checks over the shipped scenarios and generated data: every
- * category id a profile names exists in the taxonomy (a typo fails the build),
- * every category the cards use is named by every profile (a category the
- * profile omits would score 0 indistinguishably from a deliberate 0, so 0 must
- * be written down), every card scores to a finite number at every 凸, and the
- * engine's assumptions about the game's ids hold.
+ * occasion and filter the cards' triggers need has a number in every profile
+ * (one the profile omits would count 0 indistinguishably from a deliberate 0, so
+ * 0 must be written down), no filter or condition count exceeds its occasion,
+ * and every card scores to a finite number at every 凸.
  */
 
 import { describe, expect, test } from "bun:test";
-import { conditionKey, missingNumbers } from "../../src/engine/count.ts";
-import { PARAMETER_BONUS_CATEGORY_ID, scoreBest, taxonomyMap } from "../../src/engine/score.ts";
-import { EVENT_CATEGORY_ID, type Totsu } from "../../src/engine/types.ts";
+import { conditionKey, missingNumbers, occasionOfConditionKey } from "../../src/engine/count.ts";
+import { scoreBest } from "../../src/engine/score.ts";
+import type { Totsu } from "../../src/engine/types.ts";
 import { CARDS } from "../cards.generated.ts";
 import { LEVEL_LIMITS } from "../levelLimits.generated.ts";
-import { TAXONOMY } from "../taxonomy.generated.ts";
 import { SCENARIOS } from "./index.ts";
 
-const taxonomy = taxonomyMap(TAXONOMY);
 const TOTSU: Totsu[] = [0, 1, 2, 3, 4];
 
-/** Category ids that at least one card effect carries, minus the event pseudo-category. */
-const CATEGORIES_USED_BY_CARDS: readonly string[] = [...new Set(CARDS.flatMap((c) => c.breakpoints.flatMap((b) => b.effects.map((e) => e.categoryId))))].filter((id) => id !== EVENT_CATEGORY_ID);
-
 describe("shipped scenarios", () => {
-  test("the パラメータボーナス+ row id the engine relies on exists in the taxonomy", () => {
-    expect(taxonomy.get(PARAMETER_BONUS_CATEGORY_ID)?.title).toBe("パラメータボーナス+");
-  });
-
-  test("every category id the generated cards use exists in the generated taxonomy", () => {
-    expect(CATEGORIES_USED_BY_CARDS.length).toBeGreaterThan(0);
-    for (const id of CATEGORIES_USED_BY_CARDS) expect(taxonomy.has(id)).toBe(true);
-  });
-
   test("scenario and profile ids are unique and non-empty", () => {
     const ids = SCENARIOS.map((s) => s.id);
     expect(new Set(ids).size).toBe(ids.length);
@@ -46,9 +31,9 @@ describe("shipped scenarios", () => {
     const [s] = SCENARIOS;
     const [p] = s?.profiles ?? [];
     if (!s || !p) throw new Error("no default scenario profile");
-    const key = "EndLesson/produce_card_count>=20";
+    const key = "EndLesson.produce_card_count.ge20";
     const carries = (c: (typeof CARDS)[number]): boolean => c.breakpoints.some((b) => b.effects.some((e) => e.trigger?.conditions?.some((x) => conditionKey(e.trigger?.occasion ?? "", x) === key)));
-    const ctx = { profile: p, taxonomy, limits: LEVEL_LIMITS, scenarioId: s.id };
+    const ctx = { profile: p, limits: LEVEL_LIMITS, scenarioId: s.id };
     const lowered = { ...ctx, profile: { ...p, conditions: { ...p.conditions, [key]: 0 } } };
     const moved = CARDS.filter((c) => scoreBest(c, 4, ctx).total !== scoreBest(c, 4, lowered).total);
     expect(moved.length).toBeGreaterThan(0);
@@ -58,21 +43,6 @@ describe("shipped scenarios", () => {
 
   for (const s of SCENARIOS) {
     for (const p of s.profiles) {
-      test(`${s.id}/${p.id}: every counted category exists in the taxonomy and counts are non-negative integers`, () => {
-        for (const [id, n] of Object.entries(p.counts)) {
-          expect(taxonomy.has(id)).toBe(true);
-          expect(Number.isInteger(n) && n >= 0).toBe(true);
-        }
-      });
-
-      test(`${s.id}/${p.id}: every category the cards use is named in counts (directly or through countsAs); an omitted category would silently score 0`, () => {
-        for (const id of CATEGORIES_USED_BY_CARDS) {
-          if (id === PARAMETER_BONUS_CATEGORY_ID) continue; // scored from the lesson split, not from a count
-          const key = id in p.counts ? id : taxonomy.get(id)?.countsAs;
-          expect(key !== undefined && key in p.counts, `${id} is not named in ${s.id}/${p.id}; write 0 if it never occurs`).toBe(true);
-        }
-      });
-
       test(`${s.id}/${p.id}: every occasion and filter the cards' triggers need has a number; a missing one would silently count 0`, () => {
         const missing = new Set(CARDS.flatMap((c) => c.breakpoints.flatMap((b) => b.effects.flatMap((e) => (e.trigger ? missingNumbers(e.trigger, p) : [])))));
         expect([...missing]).toEqual([]);
@@ -92,7 +62,7 @@ describe("shipped scenarios", () => {
           }
         }
         for (const [key, n] of Object.entries(p.conditions ?? {})) {
-          const parent = p.occasions[key.slice(0, key.indexOf("/"))];
+          const parent = p.occasions[occasionOfConditionKey(key)];
           expect(whole(n) && parent !== undefined && n <= parent, `conditions["${key}"]: ${n} of ${parent}`).toBe(true);
         }
       });
@@ -112,7 +82,7 @@ describe("shipped scenarios", () => {
       });
 
       test(`${s.id}/${p.id}: every card scores to a finite, non-negative total at every 凸, non-decreasing in 凸`, () => {
-        const ctx = { profile: p, taxonomy, limits: LEVEL_LIMITS };
+        const ctx = { profile: p, limits: LEVEL_LIMITS, scenarioId: s.id };
         for (const card of CARDS) {
           let prev = -1;
           for (const t of TOTSU) {
