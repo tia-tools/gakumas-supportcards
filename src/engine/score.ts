@@ -1,29 +1,25 @@
 /**
- * Scoring engine (ADR 0001; plan decisions D1, D4, D10–D17, D25, D26). Pure
- * functions, no DOM, no I/O: every dependency (taxonomy, level limits, route
- * profile, lesson split) is passed in.
+ * Scoring engine (ADR 0001, ADR 0004; plan decisions D1, D4, D10–D17, D25, D26).
+ * Pure functions, no DOM, no I/O: every dependency (level limits, scenario,
+ * route profile, lesson split) is passed in.
  *
  * A card's 点数 at 凸k under a lesson split is the sum over the effects active
  * at level `levelFor(rarity, k)` of:
- *   skill, flat        value × min(cap, routeCount(category), split[triggerStat])
- *   skill, bonus (%)   value / 1000 × profile.parameterBonusBase(split[stat])
- *   event              value × (1 + eventBonusPermil / 1000)
- *   item               value × min(fireLimit, routeCount(category), split[triggerStat])
- * where a missing cap means unlimited, the split cap applies only to lesson-end
- * triggers bound to one stat, and a category the profile does not name counts
- * 0 (extension rows fall back to their `countsAs` game row). `scoreBest` takes
- * the profile's preset split that gives the card the highest total.
+ *   skill or item, flat   value × occurrences(effect)            (src/engine/count.ts)
+ *   bonus (%)             value / 1000 × profile.parameterBonusBase(split[stat])
+ *   event                 value × (1 + eventBonusPermil / 1000)
+ * where `occurrences` counts the effect's occasion narrowed by its filters and
+ * stated conditions and capped by the effect's own per-run cap. `scoreBest`
+ * takes the profile's preset split that gives the card the highest total.
  */
 
-import { EVENT_CATEGORY_ID, type BreakdownLine, type Breakpoint, type Card, type ClassifiedEffect, type LessonSplit, type LevelLimits, type Rarity, type RouteProfile, type Score, type Stat, type TaxonomyRow, type Totsu } from "./types.ts";
-
-/** The game's パラメータボーナス+ row; its values are tenths of a percent. */
-export const PARAMETER_BONUS_CATEGORY_ID = "s_card_p_skill_filter-vocalgrowthrateaddition-p_trigger-produce_start-no_description";
-export const EVENT_CATEGORY_TITLE = "サポートイベント";
+import { occurrences } from "./count.ts";
+import type { BreakdownLine, Breakpoint, Card, ClassifiedEffect, LessonSplit, LevelLimits, Rarity, RouteProfile, Score, Stat, Totsu } from "./types.ts";
 
 export interface ScoreContext {
+  /** The scenario being scored: a trigger restricted to another scenario counts 0. */
+  scenarioId: string;
   profile: RouteProfile;
-  taxonomy: ReadonlyMap<string, TaxonomyRow>;
   limits: LevelLimits;
   lessons: LessonSplit;
 }
@@ -42,45 +38,21 @@ export function resolveAtLevel(card: Card, level: number): Breakpoint {
   return found ?? { minLevel: level, effects: [], eventBonusPermil: 0 };
 }
 
-/** Occurrences per run of a category under the profile, honouring `countsAs`. */
-export function routeCount(profile: RouteProfile, taxonomy: ReadonlyMap<string, TaxonomyRow>, categoryId: string): number {
-  const direct = profile.counts[categoryId];
-  if (direct !== undefined) return direct;
-  const alias = taxonomy.get(categoryId)?.countsAs;
-  return alias === undefined ? 0 : (profile.counts[alias] ?? 0);
-}
-
-/** Occurrences per run: the category's route count, capped by the split's lessons of the trigger's stat and by the effect's own cap. */
-function occurrences(effect: ClassifiedEffect, ctx: ScoreContext): number {
-  let n = routeCount(ctx.profile, ctx.taxonomy, effect.categoryId);
-  if (effect.triggerStat) n = Math.min(n, ctx.lessons[effect.triggerStat]);
-  return effect.cap ? Math.min(effect.cap, n) : n;
-}
-
-function titleOf(taxonomy: ReadonlyMap<string, TaxonomyRow>, categoryId: string): string {
-  if (categoryId === EVENT_CATEGORY_ID) return EVENT_CATEGORY_TITLE;
-  return taxonomy.get(categoryId)?.title ?? categoryId;
-}
-
 function lineFor(effect: ClassifiedEffect, bp: Breakpoint, ctx: ScoreContext): BreakdownLine {
-  const title = titleOf(ctx.taxonomy, effect.categoryId);
-  const base = { categoryId: effect.categoryId, title, stat: effect.stat, value: effect.value };
+  const base = { stat: effect.stat, value: effect.value };
   if (effect.kind === "event") {
     const factor = 1000 + bp.eventBonusPermil;
     return { ...base, kind: "event", count: factor, points: (effect.value * factor) / 1000 };
   }
-  if (effect.kind === "item") {
-    const n = occurrences(effect, ctx);
-    const line: BreakdownLine = { ...base, kind: "item", count: n, points: effect.value * n };
-    if (effect.itemName !== undefined) line.itemName = effect.itemName;
-    return line;
-  }
-  if (effect.categoryId === PARAMETER_BONUS_CATEGORY_ID) {
+  const line: BreakdownLine = { ...base, kind: effect.kind, count: 0, points: 0 };
+  if (effect.trigger) line.trigger = effect.trigger;
+  if (effect.itemName !== undefined) line.itemName = effect.itemName;
+  if (effect.bonus) {
     const gain = ctx.profile.parameterBonusBase(ctx.lessons[effect.stat]);
-    return { ...base, kind: "bonus", count: gain, points: (effect.value * gain) / 1000 };
+    return { ...line, kind: "bonus", count: gain, points: (effect.value * gain) / 1000 };
   }
   const n = occurrences(effect, ctx);
-  return { ...base, kind: "skill", count: n, points: effect.value * n };
+  return { ...line, count: n, points: effect.value * n };
 }
 
 export function scoreAtLevel(card: Card, level: number, ctx: ScoreContext): Score {
@@ -110,8 +82,4 @@ export function scoreBest(card: Card, totsu: Totsu, ctx: Omit<ScoreContext, "les
   }
   if (!best) throw new Error(`profile ${ctx.profile.id} has no lesson splits`);
   return best;
-}
-
-export function taxonomyMap(rows: readonly TaxonomyRow[]): ReadonlyMap<string, TaxonomyRow> {
-  return new Map(rows.map((r) => [r.id, r]));
 }

@@ -1,31 +1,26 @@
 import { describe, expect, test } from "bun:test";
-import { PARAMETER_BONUS_CATEGORY_ID, levelFor, resolveAtLevel, routeCount, score, scoreAtLevel, scoreBest, taxonomyMap, type ScoreContext } from "./score.ts";
-import { EVENT_CATEGORY_ID, type Card, type LevelLimits, type RouteProfile, type TaxonomyRow } from "./types.ts";
+import { levelFor, resolveAtLevel, score, scoreAtLevel, scoreBest, type ScoreContext } from "./score.ts";
+import type { Card, LevelLimits, ParsedTrigger, RouteProfile, Stat } from "./types.ts";
 
-const SHOP = "s_card_p_skill_filter-vocaladdition-p_trigger-start_shop";
-const SP_LESSON = "s_card_p_skill_filter-vocaladdition-p_trigger-end_lesson-lesson_vocal_sp";
-const EXT_SP = "ext-vocaladdition-p_trigger-end_lesson-lesson_sp";
-const UNNAMED = "s_card_p_skill_filter-vocaladdition-p_trigger-start_refresh";
+const SHOP: ParsedTrigger = { occasion: "StartShop" };
+const REST: ParsedTrigger = { occasion: "StartRefresh" };
+const START: ParsedTrigger = { occasion: "ProduceStart" };
+const SP_ANY: ParsedTrigger = { occasion: "EndLesson", filters: [{ family: "lessonKind", member: "sp" }] };
+const spLessonOf = (stat: Stat): ParsedTrigger => ({ occasion: "EndLesson", filters: [{ family: "lessonStat", member: stat }, { family: "lessonKind", member: "sp" }] });
 
-const TAXONOMY: TaxonomyRow[] = [
-  { id: SHOP, title: "相談選択時パラメータ上昇", order: 28, source: "game" },
-  { id: SP_LESSON, title: "SPレッスン終了時パラメータ上昇", order: 6, source: "game" },
-  { id: PARAMETER_BONUS_CATEGORY_ID, title: "パラメータボーナス+", order: 2, source: "game" },
-  { id: UNNAMED, title: "休む選択時パラメータ上昇", order: 30, source: "game" },
-  { id: EXT_SP, title: "SPレッスン終了時パラメータ上昇", order: 106, source: "extension", countsAs: SP_LESSON },
-];
 const LIMITS: LevelLimits = { r: [20, 25, 30, 35, 40], sr: [30, 35, 40, 45, 50], ssr: [40, 45, 50, 55, 60] };
 const PROFILE: RouteProfile = {
   id: "p",
   name: "test",
-  counts: { [SHOP]: 5, [SP_LESSON]: 9 },
+  occasions: { StartShop: 5, EndLesson: 9, ProduceStart: 1 },
+  filters: { EndLesson: { lessonKind: { members: { sp: 9, normal: 0 } } } },
   lessonSplits: [
     { vocal: 7, dance: 1, visual: 0 },
     { vocal: 0, dance: 1, visual: 7 },
   ],
   parameterBonusBase: (n) => 500 * n, // 4 lessons → 2000, 2 → 1000, 1 → 500
 };
-const ctx: ScoreContext = { profile: PROFILE, taxonomy: taxonomyMap(TAXONOMY), limits: LIMITS, lessons: { vocal: 4, dance: 3, visual: 2 } };
+const ctx: ScoreContext = { scenarioId: "s", profile: PROFILE, limits: LIMITS, lessons: { vocal: 4, dance: 3, visual: 2 } };
 
 function card(breakpoints: Card["breakpoints"], rarity: Card["rarity"] = "ssr"): Card {
   return { id: "c", name: "c", assetId: "a", type: "vocal", rarity, plan: "common", breakpoints };
@@ -50,17 +45,8 @@ describe("levelFor / resolveAtLevel", () => {
   });
 
   test("a level below every breakpoint resolves to nothing", () => {
-    const c = card([{ minLevel: 5, effects: [{ categoryId: SHOP, stat: "vocal", value: 9, kind: "skill" }], eventBonusPermil: 0 }]);
+    const c = card([{ minLevel: 5, effects: [{ stat: "vocal", value: 9, kind: "skill", trigger: SHOP }], eventBonusPermil: 0 }]);
     expect(resolveAtLevel(c, 1)).toEqual({ minLevel: 1, effects: [], eventBonusPermil: 0 });
-  });
-});
-
-describe("routeCount", () => {
-  test("direct count, countsAs fallback, unnamed category → 0", () => {
-    expect(routeCount(PROFILE, ctx.taxonomy, SHOP)).toBe(5);
-    expect(routeCount(PROFILE, ctx.taxonomy, EXT_SP)).toBe(9);
-    expect(routeCount(PROFILE, ctx.taxonomy, UNNAMED)).toBe(0);
-    expect(routeCount(PROFILE, ctx.taxonomy, "no-such-row")).toBe(0);
   });
 });
 
@@ -70,13 +56,13 @@ describe("score", () => {
     expect(s).toEqual({ total: 0, byStat: { vocal: 0, dance: 0, visual: 0 }, parts: { skills: 0, events: 0, items: 0 }, lines: [], lessons: ctx.lessons });
   });
 
-  test("flat skill: value × route count, capped by activationCount (D15)", () => {
+  test("flat skill: value × occurrences, capped by activationCount (D15)", () => {
     const c = card([
       {
         minLevel: 1,
         effects: [
-          { categoryId: SHOP, stat: "vocal", value: 10, kind: "skill" },
-          { categoryId: SHOP, stat: "dance", value: 10, kind: "skill", cap: 2 },
+          { stat: "vocal", value: 10, kind: "skill", trigger: SHOP },
+          { stat: "dance", value: 10, kind: "skill", cap: 2, trigger: SHOP },
         ],
         eventBonusPermil: 0,
       },
@@ -95,10 +81,10 @@ describe("score", () => {
       {
         minLevel: 1,
         effects: [
-          { categoryId: SP_LESSON, stat: "vocal", value: 10, kind: "skill", triggerStat: "vocal" }, // 9 SP lessons, but only 4 train vocal
-          { categoryId: SP_LESSON, stat: "vocal", value: 10, kind: "skill", triggerStat: "visual", cap: 1 }, // 2 visual lessons, own cap 1
-          { categoryId: SP_LESSON, stat: "vocal", value: 10, kind: "skill" }, // any-stat trigger: all 9
-          { categoryId: SP_LESSON, stat: "dance", value: 20, kind: "item", triggerStat: "dance", cap: 5 }, // items too: min(5, 3)
+          { stat: "vocal", value: 10, kind: "skill", trigger: spLessonOf("vocal") }, // 9 SP lessons, but only 4 train vocal
+          { stat: "vocal", value: 10, kind: "skill", trigger: spLessonOf("visual"), cap: 1 }, // 2 visual lessons, own cap 1
+          { stat: "vocal", value: 10, kind: "skill", trigger: SP_ANY }, // any-stat trigger: all 9
+          { stat: "dance", value: 20, kind: "item", trigger: spLessonOf("dance"), cap: 5 }, // items too: min(5, 3)
         ],
         eventBonusPermil: 0,
       },
@@ -106,42 +92,56 @@ describe("score", () => {
     expect(score(c, 0, ctx).lines.map((l) => l.count)).toEqual([4, 1, 9, 3]);
   });
 
-  test("extension category falls back to its countsAs row's count", () => {
-    const c = card([{ minLevel: 1, effects: [{ categoryId: EXT_SP, stat: "visual", value: 20, kind: "skill", cap: 3 }], eventBonusPermil: 0 }]);
-    expect(score(c, 0, ctx).total).toBe(60);
-  });
-
-  test("a category the profile does not name scores 0 but keeps its line", () => {
-    const c = card([{ minLevel: 1, effects: [{ categoryId: UNNAMED, stat: "vocal", value: 22, kind: "skill" }], eventBonusPermil: 0 }]);
+  test("an occasion the profile does not name scores 0 but keeps its line, trigger included for the page to word", () => {
+    const c = card([{ minLevel: 1, effects: [{ stat: "vocal", value: 22, kind: "skill", trigger: REST }], eventBonusPermil: 0 }]);
     const s = score(c, 0, ctx);
     expect(s.total).toBe(0);
-    expect(s.lines[0]).toMatchObject({ title: "休む選択時パラメータ上昇", count: 0, points: 0 });
+    expect(s.lines[0]).toEqual({ kind: "skill", stat: "vocal", value: 22, count: 0, points: 0, trigger: REST });
+  });
+
+  test("a trigger restricted to another scenario scores 0; to this one, normally", () => {
+    const c = card([
+      {
+        minLevel: 1,
+        effects: [
+          { stat: "vocal", value: 10, kind: "skill", trigger: { occasion: "StartShop", scenario: "other" } },
+          { stat: "vocal", value: 10, kind: "skill", trigger: { occasion: "StartShop", scenario: "s" } },
+        ],
+        eventBonusPermil: 0,
+      },
+    ]);
+    expect(score(c, 0, ctx).lines.map((l) => l.points)).toEqual([0, 50]);
   });
 
   test("パラメータボーナス+: tenths of a percent × the profile's bonus base for the stat's lesson count (D4, D26)", () => {
-    const c = card([{ minLevel: 1, effects: [{ categoryId: PARAMETER_BONUS_CATEGORY_ID, stat: "vocal", value: 85, kind: "skill", cap: 1 }], eventBonusPermil: 0 }]);
+    const c = card([{ minLevel: 1, effects: [{ stat: "vocal", value: 85, kind: "skill", cap: 1, trigger: START, bonus: true }], eventBonusPermil: 0 }]);
     const s = score(c, 0, ctx);
     expect(s.total).toBe(170);
     expect(s.lines[0]).toMatchObject({ kind: "bonus", value: 85, count: 2000, points: 170 });
   });
 
+  test("the same trigger without the bonus flag is points per occurrence", () => {
+    const c = card([{ minLevel: 1, effects: [{ stat: "vocal", value: 85, kind: "skill", cap: 1, trigger: START }], eventBonusPermil: 0 }]);
+    expect(score(c, 0, ctx).lines[0]).toMatchObject({ kind: "skill", count: 1, points: 85 });
+  });
+
   test("event reward × (1 + own-event bonus) at the resolved level (D17)", () => {
     const c = card([
-      { minLevel: 1, effects: [{ categoryId: EVENT_CATEGORY_ID, stat: "vocal", value: 20, kind: "event" }], eventBonusPermil: 500 },
-      { minLevel: 60, effects: [{ categoryId: EVENT_CATEGORY_ID, stat: "vocal", value: 20, kind: "event" }], eventBonusPermil: 1000 },
+      { minLevel: 1, effects: [{ stat: "vocal", value: 20, kind: "event" }], eventBonusPermil: 500 },
+      { minLevel: 60, effects: [{ stat: "vocal", value: 20, kind: "event" }], eventBonusPermil: 1000 },
     ]);
     expect(score(c, 0, ctx)).toMatchObject({ total: 30, parts: { skills: 0, events: 30, items: 0 } });
     expect(score(c, 4, ctx)).toMatchObject({ total: 40, parts: { events: 40 } });
-    expect(score(c, 4, ctx).lines[0]).toMatchObject({ kind: "event", title: "サポートイベント", count: 2000, points: 40 });
+    expect(score(c, 4, ctx).lines[0]).toEqual({ kind: "event", stat: "vocal", value: 20, count: 2000, points: 40 });
   });
 
-  test("item: value × min(fireLimit, route count), labelled with the item name (D16)", () => {
+  test("item: value × min(fireLimit, occurrences), labelled with the item name (D16)", () => {
     const c = card([
       {
         minLevel: 1,
         effects: [
-          { categoryId: SHOP, stat: "vocal", value: 30, kind: "item", cap: 1, itemId: "pitem-a", itemName: "切磋琢磨のタオル" },
-          { categoryId: SP_LESSON, stat: "dance", value: 20, kind: "item", itemId: "pitem-b", itemName: "unlimited" },
+          { stat: "vocal", value: 30, kind: "item", cap: 1, itemId: "pitem-a", itemName: "切磋琢磨のタオル", trigger: SHOP },
+          { stat: "dance", value: 20, kind: "item", itemId: "pitem-b", itemName: "unlimited", trigger: SP_ANY },
         ],
         eventBonusPermil: 0,
       },
@@ -157,10 +157,10 @@ describe("score", () => {
       {
         minLevel: 1,
         effects: [
-          { categoryId: SHOP, stat: "vocal", value: 10, kind: "skill" },
-          { categoryId: PARAMETER_BONUS_CATEGORY_ID, stat: "dance", value: 50, kind: "skill", cap: 1 },
-          { categoryId: EVENT_CATEGORY_ID, stat: "visual", value: 20, kind: "event" },
-          { categoryId: SHOP, stat: "visual", value: 30, kind: "item", cap: 2 },
+          { stat: "vocal", value: 10, kind: "skill", trigger: SHOP },
+          { stat: "dance", value: 50, kind: "skill", cap: 1, trigger: START, bonus: true },
+          { stat: "visual", value: 20, kind: "event" },
+          { stat: "visual", value: 30, kind: "item", cap: 2, trigger: SHOP },
         ],
         eventBonusPermil: 500,
       },
@@ -173,8 +173,8 @@ describe("score", () => {
   });
 
   test("changing the profile changes the totals without touching the card", () => {
-    const c = card([{ minLevel: 1, effects: [{ categoryId: SHOP, stat: "vocal", value: 10, kind: "skill" }], eventBonusPermil: 0 }]);
-    const other: RouteProfile = { ...PROFILE, id: "q", counts: { [SHOP]: 2 } };
+    const c = card([{ minLevel: 1, effects: [{ stat: "vocal", value: 10, kind: "skill", trigger: SHOP }], eventBonusPermil: 0 }]);
+    const other: RouteProfile = { ...PROFILE, id: "q", occasions: { StartShop: 2 } };
     expect(score(c, 0, ctx).total).toBe(50);
     expect(score(c, 0, { ...ctx, profile: other }).total).toBe(20);
   });
@@ -184,8 +184,8 @@ describe("score", () => {
       {
         minLevel: 1,
         effects: [
-          { categoryId: SP_LESSON, stat: "visual", value: 10, kind: "skill", triggerStat: "visual" }, // 7 visual lessons under the second preset
-          { categoryId: PARAMETER_BONUS_CATEGORY_ID, stat: "visual", value: 100, kind: "skill", cap: 1 }, // 10% × 500 × 7 = 350 under it
+          { stat: "visual", value: 10, kind: "skill", trigger: spLessonOf("visual") }, // 7 visual lessons under the second preset
+          { stat: "visual", value: 100, kind: "skill", cap: 1, trigger: START, bonus: true }, // 10% × 500 × 7 = 350 under it
         ],
         eventBonusPermil: 0,
       },
@@ -197,7 +197,7 @@ describe("score", () => {
   });
 
   test("scoreAtLevel and score agree at the 凸 level", () => {
-    const c = card([{ minLevel: 45, effects: [{ categoryId: SHOP, stat: "vocal", value: 10, kind: "skill" }], eventBonusPermil: 0 }]);
+    const c = card([{ minLevel: 45, effects: [{ stat: "vocal", value: 10, kind: "skill", trigger: SHOP }], eventBonusPermil: 0 }]);
     expect(score(c, 0, ctx).total).toBe(0);
     expect(score(c, 1, ctx).total).toBe(scoreAtLevel(c, 45, ctx).total);
   });

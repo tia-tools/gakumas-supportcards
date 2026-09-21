@@ -1,5 +1,5 @@
 ---
-status: accepted
+status: superseded-by-0004
 ---
 
 # The game's own SupportCardProduceSkillFilter table is the canonical effect taxonomy
@@ -9,3 +9,5 @@ Route profiles assign an expected count to each kind of support-card effect, so 
 Source: user decision D3, grill-me session 2026-09-16 (`docs/plans/EXECPLAN_SUPPORT_CARD_SCORE_TABLE.md` § Decision Log). Evidence that the table is complete enough: the previous project's generator dropped HIF-era effects precisely because it used a hand-made 5-phase mapping (same session, dry run of `gakumas-hajime-lesson/scripts/generate-supportcards.ts`).
 
 Addendum 2026-09-17 (status unchanged, scope refined): Milestone 0 of the same plan read every card and found the game table incomplete as a map of triggers — five cards use conditional or new trigger ids no row lists, and P-item triggers were never in it. The taxonomy is therefore the game table **first**, plus a small hand-maintained extension list (`data/taxonomy.extensions.ts`) in the same row shape, one row per uncovered trigger, titled in the game's own wording, optionally pointing at the game category whose route count it shares. The build still fails on any unmatched effect, and additionally fails when a game row comes to cover a trigger an extension row covers, so extensions retire automatically. Conditional trigger ids resolve to a row by longest `-`-delimited prefix. Source: plan Decision Log D13–D14, accepted by the user 2026-09-17 after the prototype run showed zero unclassified pairs with six extension rows.
+
+Superseded 2026-09-21 by `docs/adr/0004-route-profiles-count-occasions-filters-and-conditions.md`: the filter table turned out to be a card-search aid rather than a model of a run, so counting moved to occasions (the game's phase types), filters and conditions, and the table now only supplies display names. What stays true from this ADR is that kinds come from the game data and that an effect the pipeline cannot place is never silently dropped. The code keeps following this ADR until the migration in `docs/plans/EXECPLAN_COUNTING_MODEL.md` lands.

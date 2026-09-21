@@ -1,11 +1,12 @@
 /**
- * Table rows: every card scored at 凸0–凸4 under the chosen profile, overrides
- * and lesson split, then filtered and sorted (plan decisions D9, D10, D26).
+ * Table rows: every card scored at 凸0–凸4 under the chosen profile (with the
+ * player's overrides already applied, see ./panel.ts) and lesson split, then
+ * filtered and sorted (plan decisions D9, D10, D26).
  * Pure functions over the engine; the components only render what these return.
  */
 
 import { score, scoreBest, type ScoreContext } from "../engine/score.ts";
-import type { Card, CardType, Plan, Rarity, RouteProfile, Score, Totsu } from "../engine/types.ts";
+import type { Card, CardType, HeldCard, Plan, Rarity, Score, Totsu } from "../engine/types.ts";
 import type { SortSpec } from "./url-state.ts";
 
 export type ScoresByTotsu = readonly [Score, Score, Score, Score, Score];
@@ -23,10 +24,10 @@ export interface RowFilter {
   rarities: readonly Rarity[];
 }
 
-/** The profile with the user's count overrides applied (D2: local adjustments to a curated route). */
-export function applyOverrides(profile: RouteProfile, overrides: Readonly<Record<string, number>>): RouteProfile {
-  if (Object.keys(overrides).length === 0) return profile;
-  return { ...profile, counts: { ...profile.counts, ...overrides } };
+/** The cards the table may show: a held card has an effect that cannot be counted, so no number of it is published (docs/adr/0005). */
+export function withoutHeld(cards: readonly Card[], held: readonly HeldCard[]): Card[] {
+  const ids = new Set(held.map((h) => h.id));
+  return cards.filter((c) => !ids.has(c.id));
 }
 
 /** `split` is an index into the profile's presets; null scores each 凸 under the card's best preset (D26). */

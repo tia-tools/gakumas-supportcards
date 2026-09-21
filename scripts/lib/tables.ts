@@ -54,13 +54,6 @@ export interface RawProduceTrigger {
   id: string;
   phaseType: string;
 }
-export interface RawFilterRow {
-  id: string;
-  title: string;
-  order: number;
-  produceEffectTypes: string[];
-  produceTriggerIds: string[];
-}
 export interface RawLevelLimit {
   id: string;
   rank: string;
@@ -99,7 +92,6 @@ export interface Tables {
   skills: RawProduceSkill[];
   effects: RawProduceEffect[];
   triggers: RawProduceTrigger[];
-  filterRows: RawFilterRow[];
   levelLimits: RawLevelLimit[];
   eventCards: RawEventSupportCard[];
   eventDetails: RawEventDetail[];
@@ -144,7 +136,7 @@ export async function loadTable<T>(name: string, keys: readonly (keyof T & strin
 
 export async function loadTables(opts: LoadOptions = {}): Promise<Tables> {
   const skillLevelKeys = ["supportCardId", "produceSkillId", "produceSkillLevel", "supportCardLevel"] as const;
-  const [cards, slVocal, slDance, slVisual, slAssist, skills, effects, triggers, filterRows, levelLimits, eventCards, eventDetails, items, itemEffects] =
+  const [cards, slVocal, slDance, slVisual, slAssist, skills, effects, triggers, levelLimits, eventCards, eventDetails, items, itemEffects] =
     await Promise.all([
       loadTable<RawSupportCard>("SupportCard", ["id", "name", "type", "rarity", "planType", "assetId", "supportCardLevelLimitId"], opts),
       loadTable<RawSkillLevel>("SupportCardProduceSkillLevelVocal", skillLevelKeys, opts),
@@ -154,7 +146,6 @@ export async function loadTables(opts: LoadOptions = {}): Promise<Tables> {
       loadTable<RawProduceSkill>("ProduceSkill", ["id", "level", "activationCount", "produceEffectId1", "produceTriggerId1"], opts),
       loadTable<RawProduceEffect>("ProduceEffect", ["id", "produceEffectType", "effectValueMin", "effectValueMax", "produceRewards"], opts),
       loadTable<RawProduceTrigger>("ProduceTrigger", ["id", "phaseType"], opts),
-      loadTable<RawFilterRow>("SupportCardProduceSkillFilter", ["id", "title", "order", "produceEffectTypes", "produceTriggerIds"], opts),
       loadTable<RawLevelLimit>("SupportCardLevelLimit", ["id", "rank", "levelLimit"], opts),
       loadTable<RawEventSupportCard>("ProduceEventSupportCard", ["supportCardId", "number", "supportCardLevel", "produceStepEventDetailId"], opts),
       loadTable<RawEventDetail>("ProduceStepEventDetail", ["id", "produceEffectIds"], opts),
@@ -167,7 +158,6 @@ export async function loadTables(opts: LoadOptions = {}): Promise<Tables> {
     skills,
     effects,
     triggers,
-    filterRows,
     levelLimits,
     eventCards,
     eventDetails,

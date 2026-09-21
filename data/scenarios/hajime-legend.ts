@@ -10,13 +10,12 @@
  * 140, 180, 260, 370, 570). 授業 give 選択パラ+100/+100/+150/+200 (not lesson triggers).
  * Cap 3000 (D19). Both auditions count for 「試験・オーディション終了時」 (D20).
  *
- * PROVISIONAL (2026-09-19): counts marked "guess" are the agent's estimates. They will be
+ * PROVISIONAL (2026-09-19): apart from the schedule facts above (lessons, 授業, auditions and the
+ * start of the run), every occasion and filter count below is the agent's estimate. They will be
  * replaced once the user answers a 初LEGEND route sheet like the H.I.F. one.
  */
 
 import type { LessonSplit, Scenario } from "../../src/engine/types.ts";
-
-const F = "s_card_p_skill_filter-vocaladdition-p_trigger-";
 
 /** Per-lesson selected / non-selected gains at perfect clear (weeks 4, 7, 12, 14, 16). */
 const SELECTED = [140, 180, 260, 370, 570];
@@ -58,48 +57,37 @@ export const HAJIME_LEGEND: Scenario = {
       name: "標準",
       lessonSplits: LESSON_SPLITS,
       parameterBonusBase: bonusBase,
-      counts: {
-        [`${F}produce_start-initial`]: 1, // 初期パラメータ上昇
-        [`${F}end_lesson-lesson_vocal`]: 5, // レッスン終了時 (5 レジェンドレッスン)
-        [`${F}end_lesson-lesson_vocal_normal`]: 0, // 通常レッスン終了時 (D4: every lesson is SP)
-        [`${F}end_lesson-lesson_vocal_sp`]: 5, // SPレッスン終了時
-        [`${F}end_lesson-lesson_sp-produce_card_count-0020_0000`]: 5, // SPレッスン終了時 20枚以上 (D10)
-        [`${F}end_step_event_school`]: 4, // 授業・営業終了時 (weeks 1, 2, 6, 15)
-        [`${F}end_audition`]: 2, // 試験・オーディション終了時 (中間, 最終; D20)
-        [`${F}end_audition-produce_card_search_count-p_card_search-deck_all-0015_0000`]: 2, // (D10)
-        [`${F}start_present`]: 4, // 活動支給・差し入れ選択時 — guess: 活動支給 on all 4 shared slots
-        [`${F}end_step_event_activity`]: 0, // おでかけ終了時 — guess: shares slots with 活動支給 (see above)
-        [`${F}start_shop`]: 4, // 相談選択時 (weeks 5, 8, 13, 17) — guess: all taken
-        [`${F}buy_shop_item_produce_drink`]: 4, // 相談でPドリンク交換後 — guess
-        [`${F}start_refresh`]: 0, // 休む選択時 — guess
-        [`${F}get_produce_drink`]: 8, // Pドリンク獲得時 — guess (活動支給 4 + 相談 4)
-        [`${F}start_customize`]: 1, // 特別指導開始時 — week 9 (week 17 shares with 相談)
-        [`${F}customize_produce_card`]: 2, // スキルカードカスタマイズ時 — 2 per 特別指導
-        [`${F}get_produce_item`]: 2, // Pアイテム獲得時 — guess (中間試験後 item + 1)
-        [`${F}upgrade_produce_card-0000_0000-p_card_search-deck_all`]: 3, // スキルカード強化時 — guess
-        [`${F}upgrade_produce_card-0000_0000-p_card_search-mental_skill-deck_all`]: 3, // guess
-        [`${F}upgrade_produce_card-0000_0000-p_card_search-active_skill-deck_all`]: 3, // guess
-        [`${F}delete_produce_card-0000_0000-p_card_search-deck_all`]: 3, // スキルカード削除時 — guess
-        [`${F}delete_produce_card-0000_0000-p_card_search-mental_skill-deck_all`]: 3, // guess
-        [`${F}delete_produce_card-0000_0000-p_card_search-active_skill-deck_all`]: 3, // guess
-        [`${F}change_produce_card`]: 2, // スキルカードチェンジ時 — guess
-        [`${F}change_produce_card-p_card_search-deck_all-starter`]: 2, // guess
-        [`${F}get_produce_card-0000_0000-p_card_search-deck_all`]: 12, // スキルカード獲得時 — guess (授業 4 + 活動支給 4 + 相談 4)
-        [`${F}get_produce_card-0000_0000-p_card_search-mental_skill-deck_all`]: 8, // guess
-        [`${F}get_produce_card-0000_0000-p_card_search-active_skill-deck_all`]: 4, // guess
-        [`${F}get_produce_card-0000_0000-p_card_search-deck_all-effect_group-visible-exam_parameter_buff-000`]: 6, // guess
-        [`${F}get_produce_card-0000_0000-p_card_search-deck_all-effect_group-visible-exam_lesson_buff-000`]: 6, // guess
-        [`${F}get_produce_card-0000_0000-p_card_search-deck_all-effect_group-visible-exam_card_play_aggressive-000`]: 6, // guess
-        [`${F}get_produce_card-0000_0000-p_card_search-deck_all-effect_group-visible-exam_review-000`]: 6, // guess
-        [`${F}get_produce_card-0000_0000-p_card_search-deck_all-effect_group-visible-exam_concentration-000`]: 6, // guess
-        [`${F}get_produce_card-0000_0000-p_card_search-deck_all-effect_group-visible-exam_full_power-000`]: 6, // guess
-        [`${F}get_produce_card-produce_card_search_count-p_card_search-deck_all-effect_group-visible-exam_full_power-000-0008_0000`]: 6, // 全力効果のスキルカードが8枚以上の場合の獲得時 — same count as the unconditional row above (D13, D10)
-        [`${F}get_produce_card-0000_0000-p_card_search-deck_all-effect_group-visible-exam_preservation-000`]: 6, // guess
-        [`${F}get_produce_card-produce_card_search_count-p_card_search-deck_all-effect_group-visible-exam_preservation-000-0008_0000`]: 6, // 温存効果のスキルカードが8枚以上の場合の獲得時 — same count as the unconditional row above (D13, D10)
-        [`${F}get_produce_card-0000_0000-p_card_search-deck_all-effect_group-visible-exam_block-000`]: 6, // guess
-        [`${F}get_produce_card-p_card_search-ssr-deck_all-1`]: 4, // guess
-        [`${F}buy_shop_item_produce_card`]: 2, // 相談でスキルカード交換後 — guess
-        "ext-vocaladdition-p_trigger-end_before_audition_refresh": 2, // 試験前の休憩後 (中間, 最終; 試験前回復 70%)
+      occasions: {
+        ProduceStart: 1, // プロデュース開始
+        EndLesson: 5, // レッスン終了
+        EndStepEventSchool: 4, // 授業・営業終了
+        EndAudition: 2, // 試験・オーディション終了
+        EndBeforeAuditionRefresh: 2, // 試験・オーディション開始 (試験前の休憩後)
+        StartPresent: 4, // 活動支給・差し入れ選択
+        EndStepEventActivity: 0, // おでかけ終了
+        StartShop: 4, // 相談選択
+        StartRefresh: 0, // 休む選択
+        StartCustomize: 1, // 特別指導開始
+        GetProduceCard: 12, // スキルカード獲得
+        DeleteProduceCard: 3, // スキルカード削除
+        UpgradeProduceCard: 3, // スキルカード強化
+        ChangeProduceCard: 2, // スキルカードチェンジ
+        CustomizeProduceCard: 2, // スキルカードカスタマイズ
+        BuyShopItemProduceCard: 2, // 相談でスキルカード交換
+        GetProduceDrink: 8, // Pドリンク獲得
+        BuyShopItemProduceDrink: 4, // 相談でPドリンク交換
+        GetProduceItem: 2, // Pアイテム獲得
+      },
+      filters: {
+        EndLesson: { lessonKind: { members: { sp: 5, normal: 0 } } }, // every lesson is an SP lesson (docs/adr/0001)
+        UpgradeProduceCard: { cardType: { members: { mental: 3, active: 3 } }, effectGroup: { default: 3 } }, // effectGroup: carried over as every upgrade (C13)
+        DeleteProduceCard: { cardType: { members: { mental: 3, active: 3 } } },
+        ChangeProduceCard: { cardName: { members: { starter: 2 } } }, // 名前に「基本」を含む
+        GetProduceCard: {
+          cardType: { members: { mental: 8, active: 4 } },
+          effectGroup: { default: 6 },
+          rarity: { members: { ssr: 4 } },
+        },
       },
     },
   ],
