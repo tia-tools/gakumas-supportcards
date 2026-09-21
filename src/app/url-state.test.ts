@@ -62,6 +62,12 @@ describe("parseViewState", () => {
     expect(s.overrides).toEqual({ [`${G}start_shop`]: 7, "ext-vocaladdition-p_trigger-end_before_audition_refresh": 0 });
   });
 
+  test("real scenarios: a link naming the unpublished 初LEGEND falls back to H.I.F.", () => {
+    const s = parseViewState(new URLSearchParams("s=hajime-legend&p=standard"), SCENARIOS, TAXONOMY);
+    expect(s.scenarioId).toBe("hif");
+    expect(s.profileId).toBe("sashiire");
+  });
+
   test("real scenarios: default is the first shipped scenario and profile", () => {
     const s = parseViewState(new URLSearchParams(""), SCENARIOS, TAXONOMY);
     expect(s.scenarioId).toBe("hif");

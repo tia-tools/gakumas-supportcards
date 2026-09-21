@@ -56,7 +56,7 @@ export function Controls({ scenarios, scenario, profile, state, update }: Props)
   return (
     <div class="flex flex-col gap-2">
       <div class="flex flex-wrap items-center gap-4">
-        <Select label="シナリオ" value={scenario.id} options={scenarios.map((s) => ({ value: s.id, label: s.name }))} onChange={(id) => update({ scenarioId: id, profileId: scenarios.find((s) => s.id === id)?.profiles[0]?.id ?? "", split: null, overrides: {} })} />
+        {scenarios.length > 1 && <Select label="シナリオ" value={scenario.id} options={scenarios.map((s) => ({ value: s.id, label: s.name }))} onChange={(id) => update({ scenarioId: id, profileId: scenarios.find((s) => s.id === id)?.profiles[0]?.id ?? "", split: null, overrides: {} })} />}
         <Select label="育成ルート" value={profile.id} options={scenario.profiles.map((p) => ({ value: p.id, label: p.name }))} onChange={(id) => update({ profileId: id, split: null })} />
         <Select label="レッスン配分" value={state.split === null ? "best" : String(state.split)} options={splitOptions} onChange={(v) => update({ split: v === "best" ? null : Number(v) })} />
       </div>
