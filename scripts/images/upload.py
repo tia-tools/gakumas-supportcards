@@ -24,11 +24,10 @@ import urllib.request
 from pathlib import Path
 
 from thumbnail import MASTER_PREFIX, THUMBNAIL_PREFIX
-from uploads import card_keys, plan_uploads, publishable, select_renditions, upload_order
+from uploads import cache_control_for, card_keys, plan_uploads, publishable, select_renditions, upload_order
 
 HERE = Path(__file__).resolve().parent
 CARDS = HERE.parent.parent / "data" / "cards.generated.ts"
-CACHE_CONTROL = "public, max-age=31536000, immutable"
 
 
 def served_by(base_url: str):
@@ -47,7 +46,7 @@ def served_by(base_url: str):
 
 def put(bucket: str, key: str, path: Path) -> None:
     subprocess.run(
-        ["bunx", "wrangler", "r2", "object", "put", f"{bucket}/{key}", "--file", str(path), "--content-type", "image/webp", "--cache-control", CACHE_CONTROL, "--remote"],
+        ["bunx", "wrangler", "r2", "object", "put", f"{bucket}/{key}", "--file", str(path), "--content-type", "image/webp", "--cache-control", cache_control_for(key, MASTER_PREFIX), "--remote"],
         check=True,
     )
 

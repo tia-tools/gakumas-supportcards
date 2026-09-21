@@ -48,3 +48,16 @@ def select_renditions(keys: list[str], rendition: str, master_prefix: str, thumb
     "all", "master" or "w192"; re-sending only masters is what a change of the master rule needs."""
     prefix = {"all": "", "master": master_prefix, "w192": thumbnail_prefix}[rendition]
     return [k for k in keys if k.startswith(prefix)]
+
+
+IMMUTABLE = "public, max-age=31536000, immutable"
+REVALIDATE = "private, no-cache"
+
+
+def cache_control_for(key: str, master_prefix: str) -> str:
+    """The Cache-Control stored with an object. R2 returns the stored header on every download,
+    dashboard downloads included, so it must match how the object is allowed to change. A master
+    is overwritten whenever its rule changes and must always be revalidated: with the immutable
+    header a browser that had opened a master once kept showing the old bytes after a re-upload
+    (2026-09-21, plan decision D37). A thumbnail never changes under its name."""
+    return REVALIDATE if key.startswith(master_prefix) else IMMUTABLE
