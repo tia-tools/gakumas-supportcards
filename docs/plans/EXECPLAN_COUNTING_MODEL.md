@@ -24,8 +24,8 @@ After this plan, a route profile states how often each kind of thing happens in 
 - [x] (2026-09-21) The user gave the go-ahead. Work happens in the git worktree `.claude/worktrees/counting-model` on branch `feature/counting-model-m0`, created from `feature/counting-model`, which stays checked out in the main checkout.
 - [x] (2026-09-21) Milestone 0: `scripts/prototype-occasions.ts` parses all 80 parameter-bearing triggers with 0 unplaced pieces, gives every one of the 41 counts of all four profiles a home, and shows that the wording of a trigger comes from `produceDescriptions[].text`. Findings: Surprises & Discoveries (five new entries), decisions C10–C13 (the user accepted C13, the one number that needed their eye).
 - [x] (2026-09-21) Milestone 1, on branch `feature/counting-model-m1`: `scripts/lib/parse-trigger.ts` with tests for every piece kind and the shape rules; every generated effect carries `trigger`; `data/held.generated.ts` (empty on today's data); the generators no longer stop on a missing or redundant filter row. The three acceptance experiments pass (transcript in Concrete Steps). Decisions C14–C15.
-- [ ] Milestone 2: new engine beside the old one, profiles restated, 816-row equivalence test, goldens on a frozen snapshot, old engine and taxonomy extensions removed.
-- [ ] Milestone 3: the four-section panel with nested bounded inputs, folding, and new URL keys.
+- [x] (2026-09-21) Milestone 2, on branch `feature/counting-model-m2`, except the deletions: `src/engine/count.ts`; `score()` counts occasions, filters and conditions when given a `scenarioId`; all four profiles restated beside their `counts`; `data/scenarios/equivalence.test.ts` finds 816 rows × 凸0–4 identical line by line; goldens on `data/scenarios/golden.snapshot.ts` with こんにゃくなきもだめし as the tenth card and the −15 acceptance check. Decisions C16–C17.
+- [ ] Milestone 3: the four-section panel with nested bounded inputs, folding, and new URL keys; the page scores by occasions. Then, moved here from Milestone 2 (C16): delete the old counting path, `RouteProfile.counts`, `categoryId`, the taxonomy generator, `data/taxonomy.extensions.ts`, `scripts/lib/classify.ts`'s classifier, `data/scenarios/equivalence.test.ts` and `scripts/prototype-occasions.ts`; breakdown labels come from the skill and item texts.
 - [ ] Milestone 4: update gates — hidden cards, score-stability check — ready for the first plan's weekly action.
 
 
@@ -129,6 +129,14 @@ Decisions of this plan are numbered C1, C2, … to keep them apart from the D-nu
   Rationale: "The generator stops failing on missing filter rows" must not turn into publishing a 0 the site cannot stand behind (`docs/adr/0005`) during the window in which categories still decide the count. If a game row replaces an extension row under a new id, no profile names the new id and `data/scenarios/scenarios.test.ts` fails, which is the right place for that to surface until profiles stop naming categories.
   Date/Author: 2026-09-21 / agent.
 
+- Decision (C16): The deletions this plan put at the end of Milestone 2 — the old counting path, `RouteProfile.counts`, `categoryId`, the taxonomy and its extensions — move to the end of Milestone 3. Until then `score()` takes either model: without `ScoreContext.scenarioId` it counts categories, with it it counts occasions, filters and conditions, and the page keeps calling it without.
+  Rationale: The page's 「カウントを調整」 panel and its `c.` URL keys override `counts` by category id. Deleting `counts` before Milestone 3 has built the new panel would leave a page whose overrides do nothing, or no panel at all, and this plan promises that stopping after any milestone leaves a working site. The equivalence test guards the window: while both models exist it proves on every test run that they publish the same numbers.
+  Date/Author: 2026-09-21 / agent.
+
+- Decision (C17): `FilterCounts.default` is optional and only the effect-group families state one (H.I.F.: 10 for acquisition; the count of upgrades for upgrades, C13). Card type, rarity, card name and lesson kind name their members and nothing else, so a never-seen member of those families has no number; `missingNumbers` in `src/engine/count.ts` reports it, `data/scenarios/scenarios.test.ts` fails on it, and Milestone 4's gate will hold the card. パラメータボーナス+ is recognised by a generated flag, `bonus: true`, instead of by its category id, and a stat-named effect type that is neither `…Addition` nor `…GrowthRateAddition` now holds its card instead of being read as points per occurrence.
+  Rationale: C3's own example gives a default only to the effect groups, where "like the other groups" is the user's standing estimate; there is no such estimate for a third card type or a second rarity, and 0 or the occasion's full count would both be numbers nobody decided. The flag is needed because the new model must not depend on `categoryId`, which is going away.
+  Date/Author: 2026-09-21 / agent.
+
 
 ## Outcomes & Retrospective
 
@@ -157,7 +165,7 @@ Milestone 0 is a throwaway prototype, `scripts/prototype-occasions.ts`. It parse
 
 Milestone 1 moves the parser into `scripts/lib/parse-trigger.ts` with unit tests for every segment kind and for the three shape rules of decision C4, and changes `build-cards.ts` and `emit.ts` so each generated effect carries `occasion`, `filters` and `conditions` next to the existing `categoryId`, which stays until Milestone 2 removes it. The generator stops failing on redundant or missing filter rows; instead it writes `data/held.generated.ts`, the list of cards hidden because one of their effects contains a piece of unknown kind (C4, C5) or an effect type that is neither a stat nor an audited non-parameter type, each with the reason. Schema errors, unknown enums and a drop in the card count remain hard failures, because they mean the upstream dump is broken rather than that the game grew.
 
-Milestone 2 adds `src/engine/count.ts`, a pure function from a route profile and a parsed effect to occurrences per run, and a new scoring path beside the old one. Profiles are restated in the new shape (see Interfaces) by carrying today's numbers over. A test scores all 204 cards under all four profiles at every 凸 with both engines and requires the 816 rows to be identical (C8); only then are the old path, `categoryId`, `data/taxonomy.extensions.ts` and the taxonomy guards deleted. The golden tests switch to a checked-in snapshot of their nine cards.
+Milestone 2 adds `src/engine/count.ts`, a pure function from a route profile and a parsed effect to occurrences per run, and a new scoring path beside the old one. Profiles are restated in the new shape (see Interfaces) by carrying today's numbers over. A test scores all 204 cards under all four profiles at every 凸 with both engines and requires the 816 rows to be identical (C8); only then are the old path, `categoryId`, `data/taxonomy.extensions.ts` and the taxonomy guards deleted — at the end of Milestone 3 rather than here, because the page's override panel reads the old counts until Milestone 3 replaces it (decision C16). The golden tests switch to a checked-in snapshot of their cards.
 
 Milestone 3 rebuilds `src/app/CustomizePanel.tsx` as the four sections of decision C6, with every filter and condition a number input bounded by its parent, a folded line per section for inputs no visible card reacts to, and a note where a profile ships a condition below the maximum (C7). `src/app/url-state.ts` gets new override keys derived from occasion, filter and condition; old `c.` keys are ignored, which is acceptable because the site has not been deployed.
 
@@ -299,7 +307,9 @@ In `scripts/lib/parse-trigger.ts` (as built):
       lessonSplits: readonly LessonSplit[];
       parameterBonusBase(lessonsOfStat: number): number;
     }
-    export interface FilterCounts { default: number; members?: Readonly<Record<string, number>> }  // C3
+    export interface FilterCounts { default?: number; members?: Readonly<Record<string, number>> }  // C3, C17; as built
+
+As built in Milestone 2, `RouteProfile` has these fields next to the old `counts`, which leaves at the end of Milestone 3 (C16).
 
 In `src/engine/count.ts`:
 
@@ -314,5 +324,6 @@ It starts from `profile.occasions[effect.occasion]`, takes the minimum with each
 - 2026-09-21: Draft created during the design interview with the purpose, the facts gathered from the data, the vocabulary (C0) and the first decision (C1).
 - 2026-09-21 (later): Interview completed. Decision Log C2–C9, the effect-group and plan observation, and all remaining sections written. Reason: the judgment calls are settled; what remains before implementation is the user's confirmation.
 - 2026-09-21 (confirmation): The user confirmed the design; the draft banner and Progress now say so, and that implementation waits for an explicit go-ahead.
-- 2026-09-21 (Milestone 1): Progress, decisions C14–C15, the acceptance transcript and the Interfaces section brought in line with the code (`trigger` nested, types in `src/engine/types.ts`, `FilterCounts`). Reason: the sketch was written before the parser existed.
 - 2026-09-21 (Milestone 0): Go-ahead received, prototype written and run. Progress, five observations, decisions C10–C13, the real transcript and the corrected `ParsedTrigger` sketch added. Reason: Milestone 0 exists to correct the plan before Milestone 1 builds on it.
+- 2026-09-21 (Milestone 1): Progress, decisions C14–C15, the acceptance transcript and the Interfaces section brought in line with the code (`trigger` nested, types in `src/engine/types.ts`, `FilterCounts`). Reason: the sketch was written before the parser existed.
+- 2026-09-21 (Milestone 2): Progress, decisions C16–C17; the deletions moved from Milestone 2 to the end of Milestone 3 in Progress. Reason: the page's override panel still depends on the old counts, found when starting Milestone 2.

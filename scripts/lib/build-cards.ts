@@ -14,7 +14,7 @@
  */
 
 import { EVENT_CATEGORY_ID, type Breakpoint, type Card, type CardType, type ClassifiedEffect, type HeldCard, type LevelLimits, type ParsedTrigger, type Plan, type Rarity, type Stat } from "../../src/engine/types.ts";
-import { EVENT_BONUS_EFFECT_TYPE, NON_PARAMETER_EFFECT_TYPES, PARAM_ADDITION_TYPES, lessonStatOf, statOf, type Classifier } from "./classify.ts";
+import { EVENT_BONUS_EFFECT_TYPE, NON_PARAMETER_EFFECT_TYPES, PARAM_ADDITION_TYPES, PARAM_BONUS_TYPES, lessonStatOf, statOf, type Classifier } from "./classify.ts";
 import { parseTrigger, type ParseResult } from "./parse-trigger.ts";
 import type { RawEventSupportCard, RawProduceEffect, RawProduceItem, RawProduceSkill, RawSkillLevel, RawSupportCard, Tables } from "./tables.ts";
 
@@ -132,12 +132,13 @@ class CardBuilder {
    * What a (effect, trigger) pair contributes: a countable parameter effect,
    * nothing (an audited non-parameter type), or the reason its card is held.
    */
-  private resolve(effect: RawProduceEffect, triggerId: string, where: string): { categoryId: string; stat: Stat; trigger: ParsedTrigger } | { held: string } | null {
+  private resolve(effect: RawProduceEffect, triggerId: string, where: string): { categoryId: string; stat: Stat; trigger: ParsedTrigger; bonus: boolean } | { held: string } | null {
     const phaseType = this.phaseByTrigger.get(triggerId);
     if (phaseType === undefined) throw new Error(`${where}: missing ProduceTrigger ${triggerId}`);
     const grantedItem = effect.produceRewards.find((r) => r.resourceType === ITEM_RESOURCE_TYPE);
     if (grantedItem) throw new Error(`${where}: a skill granting a P-item (${grantedItem.resourceId}) is not supported`);
-    const stat = statOf(effect.produceEffectType);
+    const bonus = PARAM_BONUS_TYPES.has(effect.produceEffectType);
+    const stat = bonus || PARAM_ADDITION_TYPES.has(effect.produceEffectType) ? statOf(effect.produceEffectType) : null;
     if (!stat) {
       if (!NON_PARAMETER_EFFECT_TYPES.has(effect.produceEffectType)) return { held: `${where}: effect type ${effect.produceEffectType} is neither a stat nor audited as non-parameter` };
       this.skip(effect.produceEffectType);
@@ -153,7 +154,7 @@ class CardBuilder {
     if (c.kind !== "classified") return { held: `${where}: no single taxonomy row covers ${effect.produceEffectType} @ ${triggerId} (categories go away in Milestone 2 of the counting-model plan)` };
     this.report.matches[c.match]++;
     this.report.categoriesUsed.add(c.row.id);
-    return { categoryId: c.row.id, stat, trigger: parsed.trigger };
+    return { categoryId: c.row.id, stat, trigger: parsed.trigger, bonus };
   }
 
   private hold(cardId: string, reason: string): void {
@@ -205,6 +206,7 @@ class CardBuilder {
         const ls = lessonStatOf(triggerId);
         if (ls) e.triggerStat = ls;
         e.trigger = r.trigger;
+        if (r.bonus) e.bonus = true;
         effects.push(e);
       }
     }
@@ -237,6 +239,7 @@ class CardBuilder {
       const ls = lessonStatOf(triggerId);
       if (ls) e.triggerStat = ls;
       e.trigger = r.trigger;
+      if (r.bonus) e.bonus = true;
       out.push(e);
     }
     const result = { effects: out, held };

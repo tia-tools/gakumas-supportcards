@@ -19,6 +19,8 @@ const PROFILE: RouteProfile = {
   id: "p",
   name: "test",
   counts: { [SHOP]: 5, [SP_LESSON]: 9 },
+  occasions: {},
+  filters: {},
   lessonSplits: [
     { vocal: 7, dance: 1, visual: 0 },
     { vocal: 0, dance: 1, visual: 7 },

@@ -13,8 +13,15 @@
  * triggers bound to one stat, and a category the profile does not name counts
  * 0 (extension rows fall back to their `countsAs` game row). `scoreBest` takes
  * the profile's preset split that gives the card the highest total.
+ *
+ * Two counting models live side by side until the page has moved
+ * (docs/plans/EXECPLAN_COUNTING_MODEL.md, decisions C8 and C16): without
+ * `ScoreContext.scenarioId` a count is `routeCount(category)` as above; with it,
+ * a count is `occurrences` of src/engine/count.ts — occasions, filters and
+ * conditions — and パラメータボーナス+ is recognised by `effect.bonus`.
  */
 
+import { occurrences as occasionOccurrences } from "./count.ts";
 import { EVENT_CATEGORY_ID, type BreakdownLine, type Breakpoint, type Card, type ClassifiedEffect, type LessonSplit, type LevelLimits, type Rarity, type RouteProfile, type Score, type Stat, type TaxonomyRow, type Totsu } from "./types.ts";
 
 /** The game's パラメータボーナス+ row; its values are tenths of a percent. */
@@ -26,6 +33,8 @@ export interface ScoreContext {
   taxonomy: ReadonlyMap<string, TaxonomyRow>;
   limits: LevelLimits;
   lessons: LessonSplit;
+  /** The scenario being scored. Present = count occasions, filters and conditions; absent = the old category counts. */
+  scenarioId?: string;
 }
 
 export function levelFor(limits: LevelLimits, rarity: Rarity, totsu: Totsu): number {
@@ -52,6 +61,7 @@ export function routeCount(profile: RouteProfile, taxonomy: ReadonlyMap<string, 
 
 /** Occurrences per run: the category's route count, capped by the split's lessons of the trigger's stat and by the effect's own cap. */
 function occurrences(effect: ClassifiedEffect, ctx: ScoreContext): number {
+  if (ctx.scenarioId !== undefined) return occasionOccurrences(effect, { scenarioId: ctx.scenarioId, profile: ctx.profile, lessons: ctx.lessons });
   let n = routeCount(ctx.profile, ctx.taxonomy, effect.categoryId);
   if (effect.triggerStat) n = Math.min(n, ctx.lessons[effect.triggerStat]);
   return effect.cap ? Math.min(effect.cap, n) : n;
@@ -75,7 +85,7 @@ function lineFor(effect: ClassifiedEffect, bp: Breakpoint, ctx: ScoreContext): B
     if (effect.itemName !== undefined) line.itemName = effect.itemName;
     return line;
   }
-  if (effect.categoryId === PARAMETER_BONUS_CATEGORY_ID) {
+  if (ctx.scenarioId !== undefined ? effect.bonus === true : effect.categoryId === PARAMETER_BONUS_CATEGORY_ID) {
     const gain = ctx.profile.parameterBonusBase(ctx.lessons[effect.stat]);
     return { ...base, kind: "bonus", count: gain, points: (effect.value * gain) / 1000 };
   }

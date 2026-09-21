@@ -53,6 +53,38 @@ export const HIF: Scenario = {
       // params: rest=0 shopDrinks=8 shopCards=2 shopUpgrades=0 shopDeletes=2 intervalCards=0 intervalChanges=0 intervalUpgrades=0 intervalDrinks=2 randomUpgrades=0 autoDeletes=4 items=3 bonusLessons=800 bonusAudition=700
       lessonSplits: LESSON_SPLITS,
       parameterBonusBase: bonusBase,
+      occasions: {
+        ProduceStart: 1, // プロデュース開始
+        EndLesson: 8, // レッスン終了
+        EndStepEventSchool: 6, // 授業・営業終了
+        EndAudition: 5, // 試験・オーディション終了
+        EndBeforeAuditionRefresh: 4, // 試験・オーディション開始 (試験前の休憩後)
+        StartPresent: 5, // 活動支給・差し入れ選択
+        EndStepEventActivity: 1, // おでかけ終了
+        StartShop: 3, // 相談選択
+        StartRefresh: 0, // 休む選択
+        StartCustomize: 0, // 特別指導開始
+        GetProduceCard: 20, // スキルカード獲得
+        DeleteProduceCard: 6, // スキルカード削除
+        UpgradeProduceCard: 0, // スキルカード強化
+        ChangeProduceCard: 4, // スキルカードチェンジ
+        CustomizeProduceCard: 2, // スキルカードカスタマイズ
+        BuyShopItemProduceCard: 2, // 相談でスキルカード交換
+        GetProduceDrink: 16, // Pドリンク獲得
+        BuyShopItemProduceDrink: 8, // 相談でPドリンク交換
+        GetProduceItem: 3, // Pアイテム獲得
+      },
+      filters: {
+        EndLesson: { lessonKind: { members: { sp: 8, normal: 0 } } }, // every lesson is an SP lesson (docs/adr/0001)
+        UpgradeProduceCard: { cardType: { members: { mental: 0, active: 0 } }, effectGroup: { default: 0 } }, // effectGroup: carried over as every upgrade (C13)
+        DeleteProduceCard: { cardType: { members: { mental: 6, active: 6 } } },
+        ChangeProduceCard: { cardName: { members: { starter: 4 } } }, // 名前に「基本」を含む
+        GetProduceCard: {
+          cardType: { members: { mental: 13, active: 7 } },
+          effectGroup: { default: 10, members: { review: 14, block: 12 } },
+          rarity: { members: { ssr: 10 } },
+        },
+      },
       counts: {
         [`${F}produce_start-initial`]: 1, // 初期パラメータ上昇
         [`${F}end_lesson-lesson_vocal`]: 8, // レッスン終了時パラメータ上昇
@@ -104,6 +136,38 @@ export const HIF: Scenario = {
       // params: rest=0 shopDrinks=3 shopCards=0 shopUpgrades=0 shopDeletes=2 intervalCards=0 intervalChanges=0 intervalUpgrades=0 intervalDrinks=2 randomUpgrades=0 autoDeletes=4 items=3 bonusLessons=800 bonusAudition=700
       lessonSplits: LESSON_SPLITS,
       parameterBonusBase: bonusBase,
+      occasions: {
+        ProduceStart: 1, // プロデュース開始
+        EndLesson: 8, // レッスン終了
+        EndStepEventSchool: 6, // 授業・営業終了
+        EndAudition: 5, // 試験・オーディション終了
+        EndBeforeAuditionRefresh: 4, // 試験・オーディション開始 (試験前の休憩後)
+        StartPresent: 1, // 活動支給・差し入れ選択
+        EndStepEventActivity: 5, // おでかけ終了
+        StartShop: 3, // 相談選択
+        StartRefresh: 0, // 休む選択
+        StartCustomize: 0, // 特別指導開始
+        GetProduceCard: 20, // スキルカード獲得
+        DeleteProduceCard: 6, // スキルカード削除
+        UpgradeProduceCard: 0, // スキルカード強化
+        ChangeProduceCard: 4, // スキルカードチェンジ
+        CustomizeProduceCard: 2, // スキルカードカスタマイズ
+        BuyShopItemProduceCard: 0, // 相談でスキルカード交換
+        GetProduceDrink: 11, // Pドリンク獲得
+        BuyShopItemProduceDrink: 3, // 相談でPドリンク交換
+        GetProduceItem: 3, // Pアイテム獲得
+      },
+      filters: {
+        EndLesson: { lessonKind: { members: { sp: 8, normal: 0 } } }, // every lesson is an SP lesson (docs/adr/0001)
+        UpgradeProduceCard: { cardType: { members: { mental: 0, active: 0 } }, effectGroup: { default: 0 } }, // effectGroup: carried over as every upgrade (C13)
+        DeleteProduceCard: { cardType: { members: { mental: 6, active: 6 } } },
+        ChangeProduceCard: { cardName: { members: { starter: 4 } } }, // 名前に「基本」を含む
+        GetProduceCard: {
+          cardType: { members: { mental: 13, active: 7 } },
+          effectGroup: { default: 10, members: { review: 14, block: 12 } },
+          rarity: { members: { ssr: 10 } },
+        },
+      },
       counts: {
         [`${F}produce_start-initial`]: 1, // 初期パラメータ上昇
         [`${F}end_lesson-lesson_vocal`]: 8, // レッスン終了時パラメータ上昇
@@ -155,6 +219,38 @@ export const HIF: Scenario = {
       // params: rest=0 shopDrinks=0 shopCards=0 shopUpgrades=0 shopDeletes=5 intervalCards=0 intervalChanges=0 intervalUpgrades=0 intervalDrinks=2 randomUpgrades=0 autoDeletes=4 items=6 bonusLessons=800 bonusAudition=700
       lessonSplits: LESSON_SPLITS,
       parameterBonusBase: bonusBase,
+      occasions: {
+        ProduceStart: 1, // プロデュース開始
+        EndLesson: 8, // レッスン終了
+        EndStepEventSchool: 6, // 授業・営業終了
+        EndAudition: 5, // 試験・オーディション終了
+        EndBeforeAuditionRefresh: 4, // 試験・オーディション開始 (試験前の休憩後)
+        StartPresent: 4, // 活動支給・差し入れ選択
+        EndStepEventActivity: 1, // おでかけ終了
+        StartShop: 4, // 相談選択
+        StartRefresh: 0, // 休む選択
+        StartCustomize: 0, // 特別指導開始
+        GetProduceCard: 20, // スキルカード獲得
+        DeleteProduceCard: 9, // スキルカード削除
+        UpgradeProduceCard: 0, // スキルカード強化
+        ChangeProduceCard: 4, // スキルカードチェンジ
+        CustomizeProduceCard: 2, // スキルカードカスタマイズ
+        BuyShopItemProduceCard: 0, // 相談でスキルカード交換
+        GetProduceDrink: 7, // Pドリンク獲得
+        BuyShopItemProduceDrink: 0, // 相談でPドリンク交換
+        GetProduceItem: 6, // Pアイテム獲得
+      },
+      filters: {
+        EndLesson: { lessonKind: { members: { sp: 8, normal: 0 } } }, // every lesson is an SP lesson (docs/adr/0001)
+        UpgradeProduceCard: { cardType: { members: { mental: 0, active: 0 } }, effectGroup: { default: 0 } }, // effectGroup: carried over as every upgrade (C13)
+        DeleteProduceCard: { cardType: { members: { mental: 9, active: 9 } } },
+        ChangeProduceCard: { cardName: { members: { starter: 4 } } }, // 名前に「基本」を含む
+        GetProduceCard: {
+          cardType: { members: { mental: 13, active: 7 } },
+          effectGroup: { default: 10, members: { review: 14, block: 12 } },
+          rarity: { members: { ssr: 7 } },
+        },
+      },
       counts: {
         [`${F}produce_start-initial`]: 1, // 初期パラメータ上昇
         [`${F}end_lesson-lesson_vocal`]: 8, // レッスン終了時パラメータ上昇

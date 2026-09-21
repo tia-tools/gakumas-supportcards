@@ -13,6 +13,8 @@ const profile: RouteProfile = {
   id: "p",
   name: "p",
   counts: { [SHOP]: 3, [LESSON]: 4 },
+  occasions: {},
+  filters: {},
   lessonSplits: [
     { vocal: 3, dance: 1, visual: 0 },
     { vocal: 0, dance: 1, visual: 3 },

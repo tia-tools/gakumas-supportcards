@@ -112,7 +112,7 @@ describe("buildCards", () => {
     expect(bp?.eventBonusPermil).toBe(500);
     expect(bp?.effects).toEqual([
       { categoryId: "g-shop", stat: "vocal", value: 30, kind: "item", itemId: "pitem-x", itemName: "テストアイテム", cap: 2, trigger: { occasion: "StartShop", conditions: [{ kind: "vocal", min: 400, max: 0 }] } },
-      { categoryId: "g-bonus", stat: "vocal", value: 85, kind: "skill", cap: 1, trigger: { occasion: "ProduceStart" } },
+      { categoryId: "g-bonus", stat: "vocal", value: 85, kind: "skill", cap: 1, trigger: { occasion: "ProduceStart" }, bonus: true },
       { categoryId: "g-initial", stat: "vocal", value: 10, kind: "skill", cap: 1, trigger: { occasion: "ProduceStart" } },
     ]);
   });
@@ -169,6 +169,12 @@ describe("buildCards", () => {
     const r = buildCards(withSkill("p_trigger-start_shop", "StartShop", "ProduceEffectType_BrandNewThing"), classifier).report;
     expect(r.held.map((h) => h.id)).toEqual(["s_card-3-9999"]);
     expect(r.held[0]?.reasons[0]).toContain("ProduceEffectType_BrandNewThing is neither a stat nor audited");
+  });
+
+  test("a stat-named effect type that is neither 上昇 nor パラメータボーナス is not assumed to be points per occurrence", () => {
+    const r = buildCards(withSkill("p_trigger-start_shop", "StartShop", "ProduceEffectType_DanceLimitAddition"), classifier);
+    expect(r.report.held.map((h) => h.id)).toEqual(["s_card-3-9999"]);
+    expect(r.cards.find((c) => c.id === "s_card-3-9999")?.breakpoints[0]?.effects.some((e) => e.stat === "dance")).toBe(false);
   });
 
   test("a pair no taxonomy row covers holds the card instead of stopping the build", () => {

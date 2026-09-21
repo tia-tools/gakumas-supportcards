@@ -8,6 +8,7 @@
  */
 
 import { describe, expect, test } from "bun:test";
+import { conditionKey, missingNumbers } from "../../src/engine/count.ts";
 import { PARAMETER_BONUS_CATEGORY_ID, scoreBest, taxonomyMap } from "../../src/engine/score.ts";
 import { EVENT_CATEGORY_ID, type Totsu } from "../../src/engine/types.ts";
 import { CARDS } from "../cards.generated.ts";
@@ -41,6 +42,20 @@ describe("shipped scenarios", () => {
     }
   });
 
+  test("lowering one condition moves only the cards whose effects carry it (decision C2 of docs/plans/EXECPLAN_COUNTING_MODEL.md)", () => {
+    const [s] = SCENARIOS;
+    const [p] = s?.profiles ?? [];
+    if (!s || !p) throw new Error("no default scenario profile");
+    const key = "EndLesson/produce_card_count>=20";
+    const carries = (c: (typeof CARDS)[number]): boolean => c.breakpoints.some((b) => b.effects.some((e) => e.trigger?.conditions?.some((x) => conditionKey(e.trigger?.occasion ?? "", x) === key)));
+    const ctx = { profile: p, taxonomy, limits: LEVEL_LIMITS, scenarioId: s.id };
+    const lowered = { ...ctx, profile: { ...p, conditions: { ...p.conditions, [key]: 0 } } };
+    const moved = CARDS.filter((c) => scoreBest(c, 4, ctx).total !== scoreBest(c, 4, lowered).total);
+    expect(moved.length).toBeGreaterThan(0);
+    expect(moved.filter((c) => !carries(c)).map((c) => c.name)).toEqual([]);
+    expect(CARDS.filter((c) => carries(c) && !moved.includes(c)).map((c) => c.name)).toEqual([]);
+  });
+
   for (const s of SCENARIOS) {
     for (const p of s.profiles) {
       test(`${s.id}/${p.id}: every counted category exists in the taxonomy and counts are non-negative integers`, () => {
@@ -55,6 +70,30 @@ describe("shipped scenarios", () => {
           if (id === PARAMETER_BONUS_CATEGORY_ID) continue; // scored from the lesson split, not from a count
           const key = id in p.counts ? id : taxonomy.get(id)?.countsAs;
           expect(key !== undefined && key in p.counts, `${id} is not named in ${s.id}/${p.id}; write 0 if it never occurs`).toBe(true);
+        }
+      });
+
+      test(`${s.id}/${p.id}: every occasion and filter the cards' triggers need has a number; a missing one would silently count 0`, () => {
+        const missing = new Set(CARDS.flatMap((c) => c.breakpoints.flatMap((b) => b.effects.flatMap((e) => (e.trigger ? missingNumbers(e.trigger, p) : [])))));
+        expect([...missing]).toEqual([]);
+      });
+
+      test(`${s.id}/${p.id}: occasion, filter and condition counts are non-negative integers, and no filter or condition exceeds its occasion`, () => {
+        const whole = (n: number): boolean => Number.isInteger(n) && n >= 0;
+        for (const n of Object.values(p.occasions)) expect(whole(n)).toBe(true);
+        for (const [occasion, families] of Object.entries(p.filters)) {
+          const parent = p.occasions[occasion];
+          expect(parent, `filters.${occasion} has no occasion count`).toBeDefined();
+          for (const [family, counts] of Object.entries(families)) {
+            expect(family).not.toBe("lessonStat"); // the lesson split carries it
+            for (const n of [...(counts.default === undefined ? [] : [counts.default]), ...Object.values(counts.members ?? {})]) {
+              expect(whole(n) && n <= (parent ?? 0), `filters.${occasion}.${family}: ${n} of ${parent}`).toBe(true);
+            }
+          }
+        }
+        for (const [key, n] of Object.entries(p.conditions ?? {})) {
+          const parent = p.occasions[key.slice(0, key.indexOf("/"))];
+          expect(whole(n) && parent !== undefined && n <= parent, `conditions["${key}"]: ${n} of ${parent}`).toBe(true);
         }
       });
 

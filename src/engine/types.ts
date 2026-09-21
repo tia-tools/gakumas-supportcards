@@ -29,6 +29,17 @@ export interface FilterRef {
   member: string;
 }
 
+/**
+ * A route profile's numbers for one filter family on one occasion (decision C3
+ * of docs/plans/EXECPLAN_COUNTING_MODEL.md): a member's own count, else the
+ * family default. A family without a default has no number for a member it does
+ * not name, which the data checks report instead of guessing.
+ */
+export interface FilterCounts {
+  default?: number;
+  members?: Readonly<Record<string, number>>;
+}
+
 /** A state of the run that must hold when the occasion happens: a stat, stamina, or a number of held cards within a range. */
 export interface ConditionRef {
   /** The game's own word: `vocal`, `stamina_ratio`, `produce_card_count`, `produce_card_search_count`, … */
@@ -79,6 +90,8 @@ export interface ClassifiedEffect {
    * Milestone 2 of docs/plans/EXECPLAN_COUNTING_MODEL.md removes the latter.
    */
   trigger?: ParsedTrigger;
+  /** True for パラメータボーナス+: `value` is tenths of a percent of the profile's bonus base, not points per occurrence. */
+  bonus?: true;
 }
 
 /** A card the table must not show because one of its effects cannot be counted (docs/adr/0005). */
@@ -133,8 +146,25 @@ export type LessonSplit = Readonly<Record<Stat, number>>;
 export interface RouteProfile {
   id: string;
   name: string;
-  /** Category id → occurrences per run. Extension rows fall back to their `countsAs` row. Unlisted = 0. */
+  /**
+   * Category id → occurrences per run. Extension rows fall back to their `countsAs` row. Unlisted = 0.
+   * The old counting model, read by `score()` without `scenarioId`; removed together with the
+   * taxonomy once the page uses the fields below (docs/plans/EXECPLAN_COUNTING_MODEL.md, C16).
+   */
   counts: Readonly<Record<string, number>>;
+  /** Occasion (the game's phase type, e.g. `EndLesson`) → times it happens in a run. Unlisted = 0. */
+  occasions: Readonly<Record<string, number>>;
+  /**
+   * Occasion → filter family → how many of the occasion's occurrences the filter selects.
+   * `lessonStat` never appears here: the lesson split carries it.
+   */
+  filters: Readonly<Record<string, Readonly<Partial<Record<FilterFamily, FilterCounts>>>>>;
+  /**
+   * Condition key (`conditionKey` in src/engine/count.ts) → how many of the occasion's
+   * occurrences meet the condition. A condition not named here is met every time
+   * (docs/adr/0001 addendum), which is what every shipped profile starts with.
+   */
+  conditions?: Readonly<Record<string, number>>;
   /**
    * Lesson-split presets the player chooses by deck build (D26). A lesson-end
    * effect bound to a stat fires at most `split[stat]` times; the table uses
