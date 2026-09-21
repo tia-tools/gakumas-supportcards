@@ -13,7 +13,7 @@ import { EVENT_CATEGORY_ID, type Totsu } from "../../src/engine/types.ts";
 import { CARDS } from "../cards.generated.ts";
 import { LEVEL_LIMITS } from "../levelLimits.generated.ts";
 import { TAXONOMY } from "../taxonomy.generated.ts";
-import { SCENARIOS } from "./index.ts";
+import { ALL_SCENARIOS, SCENARIOS } from "./index.ts";
 
 const taxonomy = taxonomyMap(TAXONOMY);
 const TOTSU: Totsu[] = [0, 1, 2, 3, 4];
@@ -31,17 +31,23 @@ describe("shipped scenarios", () => {
     for (const id of CATEGORIES_USED_BY_CARDS) expect(taxonomy.has(id)).toBe(true);
   });
 
+  test("only H.I.F. is published; 初LEGEND stays in the code and under test but off the page (D39)", () => {
+    expect(SCENARIOS.map((s) => s.id)).toEqual(["hif"]);
+    expect(ALL_SCENARIOS.map((s) => s.id)).toEqual(["hif", "hajime-legend"]);
+    for (const s of SCENARIOS) expect(ALL_SCENARIOS).toContain(s);
+  });
+
   test("scenario and profile ids are unique and non-empty", () => {
-    const ids = SCENARIOS.map((s) => s.id);
+    const ids = ALL_SCENARIOS.map((s) => s.id);
     expect(new Set(ids).size).toBe(ids.length);
-    for (const s of SCENARIOS) {
+    for (const s of ALL_SCENARIOS) {
       expect(s.profiles.length).toBeGreaterThan(0);
       const pids = s.profiles.map((p) => p.id);
       expect(new Set(pids).size).toBe(pids.length);
     }
   });
 
-  for (const s of SCENARIOS) {
+  for (const s of ALL_SCENARIOS) {
     for (const p of s.profiles) {
       test(`${s.id}/${p.id}: every counted category exists in the taxonomy and counts are non-negative integers`, () => {
         for (const [id, n] of Object.entries(p.counts)) {
