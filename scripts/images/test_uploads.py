@@ -1,4 +1,4 @@
-from uploads import card_keys, plan_uploads, publishable, select_renditions, upload_order
+from uploads import cache_control_for, card_keys, plan_uploads, publishable, select_renditions, upload_order
 
 
 def test_only_missing_keys_are_planned_sorted_and_deduplicated():
@@ -46,3 +46,8 @@ def test_a_single_rendition_can_be_selected_without_changing_the_order():
     assert select_renditions(keys, "all", "master/", "w192/") == keys
     assert select_renditions(keys, "master", "master/", "w192/") == ["master/a.webp", "master/b.webp"]
     assert select_renditions(keys, "w192", "master/", "w192/") == ["w192/a.webp", "w192/b.webp"]
+
+
+def test_masters_must_revalidate_and_thumbnails_are_immutable():
+    assert cache_control_for("master/x.webp", "master/") == "private, no-cache"
+    assert cache_control_for("w192/x.webp", "master/") == "public, max-age=31536000, immutable"
