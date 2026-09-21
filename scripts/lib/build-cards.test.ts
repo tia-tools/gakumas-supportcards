@@ -111,16 +111,16 @@ describe("buildCards", () => {
     const bp = card?.breakpoints[0];
     expect(bp?.eventBonusPermil).toBe(500);
     expect(bp?.effects).toEqual([
-      { categoryId: "g-shop", stat: "vocal", value: 30, kind: "item", itemId: "pitem-x", itemName: "テストアイテム", cap: 2 },
-      { categoryId: "g-bonus", stat: "vocal", value: 85, kind: "skill", cap: 1 },
-      { categoryId: "g-initial", stat: "vocal", value: 10, kind: "skill", cap: 1 },
+      { categoryId: "g-shop", stat: "vocal", value: 30, kind: "item", itemId: "pitem-x", itemName: "テストアイテム", cap: 2, trigger: { occasion: "StartShop", conditions: [{ kind: "vocal", min: 400, max: 0 }] } },
+      { categoryId: "g-bonus", stat: "vocal", value: 85, kind: "skill", cap: 1, trigger: { occasion: "ProduceStart" } },
+      { categoryId: "g-initial", stat: "vocal", value: 10, kind: "skill", cap: 1, trigger: { occasion: "ProduceStart" } },
     ]);
   });
 
   test("level 20: upgraded skill value, event 2 reward, event bonus 75%", () => {
     const bp = card?.breakpoints[1];
     expect(bp?.eventBonusPermil).toBe(750);
-    expect(bp?.effects).toContainEqual({ categoryId: "g-initial", stat: "vocal", value: 20, kind: "skill", cap: 1 });
+    expect(bp?.effects).toContainEqual({ categoryId: "g-initial", stat: "vocal", value: 20, kind: "skill", cap: 1, trigger: { occasion: "ProduceStart" } });
     expect(bp?.effects).toContainEqual({ categoryId: EVENT_CATEGORY_ID, stat: "vocal", value: 20, kind: "event" });
     expect(bp?.effects.filter((e) => e.kind === "item")).toHaveLength(1);
   });
@@ -129,20 +129,69 @@ describe("buildCards", () => {
     expect(rCard?.breakpoints).toEqual([{ minLevel: 1, effects: [], eventBonusPermil: 0 }]);
   });
 
-  test("report: nothing unclassified, the item trigger resolved by prefix, card-upgrade skipped", () => {
-    expect(report.unclassified).toEqual([]);
+  test("report: nothing held, the item trigger resolved by prefix, card-upgrade skipped", () => {
+    expect(report.held).toEqual([]);
     expect(report.matches.prefix).toBeGreaterThan(0);
     expect(report.skippedByType.get("ProduceEffectType_ProduceCardUpgrade")).toBe(2);
   });
 
-  test("unclassified pairs are reported once with an example, not thrown", () => {
+  /** Adds a Dance +5 skill on `triggerId` to the SSR fixture card. */
+  function withSkill(triggerId: string, phase: string, effectType = "ProduceEffectType_DanceAddition"): Tables {
     const t = fixture();
-    t.effects.push(effect("e-orphan", "ProduceEffectType_DanceAddition", 5));
-    t.triggers.push({ id: "p_trigger-orphan", phaseType: "ProducePhaseType_Unknown" });
-    t.skills.push(skill("sk-orphan", 1, "e-orphan", "p_trigger-orphan", 0));
-    t.skillLevels.push({ supportCardId: "s_card-3-9999", produceSkillId: "sk-orphan", produceSkillLevel: 1, supportCardLevel: 1 });
-    const r = buildCards(t, classifier).report;
-    expect(r.unclassified).toEqual([{ effectType: "ProduceEffectType_DanceAddition", triggerId: "p_trigger-orphan", reason: "no-row", candidateRowIds: [], example: "s_card-3-9999 sk-orphan" }]);
+    t.effects.push(effect("e-extra", effectType, 5));
+    t.triggers.push({ id: triggerId, phaseType: `ProducePhaseType_${phase}` });
+    t.skills.push(skill("sk-extra", 1, "e-extra", triggerId, 0));
+    t.skillLevels.push({ supportCardId: "s_card-3-9999", produceSkillId: "sk-extra", produceSkillLevel: 1, supportCardLevel: 1 });
+    return t;
+  }
+
+  test("a trigger piece of unknown kind holds that card only, once, and leaves the effect out instead of throwing", () => {
+    const r = buildCards(withSkill("p_trigger-start_shop-mystery", "StartShop"), classifier);
+    expect(r.report.held).toEqual([{ id: "s_card-3-9999", name: "テスト", reasons: ["s_card-3-9999 sk-extra: trigger p_trigger-start_shop-mystery has a piece of unknown kind: mystery"] }]);
+    const held = r.cards.find((c) => c.id === "s_card-3-9999");
+    expect(held?.breakpoints.flatMap((b) => b.effects).some((e) => e.stat === "dance")).toBe(false);
+    expect(held?.breakpoints[0]?.effects).toHaveLength(3);
+  });
+
+  test("a never-seen threshold piece is a condition, counted without anyone deciding (C4)", () => {
+    const r = buildCards(withSkill("p_trigger-start_shop-produce_point-1000_0000", "StartShop"), classifier);
+    expect(r.report.held).toEqual([]);
+    expect(r.cards.find((c) => c.id === "s_card-3-9999")?.breakpoints[0]?.effects).toContainEqual({
+      categoryId: "g-shop",
+      stat: "dance",
+      value: 5,
+      kind: "skill",
+      trigger: { occasion: "StartShop", conditions: [{ kind: "produce_point", min: 1000, max: 0 }] },
+    });
+  });
+
+  test("an effect type that is neither a stat nor audited holds the card", () => {
+    const r = buildCards(withSkill("p_trigger-start_shop", "StartShop", "ProduceEffectType_BrandNewThing"), classifier).report;
+    expect(r.held.map((h) => h.id)).toEqual(["s_card-3-9999"]);
+    expect(r.held[0]?.reasons[0]).toContain("ProduceEffectType_BrandNewThing is neither a stat nor audited");
+  });
+
+  test("a pair no taxonomy row covers holds the card instead of stopping the build", () => {
+    const r = buildCards(withSkill("p_trigger-start_refresh", "StartRefresh"), classifier).report;
+    expect(r.held.map((h) => h.id)).toEqual(["s_card-3-9999"]);
+    expect(r.held[0]?.reasons[0]).toContain("no single taxonomy row covers ProduceEffectType_DanceAddition @ p_trigger-start_refresh");
+  });
+
+  test("an uncountable effect on a granted P-item holds the card that grants it", () => {
+    const t = fixture();
+    t.triggers.push({ id: "p_trigger-start_shop-mystery", phaseType: "ProducePhaseType_StartShop" });
+    t.items[0]!.skills[0]!.produceTriggerId = "p_trigger-start_shop-mystery";
+    const r = buildCards(t, classifier);
+    expect(r.report.held.map((h) => h.id)).toEqual(["s_card-3-9999"]);
+    expect(r.report.held[0]?.reasons[0]).toContain("item pitem-x テストアイテム: trigger p_trigger-start_shop-mystery has a piece of unknown kind: mystery");
+    expect(r.cards.find((c) => c.id === "s_card-3-9999")?.breakpoints[0]?.effects.some((e) => e.kind === "item")).toBe(false);
+  });
+
+  test("an event effect of an unaudited type holds the card", () => {
+    const t = fixture();
+    t.effects.push(effect("e-new", "ProduceEffectType_BrandNewThing", 1));
+    t.eventDetails[1]!.produceEffectIds = ["e-new"];
+    expect(buildCards(t, classifier).report.held[0]?.reasons[0]).toContain("s_card-3-9999 event #2: event effect type ProduceEffectType_BrandNewThing");
   });
 
   test("unknown enum values throw naming the card", () => {
@@ -183,7 +232,7 @@ describe("buildCards", () => {
     t.skills.push(skill("sk-sp", 1, "e-sp", "p_trigger-produce_start-no_description", 1));
     t.skillLevels.push({ supportCardId: "s_card-3-9999", produceSkillId: "sk-sp", produceSkillLevel: 1, supportCardLevel: 1 });
     const r = buildCards(t, new Classifier(mergeTaxonomy(rows, []))).report;
-    expect(r.unclassified).toEqual([]);
+    expect(r.held).toEqual([]);
     expect(r.skippedByType.get("ProduceEffectType_LessonSpChangeRatePermilAddition")).toBe(3); // once per breakpoint level (1, 20, 40) the skill is active at
   });
 });

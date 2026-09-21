@@ -159,8 +159,8 @@ export interface RedundantExtension {
  * Extension rows the game table has caught up with: a game row sharing an
  * effect type lists a trigger id equal to, or a `-`-delimited prefix of, the
  * extension's trigger id — i.e. the game row would now win classification for
- * that trigger. The generator fails on any such row so that extensions are
- * deleted as soon as they are redundant (D13). A game row listing a *longer*
+ * that trigger. The generators leave such a row out (`liveExtensions`) and warn,
+ * so that a data update never stops on it; delete the entry when you see the warning. A game row listing a *longer*
  * id (a conditional variant such as `…-lesson_sp-produce_card_count-0020_0000`)
  * is a different category and does not count.
  */
@@ -179,4 +179,10 @@ export function redundantExtensions(gameRows: readonly RawFilterRow[], extension
     }
   }
   return out;
+}
+
+/** The extension rows still needed: those the game table has not caught up with (the game row wins, so an update never stops on this). */
+export function liveExtensions(gameRows: readonly RawFilterRow[], extensions: readonly ExtensionRow[]): ExtensionRow[] {
+  const redundant = new Set(redundantExtensions(gameRows, extensions).map((r) => r.extensionId));
+  return extensions.filter((e) => !redundant.has(e.id));
 }

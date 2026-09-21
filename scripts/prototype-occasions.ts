@@ -1,6 +1,8 @@
 /**
  * THROWAWAY prototype for Milestone 0 of docs/plans/EXECPLAN_COUNTING_MODEL.md.
- * Writes nothing; delete once Milestone 1 has moved the parser into scripts/lib/.
+ * Writes nothing. The parser below is the prototype of scripts/lib/parse-trigger.ts, which is
+ * the one the generators use; this file stays only for its restatement table, which feeds the
+ * profile rewrite of Milestone 2, and is deleted at the end of that milestone.
  *
  *   bun scripts/prototype-occasions.ts            summary + findings
  *   bun scripts/prototype-occasions.ts --verbose  also every parsed trigger and every mapping line

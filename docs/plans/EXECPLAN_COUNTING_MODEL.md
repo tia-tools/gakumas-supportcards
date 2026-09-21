@@ -23,7 +23,7 @@ After this plan, a route profile states how often each kind of thing happens in 
 - [x] (2026-09-21) The user confirmed that this plan reflects the shared understanding, and asked that implementation not start yet. The next session begins at Milestone 0 only when the user says so.
 - [x] (2026-09-21) The user gave the go-ahead. Work happens in the git worktree `.claude/worktrees/counting-model` on branch `feature/counting-model-m0`, created from `feature/counting-model`, which stays checked out in the main checkout.
 - [x] (2026-09-21) Milestone 0: `scripts/prototype-occasions.ts` parses all 80 parameter-bearing triggers with 0 unplaced pieces, gives every one of the 41 counts of all four profiles a home, and shows that the wording of a trigger comes from `produceDescriptions[].text`. Findings: Surprises & Discoveries (five new entries), decisions C10–C13 (the user accepted C13, the one number that needed their eye).
-- [ ] Milestone 1: generators emit occasions, filters and conditions; shape rules and the hidden-card list.
+- [x] (2026-09-21) Milestone 1, on branch `feature/counting-model-m1`: `scripts/lib/parse-trigger.ts` with tests for every piece kind and the shape rules; every generated effect carries `trigger`; `data/held.generated.ts` (empty on today's data); the generators no longer stop on a missing or redundant filter row. The three acceptance experiments pass (transcript in Concrete Steps). Decisions C14–C15.
 - [ ] Milestone 2: new engine beside the old one, profiles restated, 816-row equivalence test, goldens on a frozen snapshot, old engine and taxonomy extensions removed.
 - [ ] Milestone 3: the four-section panel with nested bounded inputs, folding, and new URL keys.
 - [ ] Milestone 4: update gates — hidden cards, score-stability check — ready for the first plan's weekly action.
@@ -121,6 +121,14 @@ Decisions of this plan are numbered C1, C2, … to keep them apart from the D-nu
   Rationale: C8, no number moves in the migration. In 初LEGEND it is very likely an overstatement (not all of 3 upgrades hit a 温存 card), but that profile's counts are already marked as the agent's provisional guesses awaiting the user's route sheet, and lowering it afterwards is an ordinary data edit with a visible diff.
   Date/Author: 2026-09-21 / agent, proposed at the end of Milestone 0; accepted by the user the same day.
 
+- Decision (C14): A generated effect carries its parsed trigger as one nested field, `trigger: { occasion, filters?, conditions?, scenario? }`, rather than three sibling fields, and empty lists are omitted. `kind: "event"` effects have no trigger and no `trigger` field. The types (`FilterRef`, `ConditionRef`, `ParsedTrigger`, `HeldCard`) live in `src/engine/types.ts` because the engine will read them; the type of a family name is `FilterFamily`, so the profile-side interface sketched below as `FilterFamily` is renamed `FilterCounts`.
+  Rationale: One optional field states "this effect has a trigger" once; three optional fields would allow an occasion without its filters. Omitting empty lists keeps the generated file and the bundle small (the page's script went from about 58 KB to 68 KB gzipped with both `categoryId` and `trigger` present; Milestone 2 removes `categoryId`).
+  Date/Author: 2026-09-21 / agent.
+
+- Decision (C15): Between Milestone 1 and Milestone 2 the old engine still scores by `categoryId`, so an (effect type, trigger) pair that no single taxonomy row covers holds its card, exactly like a piece of unknown kind, instead of stopping the run or scoring 0. An extension row the game's table has caught up with is left out with a warning and the game row wins. Both rules disappear with the taxonomy in Milestone 2.
+  Rationale: "The generator stops failing on missing filter rows" must not turn into publishing a 0 the site cannot stand behind (`docs/adr/0005`) during the window in which categories still decide the count. If a game row replaces an extension row under a new id, no profile names the new id and `data/scenarios/scenarios.test.ts` fails, which is the right place for that to surface until profiles stop naming categories.
+  Date/Author: 2026-09-21 / agent.
+
 
 ## Outcomes & Retrospective
 
@@ -194,6 +202,22 @@ The game tables must be in `.cache/gakumasu-diff/`; in a fresh worktree, copy th
 
 The "2 stated conditions" and their `**` lines are the 「8枚以上」 numbers that decision C11 drops; the `DIFF … no score moves` lines are the same finding seen from the cards' side, and the `NO NUMBER` line is what decision C13 answers.
 
+Milestone 1 acceptance, run on 2026-09-21 with a temporary script (deleted afterwards) that copied `.cache/gakumasu-diff/` three times, edited each copy, and ran `bun run generate` with `GAKUMASU_DIFF_CACHE` pointing at it. The edited trigger is `p_trigger-start_shop-visual-0400_0000`, used only by the P-item 居眠り注意！ that the card ゆるるんあくび顔 grants; the edit renames it in every table. Shortened transcript:
+
+    == (a) invented threshold piece -produce_point-1000_0000: exit 0
+      Wrote data/held.generated.ts: 0 held cards
+      居眠り注意！ effect trigger: "trigger":{"occasion":"StartShop","conditions":[{"kind":"visual","min":400,"max":0},{"kind":"produce_point","min":1000,"max":0}]}
+    == (b) invented piece of unknown kind -mystery: exit 0
+      Wrote data/held.generated.ts: 1 held cards
+        HELD s_card-2-0076 ゆるるんあくび顔 — item pitem_03-2-130-0 居眠り注意！: trigger p_trigger-start_shop-visual-0400_0000-mystery has a piece of unknown kind: mystery
+    == (c) filter row for 休む選択時 deleted: exit 0
+      Wrote data/held.generated.ts: 9 held cards
+        HELD s_card-1-0000 念入りにストレッチ — … no single taxonomy row covers ProduceEffectType_VisualAddition @ p_trigger-start_refresh …
+    == restore: real tables: exit 0
+      Wrote data/held.generated.ts: 0 held cards
+
+In (c) the nine held cards are exactly the nine that have a 休む選択時 skill (decision C15). The new tests were shown to fail by breaking their rules: making an unknown `for_` token parse, and making `hold()` forget its reasons, turned 6 tests red.
+
 Milestones 1 to 4 each end with the same three commands, all of which must succeed:
 
     bun run generate
@@ -236,30 +260,46 @@ What still needs a person after this plan, for the record. A tap, with the affec
 ## Interfaces and Dependencies
 
 
-No new dependencies. Everything below is a sketch to be corrected by Milestone 0's findings and kept current.
+No new dependencies. The first two blocks below are as built in Milestone 1; the rest is a sketch to be corrected as Milestone 2 meets it.
 
-In `scripts/lib/parse-trigger.ts`:
+In `src/engine/types.ts` (as built):
 
+    export type FilterFamily = "lessonStat" | "lessonKind" | "cardType" | "rarity" | "cardName" | "effectGroup";
+    export interface FilterRef { family: FilterFamily; member: string }          // e.g. { family: "effectGroup", member: "review" }
+    export interface ConditionRef {
+      kind: string;                           // the game's word: "vocal", "stamina_ratio", "produce_card_count", "produce_card_search_count", …
+      subject?: FilterRef[];                  // produce_card_search_count only: which held cards are counted; absent = all (C11)
+      min: number; max: number;               // inclusive, as written in the id; 0 = unbounded on that side
+    }
     export interface ParsedTrigger {
       occasion: string;                       // ProduceTrigger.phaseType without its "ProducePhaseType_" prefix, e.g. "EndLesson"
-      filters: FilterRef[];                   // e.g. { family: "effectGroup", member: "review" }; families today: lessonStat, lessonKind, cardType, rarity, cardName, effectGroup
-      conditions: ConditionRef[];             // e.g. { kind: "produce_card_count", subject: [], min: 20, max: 0 }; 0 = unbounded; subject = the held cards a produce_card_search_count counts (C10, C11)
-      scenario?: string;                      // from a for_{scenario} piece (C5)
+      filters?: FilterRef[];                  // omitted when empty (C14)
+      conditions?: ConditionRef[];
+      scenario?: string;                      // from a for_{token} piece (C5): our scenario id, or the token of a scenario we do not ship
     }
-    export type ParseResult = { kind: "parsed"; trigger: ParsedTrigger } | { kind: "unknown-piece"; piece: string };
-    export function parseTrigger(triggerId: string, phaseType: string): ParseResult;
+    export interface HeldCard { id: string; name: string; reasons: string[] }    // data/held.generated.ts exports HELD: readonly HeldCard[]
 
-In `src/engine/types.ts`, `ClassifiedEffect` gains `occasion`, `filters` and `conditions` and, at the end of Milestone 2, loses `categoryId`; `triggerStat` becomes the lesson-stat filter. `RouteProfile` becomes:
+`ClassifiedEffect` has gained `trigger?: ParsedTrigger` (absent for `kind: "event"`) and, at the end of Milestone 2, loses `categoryId`; `triggerStat` becomes the lesson-stat filter.
+
+In `scripts/lib/parse-trigger.ts` (as built):
+
+    export type ParseResult = { kind: "parsed"; trigger: ParsedTrigger } | { kind: "unknown-piece"; piece: string };
+    export const SCENARIO_TOKENS: Readonly<Record<string, string>>;              // hif, hif_memory -> "hif"; hajime_legend, hajime_legend_ssr -> "hajime-legend"; nia_master -> "nia_master"
+    export function parseTrigger(triggerId: string, phaseType: string, scenarioTokens?: Readonly<Record<string, string>>): ParseResult;
+
+`buildCards` in `scripts/lib/build-cards.ts` returns `report.held: HeldCard[]` in place of the former `report.unclassified`.
+
+`RouteProfile` becomes (sketch):
 
     export interface RouteProfile {
       id: string; name: string;
       occasions: Readonly<Record<string, number>>;                       // occasion -> times per run
-      filters: Readonly<Record<string, Readonly<Record<string, FilterFamily>>>>;  // occasion -> family -> counts
-      conditions?: Readonly<Record<string, number>>;                     // condition key -> count; absent = maximum (C2, C7)
+      filters: Readonly<Record<string, Readonly<Partial<Record<FilterFamily, FilterCounts>>>>>;  // occasion -> family -> counts; never lessonStat (C10)
+      conditions?: Readonly<Record<string, number>>;                     // condition key (C10) -> count; absent = maximum (C2, C7)
       lessonSplits: readonly LessonSplit[];
       parameterBonusBase(lessonsOfStat: number): number;
     }
-    export interface FilterFamily { default: number; members?: Readonly<Record<string, number>> }  // C3
+    export interface FilterCounts { default: number; members?: Readonly<Record<string, number>> }  // C3
 
 In `src/engine/count.ts`:
 
@@ -274,4 +314,5 @@ It starts from `profile.occasions[effect.occasion]`, takes the minimum with each
 - 2026-09-21: Draft created during the design interview with the purpose, the facts gathered from the data, the vocabulary (C0) and the first decision (C1).
 - 2026-09-21 (later): Interview completed. Decision Log C2–C9, the effect-group and plan observation, and all remaining sections written. Reason: the judgment calls are settled; what remains before implementation is the user's confirmation.
 - 2026-09-21 (confirmation): The user confirmed the design; the draft banner and Progress now say so, and that implementation waits for an explicit go-ahead.
+- 2026-09-21 (Milestone 1): Progress, decisions C14–C15, the acceptance transcript and the Interfaces section brought in line with the code (`trigger` nested, types in `src/engine/types.ts`, `FilterCounts`). Reason: the sketch was written before the parser existed.
 - 2026-09-21 (Milestone 0): Go-ahead received, prototype written and run. Progress, five observations, decisions C10–C13, the real transcript and the corrected `ParsedTrigger` sketch added. Reason: Milestone 0 exists to correct the plan before Milestone 1 builds on it.

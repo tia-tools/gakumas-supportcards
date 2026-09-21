@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import type { ExtensionRow } from "../../data/taxonomy.extensions.ts";
-import { Classifier, lessonStatOf, mergeTaxonomy, redundantExtensions } from "./classify.ts";
+import { Classifier, lessonStatOf, liveExtensions, mergeTaxonomy, redundantExtensions } from "./classify.ts";
 import type { RawFilterRow } from "./tables.ts";
 
 const PARAM = ["ProduceEffectType_VocalAddition", "ProduceEffectType_DanceAddition", "ProduceEffectType_VisualAddition"];
@@ -136,5 +136,17 @@ describe("redundantExtensions", () => {
 
   test("a game row with a different effect type does not count", () => {
     expect(redundantExtensions(GAME, EXT)).toEqual([]);
+  });
+});
+
+describe("liveExtensions", () => {
+  test("keeps every extension while the game table covers none", () => {
+    expect(liveExtensions(GAME, EXT)).toEqual(EXT);
+  });
+
+  test("drops an extension the game table has caught up with, so the game row wins instead of the build stopping", () => {
+    const caughtUp: RawFilterRow[] = [...GAME, { id: "g-new", title: "SPレッスン終了時パラメータ上昇", order: 6, produceEffectTypes: PARAM, produceTriggerIds: ["p_trigger-end_lesson-lesson_sp"] }];
+    expect(liveExtensions(caughtUp, EXT).map((e) => e.id)).not.toContain("ext-lesson-sp");
+    expect(liveExtensions(caughtUp, EXT)).toHaveLength(EXT.length - 1);
   });
 });
