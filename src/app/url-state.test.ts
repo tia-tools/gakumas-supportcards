@@ -44,6 +44,12 @@ describe("parseViewState", () => {
     expect(parse("p=a2&o.StartShop=2&f.GetProduceCard.effectGroup.review=5").overrides).toEqual({ "o.StartShop": 2 });
   });
 
+  test("real scenarios: a link naming the unpublished 初LEGEND falls back to H.I.F.", () => {
+    const s = parseViewState(new URLSearchParams("s=hajime-legend&p=standard"), SCENARIOS, adjustable);
+    expect(s.scenarioId).toBe("hif");
+    expect(s.profileId).toBe("sashiire");
+  });
+
   test("real scenarios: default is the first shipped scenario and profile", () => {
     const s = parseViewState(new URLSearchParams(""), SCENARIOS, adjustable);
     expect(s.scenarioId).toBe("hif");

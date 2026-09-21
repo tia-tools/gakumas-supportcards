@@ -19,7 +19,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { CARDS } from "../data/cards.generated.ts";
 import { HELD } from "../data/held.generated.ts";
 import { LEVEL_LIMITS } from "../data/levelLimits.generated.ts";
-import { SCENARIOS } from "../data/scenarios/index.ts";
+import { ALL_SCENARIOS } from "../data/scenarios/index.ts";
 import { SCORES_PATH, sha } from "./generate-cards.ts";
 import { buildSnapshot, emitSnapshot, parseSnapshot, unexplainedMoves } from "./lib/score-snapshot.ts";
 
@@ -39,7 +39,7 @@ async function baseText(): Promise<{ text: string; from: string }> {
 }
 
 async function main(): Promise<void> {
-  const current = buildSnapshot(CARDS, HELD, SCENARIOS, LEVEL_LIMITS, sha);
+  const current = buildSnapshot(CARDS, HELD, ALL_SCENARIOS, LEVEL_LIMITS, sha);
   let failed = false;
 
   if (!existsSync(SCORES_PATH) || readFileSync(SCORES_PATH, "utf8") !== emitSnapshot(current)) {

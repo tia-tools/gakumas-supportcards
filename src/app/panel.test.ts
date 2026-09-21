@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { CARDS } from "../../data/cards.generated.ts";
-import { SCENARIOS } from "../../data/scenarios/index.ts";
+import { ALL_SCENARIOS, SCENARIOS } from "../../data/scenarios/index.ts";
 import { occurrences } from "../engine/count.ts";
 import type { ParsedTrigger, RouteProfile } from "../engine/types.ts";
 import { adjustableKeys, applyOverrides, buildPanel, keysUsedBy, triggersOf, type PanelInput, type PanelSection } from "./panel.ts";
@@ -146,7 +146,7 @@ describe("shipped data", () => {
 
   test("every input has a Japanese label, and every key is URL-safe", () => {
     const flat = (inputs: readonly PanelInput[]): PanelInput[] => inputs.flatMap((i) => [i, ...flat(i.children)]);
-    for (const s of SCENARIOS) {
+    for (const s of ALL_SCENARIOS) {
       for (const p of s.profiles) {
         for (const input of flat(buildPanel(p, {}, all, all).flatMap((x) => x.inputs))) {
           expect(/[a-z_]/.test(input.label), `${input.key} is labelled with the game's raw word "${input.label}"`).toBe(false);
@@ -164,6 +164,6 @@ describe("shipped data", () => {
   });
 
   test("no shipped profile has an occasion outside the four sections", () => {
-    for (const s of SCENARIOS) for (const p of s.profiles) expect(buildPanel(p, {}, all, all).map((x) => x.id)).not.toContain("other");
+    for (const s of ALL_SCENARIOS) for (const p of s.profiles) expect(buildPanel(p, {}, all, all).map((x) => x.id)).not.toContain("other");
   });
 });

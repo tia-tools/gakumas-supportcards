@@ -13,15 +13,21 @@ import type { Totsu } from "../../src/engine/types.ts";
 import { CARDS } from "../cards.generated.ts";
 import { HELD } from "../held.generated.ts";
 import { LEVEL_LIMITS } from "../levelLimits.generated.ts";
-import { SCENARIOS } from "./index.ts";
+import { ALL_SCENARIOS, SCENARIOS } from "./index.ts";
 
 const TOTSU: Totsu[] = [0, 1, 2, 3, 4];
 
 describe("shipped scenarios", () => {
+  test("only H.I.F. is published; 初LEGEND stays in the code and under test but off the page (D39)", () => {
+    expect(SCENARIOS.map((s) => s.id)).toEqual(["hif"]);
+    expect(ALL_SCENARIOS.map((s) => s.id)).toEqual(["hif", "hajime-legend"]);
+    for (const s of SCENARIOS) expect(ALL_SCENARIOS).toContain(s);
+  });
+
   test("scenario and profile ids are unique and non-empty", () => {
-    const ids = SCENARIOS.map((s) => s.id);
+    const ids = ALL_SCENARIOS.map((s) => s.id);
     expect(new Set(ids).size).toBe(ids.length);
-    for (const s of SCENARIOS) {
+    for (const s of ALL_SCENARIOS) {
       expect(s.profiles.length).toBeGreaterThan(0);
       const pids = s.profiles.map((p) => p.id);
       expect(new Set(pids).size).toBe(pids.length);
@@ -42,7 +48,7 @@ describe("shipped scenarios", () => {
     expect(CARDS.filter((c) => carries(c) && !moved.includes(c)).map((c) => c.name)).toEqual([]);
   });
 
-  for (const s of SCENARIOS) {
+  for (const s of ALL_SCENARIOS) {
     for (const p of s.profiles) {
       test(`${s.id}/${p.id}: every occasion and filter the published cards' triggers need has a number; a missing one would silently count 0, so the generator holds such a card`, () => {
         const held = new Set(HELD.map((h) => h.id));
