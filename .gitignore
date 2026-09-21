@@ -26,3 +26,6 @@ scripts/images/.venv
 
 # python bytecode
 __pycache__
+
+# git worktrees a coding agent creates for isolated work; the rest of .claude/ (project skills, settings) stays trackable
+.claude/worktrees/
