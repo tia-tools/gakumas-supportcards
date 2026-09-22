@@ -1,4 +1,4 @@
-from uploads import cache_control_for, card_keys, plan_uploads, publishable, select_renditions, upload_order
+from uploads import cache_control_for, card_keys, missing_file_names, plan_uploads, publishable, select_renditions, upload_order
 
 
 def test_only_missing_keys_are_planned_sorted_and_deduplicated():
@@ -51,3 +51,16 @@ def test_a_single_rendition_can_be_selected_without_changing_the_order():
 def test_masters_must_revalidate_and_thumbnails_are_immutable():
     assert cache_control_for("master/x.webp", "master/") == "private, no-cache"
     assert cache_control_for("w192/x.webp", "master/") == "public, max-age=31536000, immutable"
+
+
+def test_only_released_art_the_site_lacks_is_missing():
+    offered = ["released-served.webp", "released-missing.webp", "unreleased.webp"]
+    allowed = {"released-served.webp", "released-missing.webp"}
+    asked = []
+
+    def exists(name):
+        asked.append(name)
+        return name == "released-served.webp"
+
+    assert missing_file_names(offered, allowed, exists) == ["released-missing.webp"]
+    assert "unreleased.webp" not in asked  # the site is not even asked about art that must not go out

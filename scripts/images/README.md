@@ -12,19 +12,16 @@ Python is managed with `uv`. From this directory:
 
 The manifest and downloads come from GkmasObjectManager (`AllenHeartcore/GkmasObjectManager`, GPL-3.0). It is not a Python package — no `pyproject.toml`, not on PyPI — so it is unpacked from a source tarball pinned to a commit, and its runtime requirements are listed in our `pyproject.toml`:
 
-    SHA=2d378780786f561a3c94e1cc171e275bfac0d38d
-    mkdir -p vendor/GkmasObjectManager
-    curl -sL "https://codeload.github.com/AllenHeartcore/GkmasObjectManager/tar.gz/$SHA" \
-      | tar -xz -C vendor/GkmasObjectManager --strip-components=1
-    echo "$SHA" > vendor/GkmasObjectManager.sha
+    ./fetch-vendor.sh
 
-To move to a newer commit, change `SHA`, delete `vendor/GkmasObjectManager` and repeat. It is used only for fetching and decrypting the manifest and downloading de-obfuscated bundles; it runs on your machine and never ships with the site.
+The pinned commit is the one line in `GkmasObjectManager.sha`, which is committed so that a person and the weekly workflow fetch the same version. To move to a newer commit, change that file and run the script again. It is used only for fetching and decrypting the manifest and downloading de-obfuscated bundles; it runs on your machine and never ships with the site.
 
 ## Extract
 
     uv run extract.py                          # every card that lacks a master or a thumbnail
     uv run extract.py --only 'csprt-3-0016' --force
     uv run extract.py --limit 5
+    uv run extract.py --only-missing           # only released cards whose thumbnail the site lacks
 
 Raw bundles land in `out/raw/` (about 130 MB for all cards), masters in `out/master/` (about 265 MB) and thumbnails in `out/w192/` (about 1.3 MB). A full run takes about two and a half minutes, most of it lossless encoding. A second run processes nothing, because a card that already has both renditions is skipped. The master is resampled once, from the stored 2:1 to the 16:9 the game shows, and then encoded losslessly, so it looks right wherever it is opened without anyone having to know a rule (plan decision D36). The script exits 1 and names each image it could not decode.
 
@@ -44,6 +41,10 @@ After extracting, `bun run dev` at the repository root shows the real thumbnails
 The Cache-Control given at upload is stored with the object and comes back on every download, dashboard downloads included. Thumbnails are stored as `public, max-age=31536000, immutable`, because a thumbnail never changes under its name. Masters are stored as `private, no-cache`, because a master is overwritten whenever its rule changes: with an immutable header, a browser that had opened a master once keeps showing the old bytes after a re-upload, which makes a correct bucket look stale. To check what the bucket really holds, bypass the browser: `bunx wrangler r2 object get tia-assets/master/<file> --file /tmp/check.webp --remote` and compare `md5 -q` with the local file.
 
 Only art for cards present in `data/cards.generated.ts` is uploaded. The game's manifest carries art for cards that are not released yet, and publishing those early would leak them; the script prints which images it held back. They go out on the first upload after the weekly data update adds their cards.
+
+## In the weekly workflow
+
+`.github/workflows/update-data.yml` runs `./fetch-vendor.sh`, `uv sync --frozen`, `uv run extract.py --only-missing` and `uv run upload.py` after the data gates have passed. `--only-missing` asks the deployed site which released cards have no thumbnail and downloads only those bundles, so a runner that starts with nothing fetches a few hundred kilobytes instead of 130 MB, and never fetches art of a card that is not in the data. These steps are best effort: if the game's servers refuse the runner or a new engine version breaks decoding, the data still publishes and the card shows its name until someone runs the two commands locally.
 
 ## Tests
 
