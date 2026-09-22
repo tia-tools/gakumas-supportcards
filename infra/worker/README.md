@@ -23,7 +23,17 @@ R2 has to be enabled on the account first (dashboard → R2); the free tier of 1
 
 ## Deploy
 
-Deployment is automatic: every push to `main` that touches the page, the data or this directory runs `.github/workflows/deploy.yml`, which tests, builds and deploys, and the weekly data update calls the same workflow. It needs the repository secrets `CLOUDFLARE_API_TOKEN` (an API token that can edit Workers scripts and routes and write to R2, for the account that holds `tia.run`) and `CLOUDFLARE_ACCOUNT_ID`. `main` is production; unfinished work belongs on `develop`.
+Deployment is automatic: every push to `main` that touches the page, the data or this directory runs `.github/workflows/deploy.yml`, which tests, builds and deploys, and the weekly data update calls the same workflow. It needs the repository secrets `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`.
+
+The token is an **account-owned** API token (dashboard → Manage Account → Account API Tokens, on the account that holds `tia.run`; it needs Super Administrator to create), not a user token, so it survives any person leaving and can carry the granular Workers roles Cloudflare introduced on 2026-09-15. Its permissions, the least the two workflows use:
+
+| Scope | Permission | Used by |
+|---|---|---|
+| Workers, only the Worker `gakumas-supportcards` | **Editor** (the new role; the old "Workers Scripts Edit" is its account-wide legacy equivalent) | `wrangler deploy`: script and static assets |
+| Zone, only `tia.run` | **Workers Routes: Edit** | the custom domain route in `wrangler.toml` |
+| Account | **Workers R2 Storage: Edit** | `upload.py` writing images (R2 has no per-bucket role yet) |
+
+No client IP filter (GitHub's runner addresses change constantly) and an expiry of one year. Editor cannot delete the Worker or touch any other Worker; a leaked token can redeploy this site and write to R2, nothing else. If a deploy fails with a permissions error, the message names the missing permission; "Account Settings: Read" is the one older Wrangler versions asked for and is harmless to add. `main` is production; unfinished work belongs on `develop`.
 
 By hand, for a first deployment or an emergency, from the repository root and then this directory:
 
