@@ -61,3 +61,11 @@ def cache_control_for(key: str, master_prefix: str) -> str:
     header a browser that had opened a master once kept showing the old bytes after a re-upload
     (2026-09-21, plan decision D37). A thumbnail never changes under its name."""
     return REVALIDATE if key.startswith(master_prefix) else IMMUTABLE
+
+
+def missing_file_names(file_names: Iterable[str], allowed: set[str], exists: Callable[[str], bool]) -> list[str]:
+    """Of the card art the game offers, what the site should have and does not: art of cards in
+    the data (D32) whose thumbnail is not served. This is what an unattended run downloads, so it
+    never fetches unreleased art and never refetches what is already published."""
+    keep, _held_back = publishable(file_names, allowed)
+    return list(plan_uploads(keep, exists).missing)

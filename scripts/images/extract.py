@@ -5,6 +5,7 @@ image library (docs/adr/0003).
 
     uv run extract.py                       # every card that lacks a master or a thumbnail
     uv run extract.py --only 'csprt-3-0016' --force
+    uv run extract.py --only-missing        # only cards whose thumbnail the deployed site lacks
 
 GkmasObjectManager (GPL-3.0, not a package) is used only for what it does well: fetching and
 decrypting the manifest and downloading de-obfuscated bundles. Decoding and resizing are ours
@@ -20,9 +21,12 @@ import sys
 from pathlib import Path
 
 from decode import DecodeError, decode_texture
+from deployed_site import DEFAULT_BASE_URL, served_by
 from thumbnail import MASTER_PREFIX, OBJECT_PATTERN, THUMBNAIL_PREFIX, file_name_for, to_master, to_thumbnail
+from uploads import card_keys, missing_file_names
 
 HERE = Path(__file__).resolve().parent
+CARDS = HERE.parent.parent / "data" / "cards.generated.ts"
 VENDOR = HERE / "vendor" / "GkmasObjectManager"
 
 
@@ -35,9 +39,12 @@ def load_manifest():
     return gom.fetch()
 
 
-def select(manifest, only: str | None, limit: int | None, out_dirs: list[Path], force: bool) -> list[str]:
-    """Manifest names of card art to process: matching --only, lacking any rendition unless --force."""
+def select(manifest, only: str | None, limit: int | None, out_dirs: list[Path], force: bool, wanted: set[str] | None = None) -> list[str]:
+    """Manifest names of card art to process: matching --only, lacking any rendition unless --force,
+    and, when `wanted` is given, only those whose library file name is in it."""
     names = [o.name for o in manifest.search(OBJECT_PATTERN) if file_name_for(o.name)]
+    if wanted is not None:
+        names = [n for n in names if file_name_for(n) in wanted]
     if only:
         names = [n for n in names if re.search(only, n)]
     if not force:
@@ -51,6 +58,9 @@ def main() -> int:
     ap.add_argument("--only", help="regex; process only manifest names it matches")
     ap.add_argument("--limit", type=int, help="process at most this many images")
     ap.add_argument("--force", action="store_true", help="re-convert images whose master and thumbnail already exist")
+    ap.add_argument("--only-missing", action="store_true", help="process only released cards whose thumbnail the deployed site does not serve (what an unattended run needs)")
+    ap.add_argument("--base-url", default=DEFAULT_BASE_URL, help="the deployed site asked by --only-missing")
+    ap.add_argument("--cards", type=Path, default=CARDS, help="generated card data; --only-missing never fetches art of a card that is not in it")
     args = ap.parse_args()
 
     raw_dir = args.out / "raw"
@@ -59,7 +69,12 @@ def main() -> int:
         d.mkdir(parents=True, exist_ok=True)
 
     manifest = load_manifest()
-    names = select(manifest, args.only, args.limit, [master_dir, thumb_dir], args.force)
+    wanted = None
+    if args.only_missing:
+        offered = [str(file_name_for(o.name)) for o in manifest.search(OBJECT_PATTERN) if file_name_for(o.name)]
+        wanted = set(missing_file_names(offered, card_keys(args.cards.read_text(encoding="utf-8")), served_by(args.base_url)))
+        print(f"{len(wanted)} released card(s) lack a thumbnail on {args.base_url}")
+    names = select(manifest, args.only, args.limit, [master_dir, thumb_dir], args.force, wanted)
     print(f"manifest {manifest.version}: {len(names)} image(s) to process")
     if not names:
         return 0
