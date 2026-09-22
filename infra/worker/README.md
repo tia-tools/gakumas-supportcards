@@ -23,7 +23,9 @@ R2 has to be enabled on the account first (dashboard → R2); the free tier of 1
 
 ## Deploy
 
-From the repository root, then this directory:
+Deployment is automatic: every push to `main` that touches the page, the data or this directory runs `.github/workflows/deploy.yml`, which tests, builds and deploys, and the weekly data update calls the same workflow. It needs the repository secrets `CLOUDFLARE_API_TOKEN` (an API token that can edit Workers scripts and routes and write to R2, for the account that holds `tia.run`) and `CLOUDFLARE_ACCOUNT_ID`. `main` is production; unfinished work belongs on `develop`.
+
+By hand, for a first deployment or an emergency, from the repository root and then this directory:
 
     bun run build
     cd infra/worker
