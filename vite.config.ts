@@ -1,3 +1,4 @@
+import { execFileSync } from "node:child_process";
 import { createReadStream, existsSync } from "node:fs";
 import { join } from "node:path";
 import preact from "@preact/preset-vite";
@@ -28,8 +29,22 @@ function localImageLibrary(dir: string): Plugin {
   };
 }
 
+/**
+ * The commit the page is built from, attached to feedback so a report names the exact build
+ * (src/app/feedback.ts). Read from git rather than GITHUB_SHA, which under deploy.yml's
+ * `workflow_call` is the caller's commit, not the checked-out `main`.
+ */
+function buildCommit(): string {
+  try {
+    return execFileSync("git", ["rev-parse", "--short=12", "HEAD"], { encoding: "utf8" }).trim();
+  } catch {
+    return "unknown";
+  }
+}
+
 // Served at the root of gakumas-supportcards.tia.run (docs/adr/0003, plan D7), so no `base`.
 export default defineConfig({
+  define: { __BUILD_COMMIT__: JSON.stringify(buildCommit()) },
   plugins: [preact(), tailwindcss(), localImageLibrary(join(import.meta.dirname, "scripts/images/out"))],
   build: {
     // The card data (data/cards.generated.ts, 1.7 MB source) ships inline in the one

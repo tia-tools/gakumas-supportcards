@@ -9,15 +9,22 @@ routes = [
   { pattern = "gakumas-supportcards.tia.run", custom_domain = true }
 ]
 
-# The built page (`bun run build` at the repository root writes dist/). Only /img/* runs the
-# Worker first; everything else is served straight from the assets.
+# The built page (`bun run build` at the repository root writes dist/). Only /img/* and
+# /feedback run the Worker first; everything else is served straight from the assets.
 [assets]
 directory = "../../dist"
 binding = "ASSETS"
-run_worker_first = ["/img/*"]
+run_worker_first = ["/img/*", "/feedback"]
 
 # The owned image library (docs/adr/0003). Keys are the game's filenames,
 # img_general_{assetId}_full.webp, uploaded by scripts/images/upload.py.
 [[r2_buckets]]
 binding = "IMAGES"
 bucket_name = "tia-assets"
+
+# Per-day feedback counts (feedback.ts): keys fb/<UTC date>/<salted IP hash>, expiring after two
+# days. Created once with `bunx wrangler kv namespace create gakumas-supportcards-feedback`;
+# the id is not a secret. Secrets FEEDBACK_TOKEN and HASH_SALT: README.md § Feedback.
+[[kv_namespaces]]
+binding = "FEEDBACK_LIMITS"
+id = "9837b184f0a343b78db446d26690aa3a"
