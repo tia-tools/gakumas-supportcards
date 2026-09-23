@@ -6,6 +6,7 @@ import { SCENARIOS } from "../../data/scenarios/index.ts";
 import type { Totsu } from "../engine/types.ts";
 import { Controls } from "./Controls.tsx";
 import { CustomizePanel } from "./CustomizePanel.tsx";
+import { FeedbackForm } from "./FeedbackForm.tsx";
 import { ScoreTable } from "./ScoreTable.tsx";
 import { applyOverrides, buildPanel, triggersOf } from "./panel.ts";
 import { buildRows, filterRows, sortRows, withoutHeld } from "./rows.ts";
@@ -42,6 +43,7 @@ export function App() {
       <section class="rounded-lg border border-slate-200 bg-white overflow-visible">
         <ScoreTable rows={rows} sort={state.sort} onSort={onSort} />
       </section>
+      <FeedbackForm />
       <footer class="text-xs text-slate-500">
         {scenario.name}（パラメータ上限 {scenario.parameterCap}）。カードデータは vertesan/gakumasu-diff から毎週生成。
       </footer>
