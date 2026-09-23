@@ -6,7 +6,9 @@
 #   - the unit tests and the type check pass;
 #   - scripts/check-score-stability.ts finds no card whose score moved although its own data did
 #     not (docs/adr/0006).
-# A failure publishes nothing: the site keeps its last good data and GitHub mails the failure.
+# A failure publishes nothing: the site keeps its last good data, GitHub mails the failure, and
+# the last step posts every run's outcome, failure included, to the owner's Discord through Nudge
+# (github.com/Taka499/nudge; an OIDC token, no stored secret).
 # The gates run here rather than as pull-request checks because a pull request opened with the
 # built-in token triggers no workflows. Held cards open (or update) one issue labelled
 # `held-cards`; they do not block the other cards. Images for new cards are fetched and uploaded
@@ -23,6 +25,7 @@ permissions:
   contents: write
   pull-requests: write
   issues: write
+  id-token: write
 
 concurrency:
   group: update-data
@@ -151,6 +154,18 @@ jobs:
             git merge --abort
             gh pr create --base develop --head main --title "Merge main into develop — data update conflicts" --body "The weekly data update merged into main, but main does not merge cleanly into develop. Resolve by hand. Run: $RUN_URL"
           fi
+
+      # Runs after a failure too: a failed gate is the message that matters most. Pinned to a full
+      # commit because Nudge has no v1 tag yet; it moves to @v1 once Nudge's Milestone 1 is accepted.
+      - name: Tell Discord how it went
+        if: always()
+        uses: Taka499/nudge/actions/notify@2f92e97cceaa5f3d1cb9376e80ee5e8837a8268f
+        with:
+          endpoint: https://nudge.tia.run
+          title: "Weekly data update: ${{ job.status }}"
+          body: |
+            ${{ steps.detect.outputs.changed == 'true' && steps.report.outputs.title || 'No changes upstream; nothing published.' }}
+            Held cards: ${{ steps.report.outputs.held || '0' }}
 
   deploy:
     needs: update
