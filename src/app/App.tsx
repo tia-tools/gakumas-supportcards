@@ -6,7 +6,7 @@ import { SCENARIOS } from "../../data/scenarios/index.ts";
 import type { Totsu } from "../engine/types.ts";
 import { Controls } from "./Controls.tsx";
 import { CustomizePanel } from "./CustomizePanel.tsx";
-import { FeedbackForm } from "./FeedbackForm.tsx";
+import { FeedbackForm, FeedbackLink } from "./FeedbackForm.tsx";
 import { ScoreTable } from "./ScoreTable.tsx";
 import { applyOverrides, buildPanel, triggersOf } from "./panel.ts";
 import { buildRows, filterRows, sortRows, withoutHeld } from "./rows.ts";
@@ -31,7 +31,10 @@ export function App() {
   return (
     <div class="mx-auto max-w-6xl p-3 sm:p-6 flex flex-col gap-4">
       <header class="flex flex-col gap-1">
-        <h1 class="text-xl font-bold">サポカ凸別点数一覧</h1>
+        <div class="flex items-baseline justify-between gap-2">
+          <h1 class="text-xl font-bold">サポカ凸別点数一覧</h1>
+          <FeedbackLink />
+        </div>
         <p class="text-xs text-slate-500">
           点数 = 1回のプロデュースで得られる Vo+Da+Vi 上昇量の期待値。全レッスンをSPレッスン、条件付き効果は常に成立とみなします。数字にカーソルを合わせると内訳、サムネイルに合わせるとカード名が表示されます。
         </p>
@@ -45,7 +48,7 @@ export function App() {
       </section>
       <FeedbackForm />
       <footer class="text-xs text-slate-500">
-        {scenario.name}（パラメータ上限 {scenario.parameterCap}）。カードデータは vertesan/gakumasu-diff から毎週生成。
+        {scenario.name}（パラメータ上限 {scenario.parameterCap}）。
       </footer>
     </div>
   );
