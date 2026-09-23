@@ -1,7 +1,9 @@
 /**
  * Folded 「フィードバックを送る」 form → `POST /feedback` → an issue in the private
  * `tia-tools/feedback` repository (first plan, Milestone 6, decisions D7 and D42). The current
- * view and build are attached and shown before sending. Rules live in ./feedback.ts.
+ * view and build are attached and shown before sending. Rules live in ./feedback.ts. It sits
+ * below the table and is opened from the header's 「フィードバック」 link (`FeedbackLink`),
+ * so it can be found without scrolling to the bottom (feedback issue #8).
  */
 
 import { useState } from "preact/hooks";
@@ -19,6 +21,26 @@ async function send(body: string): Promise<number> {
   } catch {
     return 0;
   }
+}
+
+/** The form's element id; the header link opens and scrolls to it. */
+const FORM_ID = "feedback";
+
+/** Header link: opens the folded form, scrolls to it and puts the cursor in the message box. */
+export function FeedbackLink() {
+  const onClick = (e: Event): void => {
+    e.preventDefault();
+    const details = document.getElementById(FORM_ID);
+    if (!(details instanceof HTMLDetailsElement)) return;
+    details.open = true;
+    details.scrollIntoView({ behavior: "smooth", block: "start" });
+    details.querySelector("textarea")?.focus({ preventScroll: true });
+  };
+  return (
+    <a href={`#${FORM_ID}`} onClick={onClick} class="shrink-0 text-xs text-sky-700 underline-offset-2 hover:underline">
+      フィードバック
+    </a>
+  );
 }
 
 export function FeedbackForm() {
@@ -40,7 +62,7 @@ export function FeedbackForm() {
   };
 
   return (
-    <details class="rounded-lg border border-slate-200 bg-white">
+    <details id={FORM_ID} class="scroll-mt-4 rounded-lg border border-slate-200 bg-white">
       <summary class="cursor-pointer select-none px-3 py-2 text-sm font-medium">フィードバックを送る</summary>
       <form class="flex flex-col gap-2 border-t border-slate-200 p-3" onSubmit={onSubmit}>
         <fieldset class="flex flex-wrap items-center gap-1">
