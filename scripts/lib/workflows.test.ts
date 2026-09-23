@@ -35,7 +35,12 @@ function read(name: string): { text: string; wf: Workflow } {
 const stepsOf = (wf: Workflow, job: string): Step[] => wf.jobs[job]?.steps ?? [];
 const indexOfRun = (steps: Step[], needle: string): number => steps.findIndex((s) => (s.run ?? "").includes(needle));
 
-const ALLOWED_ACTIONS = ["actions/checkout@v4", "oven-sh/setup-bun@v2", "astral-sh/setup-uv@v6"];
+const ALLOWED_ACTIONS = [
+  "actions/checkout@v4",
+  "oven-sh/setup-bun@v2",
+  "astral-sh/setup-uv@v6",
+  "Taka499/nudge/actions/notify@2f92e97cceaa5f3d1cb9376e80ee5e8837a8268f",
+];
 
 for (const name of ["deploy.yml", "update-data.yml"]) {
   describe(name, () => {
@@ -91,7 +96,7 @@ describe("update-data.yml", () => {
 
   test("runs on a schedule and by hand, with exactly the permissions it needs", () => {
     expect(Object.keys(wf.on).sort()).toEqual(["schedule", "workflow_dispatch"]);
-    expect(wf.permissions).toEqual({ contents: "write", "pull-requests": "write", issues: "write" });
+    expect(wf.permissions).toEqual({ contents: "write", "pull-requests": "write", issues: "write", "id-token": "write" });
   });
 
   test("every gate comes before the merge, and none of them may be skipped on failure", () => {
