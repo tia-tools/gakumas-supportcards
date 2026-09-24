@@ -38,7 +38,7 @@ const indexOfRun = (steps: Step[], needle: string): number => steps.findIndex((s
 const ALLOWED_ACTIONS = [
   "actions/checkout@v4",
   "oven-sh/setup-bun@v2",
-  "astral-sh/setup-uv@v6",
+  "astral-sh/setup-uv@v7",
   "Taka499/nudge/actions/notify@b706447babea35d3b95dcdbae7ec03f007cb2b2a",
 ];
 
@@ -112,7 +112,7 @@ describe("update-data.yml", () => {
 
   test("only the image steps are best-effort", () => {
     const soft = steps.filter((s) => s["continue-on-error"] === true).map((s) => s.uses ?? s.name);
-    expect(soft).toEqual(["astral-sh/setup-uv@v6", "Images for cards the site does not show yet"]);
+    expect(soft).toEqual(["astral-sh/setup-uv@v7", "Images for cards the site does not show yet"]);
   });
 
   test("merges with a merge commit, never a squash or a rebase, and never pushes to main directly", () => {
