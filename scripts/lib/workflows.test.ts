@@ -39,7 +39,7 @@ const ALLOWED_ACTIONS = [
   "actions/checkout@v4",
   "oven-sh/setup-bun@v2",
   "astral-sh/setup-uv@v6",
-  "Taka499/nudge/actions/notify@2f92e97cceaa5f3d1cb9376e80ee5e8837a8268f",
+  "Taka499/nudge/actions/notify@b706447babea35d3b95dcdbae7ec03f007cb2b2a",
 ];
 
 for (const name of ["deploy.yml", "update-data.yml"]) {
