@@ -155,11 +155,10 @@ jobs:
             gh pr create --base develop --head main --title "Merge main into develop — data update conflicts" --body "The weekly data update merged into main, but main does not merge cleanly into develop. Resolve by hand. Run: $RUN_URL"
           fi
 
-      # Runs after a failure too: a failed gate is the message that matters most. Pinned to a full
-      # commit because Nudge has no v1 tag yet; it moves to @v1 once Nudge's Milestone 1 is accepted.
+      # Runs after a failure too: a failed gate is the message that matters most.
       - name: Tell Discord how it went
         if: always()
-        uses: Taka499/nudge/actions/notify@2f92e97cceaa5f3d1cb9376e80ee5e8837a8268f
+        uses: Taka499/nudge/actions/notify@b706447babea35d3b95dcdbae7ec03f007cb2b2a # v1.0.0
         with:
           endpoint: https://nudge.tia.run
           title: "Weekly data update: ${{ job.status }}"
