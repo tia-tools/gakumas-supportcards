@@ -36,7 +36,7 @@ const stepsOf = (wf: Workflow, job: string): Step[] => wf.jobs[job]?.steps ?? []
 const indexOfRun = (steps: Step[], needle: string): number => steps.findIndex((s) => (s.run ?? "").includes(needle));
 
 const ALLOWED_ACTIONS = [
-  "actions/checkout@v4",
+  "actions/checkout@v7",
   "oven-sh/setup-bun@v2",
   "astral-sh/setup-uv@v6",
   "Taka499/nudge/actions/notify@b706447babea35d3b95dcdbae7ec03f007cb2b2a",
