@@ -31,9 +31,16 @@ interface Workflow {
   jobs: Record<string, Job>;
 }
 
+const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === "object" && value !== null && !Array.isArray(value);
+const isJob = (value: unknown): value is Job => isRecord(value) && (value.steps === undefined || (Array.isArray(value.steps) && value.steps.every(isRecord)));
+const isWorkflow = (value: unknown): value is Workflow =>
+  isRecord(value) && isRecord(value.on) && isRecord(value.permissions) && isRecord(value.jobs) && Object.values(value.jobs).every(isJob);
+
 function read(name: string): { text: string; wf: Workflow } {
   const text = readFileSync(`.github/workflows/${name}`, "utf8");
-  return { text, wf: load(text) as Workflow };
+  const wf = load(text);
+  if (!isWorkflow(wf)) throw new Error(`${name} does not have the shape of a workflow`);
+  return { text, wf };
 }
 const stepsOf = (wf: Workflow, job: string): Step[] => wf.jobs[job]?.steps ?? [];
 const indexOfRun = (steps: Step[], needle: string): number => steps.findIndex((s) => (s.run ?? "").includes(needle));
@@ -93,7 +100,7 @@ describe("check.yml", () => {
   });
 
   test("runs every check deploy.yml runs before production", () => {
-    for (const gate of ["bun test", "bun run type-check", "check-score-stability.ts", "bun run build"]) {
+    for (const gate of ["bun test", "bun run type-check", "bun run lint", "check-score-stability.ts", "bun run build"]) {
       expect(indexOfRun(steps, gate)).toBeGreaterThanOrEqual(0);
     }
   });
@@ -104,7 +111,7 @@ describe("deploy.yml", () => {
 
   test("runs for pushes to main only, on call and by hand, and can write nothing", () => {
     expect(Object.keys(wf.on).sort()).toEqual(["push", "workflow_call", "workflow_dispatch"]);
-    expect((wf.on.push as { branches: string[] }).branches).toEqual(["main"]);
+    expect(branchesOf(wf.on.push)).toEqual(["main"]);
     expect(wf.permissions).toEqual({ contents: "read" });
   });
 
@@ -112,7 +119,7 @@ describe("deploy.yml", () => {
     const steps = stepsOf(wf, "deploy");
     const deploy = indexOfRun(steps, "wrangler@4 deploy");
     expect(deploy).toBeGreaterThan(0);
-    for (const gate of ["bun test", "bun run type-check", "check-score-stability.ts", "bun run build"]) {
+    for (const gate of ["bun test", "bun run type-check", "bun run lint", "check-score-stability.ts", "bun run build"]) {
       const i = indexOfRun(steps, gate);
       expect(i).toBeGreaterThanOrEqual(0);
       expect(i).toBeLessThan(deploy);
@@ -136,7 +143,7 @@ describe("update-data.yml", () => {
   test("every gate comes before the merge, and none of them may be skipped on failure", () => {
     const merge = indexOfRun(steps, "gh pr merge");
     expect(merge).toBeGreaterThan(0);
-    for (const gate of ["bun run generate", "bun test", "bun run type-check", "check-score-stability.ts --base HEAD"]) {
+    for (const gate of ["bun run generate", "bun test", "bun run type-check", "bun run lint", "check-score-stability.ts --base HEAD"]) {
       const i = indexOfRun(steps, gate);
       expect(i).toBeGreaterThanOrEqual(0);
       expect(i).toBeLessThan(merge);

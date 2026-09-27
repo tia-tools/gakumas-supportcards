@@ -4,7 +4,7 @@
  * the fetch. The limits come from the contract the Worker checks against.
  */
 
-import { FEEDBACK_MESSAGE_MAX, FEEDBACK_VIEW_PATTERN, type FeedbackCategory, type FeedbackPayload } from "../../infra/worker/feedback-contract.ts";
+import { FEEDBACK_MESSAGE_MAX, isFeedbackView, type FeedbackCategory, type FeedbackPayload } from "../../infra/worker/feedback-contract.ts";
 
 /**
  * The view to attach: the page's query string re-serialized the way `URLSearchParams` encodes
@@ -13,7 +13,7 @@ import { FEEDBACK_MESSAGE_MAX, FEEDBACK_VIEW_PATTERN, type FeedbackCategory, typ
 export function viewToAttach(search: string): string {
   const query = new URLSearchParams(search).toString();
   const view = query === "" ? "" : `?${query}`;
-  return FEEDBACK_VIEW_PATTERN.test(view) ? view : "";
+  return isFeedbackView(view) ? view : "";
 }
 
 /** Null when the message cannot be sent yet; the form keeps its button disabled. */

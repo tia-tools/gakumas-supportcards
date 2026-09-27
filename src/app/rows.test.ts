@@ -22,6 +22,12 @@ function card(id: string, effects: Card["breakpoints"][number]["effects"], type:
   return { id, name: id, assetId: id, type, rarity, plan, breakpoints: [{ minLevel: 1, effects, eventBonusPermil: 0 }] };
 }
 
+/** The value, or a thrown error naming what was missing, so a test fails where the gap is. */
+function must<T>(value: T | undefined, what: string): T {
+  if (value === undefined) throw new Error(`${what} is missing`);
+  return value;
+}
+
 const shopVo = card("s-shop", [{ stat: "vocal", value: 10, kind: "skill", trigger: SHOP }]);
 const lessonVi = card("s-lesson", [{ stat: "visual", value: 10, kind: "skill", trigger: VISUAL_LESSON }], "visual", "r", "sense");
 const empty = card("s-empty", [], "assist", "sr", "logic");
@@ -29,18 +35,20 @@ const empty = card("s-empty", [], "assist", "sr", "logic");
 describe("buildRows", () => {
   test("scores every 凸 and tags cards without any effect", () => {
     const rows = buildRows([shopVo, empty], ctx, null);
-    expect(rows[0]!.scores.map((s) => s.total)).toEqual([30, 30, 30, 30, 30]);
-    expect(rows[0]!.noParameterEffect).toBe(false);
-    expect(rows[1]!.scores[4]!.total).toBe(0);
-    expect(rows[1]!.noParameterEffect).toBe(true);
+    const shop = must(rows[0], "the shop card's row");
+    const none = must(rows[1], "the empty card's row");
+    expect(shop.scores.map((s) => s.total)).toEqual([30, 30, 30, 30, 30]);
+    expect(shop.noParameterEffect).toBe(false);
+    expect(must(none.scores[4], "凸4").total).toBe(0);
+    expect(none.noParameterEffect).toBe(true);
   });
 
   test("null split takes the best preset per card; a fixed split applies to every card", () => {
-    const best = buildRows([lessonVi], ctx, null)[0]!;
-    expect(best.scores[4]!.total).toBe(30); // Vi3 preset: min(4 lessons, 3 visual lessons)
-    expect(best.scores[4]!.lessons).toEqual({ vocal: 0, dance: 1, visual: 3 });
-    const fixed = buildRows([lessonVi], ctx, 0)[0]!;
-    expect(fixed.scores[4]!.total).toBe(0); // Vo3 preset: no visual lessons
+    const best = must(buildRows([lessonVi], ctx, null)[0], "the row under the best split");
+    expect(must(best.scores[4], "凸4").total).toBe(30); // Vi3 preset: min(4 lessons, 3 visual lessons)
+    expect(must(best.scores[4], "凸4").lessons).toEqual({ vocal: 0, dance: 1, visual: 3 });
+    const fixed = must(buildRows([lessonVi], ctx, 0)[0], "the row under the fixed split");
+    expect(must(fixed.scores[4], "凸4").total).toBe(0); // Vo3 preset: no visual lessons
   });
 });
 

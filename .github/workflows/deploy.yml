@@ -1,6 +1,6 @@
 # Guards: production. This is the only path by which https://gakumas-supportcards.tia.run changes.
 # It builds the page from `main` and deploys the Worker, and refuses to when the unit tests, the
-# type check or the score snapshot check fail — the last one catches a route profile or engine
+# type check, the lint or the score snapshot check fail — the last one catches a route profile or engine
 # change whose regenerated data/scores.generated.json was not committed (docs/adr/0006).
 # `main` is production and `develop` is development (first plan, decision D40): merging into
 # main IS the deploy. Called by update-data.yml after an unattended data update, because a merge
@@ -44,6 +44,7 @@ jobs:
       - run: bun install --frozen-lockfile
       - run: bun test
       - run: bun run type-check
+      - run: bun run lint
       - run: bun scripts/check-score-stability.ts
       - run: bun run build
       - name: Deploy the Worker and the static page

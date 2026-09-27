@@ -234,6 +234,19 @@ class CardBuilder {
     return result;
   }
 
+  /** Effects of an event's rewards: a granted P-item's effects (its held reasons go to the card); nothing for the audited resource types. */
+  private rewardEffects(cardId: string, rewards: readonly { resourceType: string; resourceId: string }[], where: string): ClassifiedEffect[] {
+    const out: ClassifiedEffect[] = [];
+    for (const rw of rewards) {
+      if (rw.resourceType === ITEM_RESOURCE_TYPE) {
+        const item = this.itemEffects(rw.resourceId);
+        out.push(...item.effects);
+        for (const reason of item.held) this.hold(cardId, reason);
+      } else if (!NON_PARAMETER_RESOURCE_TYPES.has(rw.resourceType)) throw new Error(`${where}: unsupported reward "${rw.resourceType}" (${rw.resourceId})`);
+    }
+    return out;
+  }
+
   /** Effects of every event unlocked at or below `level`. */
   private eventEffects(cardId: string, level: number): ClassifiedEffect[] {
     const out: ClassifiedEffect[] = [];
@@ -248,13 +261,7 @@ class CardBuilder {
           const stat = effect.produceEffectType.includes("Vocal") ? "vocal" : effect.produceEffectType.includes("Dance") ? "dance" : "visual";
           out.push({ stat, value: effect.effectValueMin, kind: "event" });
         } else if (effect.produceEffectType === "ProduceEffectType_ProduceReward") {
-          for (const rw of effect.produceRewards) {
-            if (rw.resourceType === ITEM_RESOURCE_TYPE) {
-              const item = this.itemEffects(rw.resourceId);
-              out.push(...item.effects);
-              for (const reason of item.held) this.hold(cardId, reason);
-            } else if (!NON_PARAMETER_RESOURCE_TYPES.has(rw.resourceType)) throw new Error(`${where}: unsupported reward "${rw.resourceType}" (${rw.resourceId})`);
-          }
+          out.push(...this.rewardEffects(cardId, effect.produceRewards, where));
         } else if (NON_PARAMETER_EFFECT_TYPES.has(effect.produceEffectType)) {
           this.skip(effect.produceEffectType);
         } else {
@@ -296,7 +303,7 @@ class CardBuilder {
 export function buildLevelLimits(tables: Tables): LevelLimits {
   const byId = new Map<string, number[]>();
   for (const ll of tables.levelLimits) {
-    const rank = TOTSU_RANKS.indexOf(ll.rank as (typeof TOTSU_RANKS)[number]);
+    const rank = TOTSU_RANKS.findIndex((r) => r === ll.rank);
     if (rank < 0) throw new Error(`SupportCardLevelLimit ${ll.id}: unknown rank ${ll.rank}`);
     const arr = byId.get(ll.id) ?? [];
     arr[rank] = ll.levelLimit;
