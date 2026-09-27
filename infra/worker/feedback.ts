@@ -22,8 +22,8 @@ import {
   FEEDBACK_CATEGORIES,
   FEEDBACK_COMMIT_PATTERN,
   FEEDBACK_MESSAGE_MAX,
-  FEEDBACK_VIEW_PATTERN,
   isFeedbackCategory,
+  isFeedbackView,
   type FeedbackPayload,
 } from "./feedback-contract.ts";
 
@@ -84,7 +84,7 @@ export function parsePayload(raw: string): FeedbackPayload | null {
   if (typeof message !== "string" || typeof view !== "string" || typeof commit !== "string") return null;
   const trimmed = message.trim();
   if (trimmed === "" || trimmed.length > FEEDBACK_MESSAGE_MAX) return null;
-  if (!FEEDBACK_VIEW_PATTERN.test(view) || !FEEDBACK_COMMIT_PATTERN.test(commit)) return null;
+  if (!isFeedbackView(view) || !FEEDBACK_COMMIT_PATTERN.test(commit)) return null;
   return { category, message: trimmed, view, commit };
 }
 

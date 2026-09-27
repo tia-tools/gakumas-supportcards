@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { FEEDBACK_MESSAGE_MAX, type FeedbackPayload } from "./feedback-contract.ts";
+import { FEEDBACK_MESSAGE_MAX, FEEDBACK_VIEW_MAX, type FeedbackPayload } from "./feedback-contract.ts";
 import { APP_LABEL, BODY_MAX, PER_DAY, composeIssue, fenced, dailyBucket, handleFeedback, parsePayload, type CountStore, type FeedbackDeps, type NewIssue } from "./feedback.ts";
 
 const URL_FEEDBACK = "https://gakumas-supportcards.tia.run/feedback";
@@ -67,6 +67,11 @@ describe("parsePayload", () => {
       expect(parsePayload(bad)).toBeNull();
     }
     expect(parsePayload(JSON.stringify({ ...GOOD, message: "x".repeat(FEEDBACK_MESSAGE_MAX) }))).not.toBeNull();
+  });
+
+  test("the view is bounded at FEEDBACK_VIEW_MAX characters, its ? included", () => {
+    expect(parsePayload(JSON.stringify({ ...GOOD, view: `?${"a".repeat(FEEDBACK_VIEW_MAX - 1)}` }))).not.toBeNull();
+    expect(parsePayload(JSON.stringify({ ...GOOD, view: `?${"a".repeat(FEEDBACK_VIEW_MAX)}` }))).toBeNull();
   });
 });
 
