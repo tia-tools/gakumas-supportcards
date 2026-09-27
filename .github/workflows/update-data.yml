@@ -7,9 +7,11 @@
 #   - scripts/check-score-stability.ts finds no card whose score moved although its own data did
 #     not (docs/adr/0006).
 # A failure publishes nothing: the site keeps its last good data, GitHub mails the failure, and
-# the last step posts to the owner's Discord through Nudge (github.com/Taka499/nudge; an OIDC
-# token, no stored secret) whenever a run failed, published data or was started by hand, and on
-# Mondays even when nothing changed, so a schedule that stopped running is noticed (D43, D46).
+# the last job, notify, posts to the owner's Discord through Nudge (github.com/Taka499/nudge; an
+# OIDC token, no stored secret) whenever the update or the deploy failed or was cancelled, data was
+# published or the run was started by hand, and on Mondays even when nothing changed, so a
+# schedule that stopped running is noticed (D43, D46). It is a job of its own, after deploy, so a
+# failed deploy is reported too, and so it is the only job that can mint an OIDC token.
 # The gates run here rather than as pull-request checks because a pull request opened with the
 # built-in token triggers no workflows. Held cards open (or update) one issue labelled
 # `held-cards`; they do not block the other cards. Images for new cards are fetched and uploaded
@@ -23,11 +25,8 @@ on:
     - cron: "30 2 * * *"
   workflow_dispatch:
 
-permissions:
-  contents: write
-  pull-requests: write
-  issues: write
-  id-token: write
+# Nothing by default; each job states what it needs.
+permissions: {}
 
 concurrency:
   group: update-data
@@ -36,18 +35,18 @@ concurrency:
 jobs:
   update:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
     outputs:
       changed: ${{ steps.detect.outputs.changed }}
+      title: ${{ steps.report.outputs.title }}
+      held: ${{ steps.report.outputs.held }}
     env:
       GH_TOKEN: ${{ github.token }}
       RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
     steps:
-      # First, so the Discord step can read it even when a later step fails. 1 is Monday (UTC, which
-      # at 02:30 UTC is also Monday in Japan).
-      - name: Which weekday is it?
-        id: when
-        run: echo "weekday=$(date -u +%u)" >> "$GITHUB_OUTPUT"
-
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: main
@@ -163,20 +162,34 @@ jobs:
             gh pr create --base develop --head main --title "Merge main into develop — data update conflicts" --body "The data update merged into main, but main does not merge cleanly into develop. Resolve by hand. Run: $RUN_URL"
           fi
 
-      # Runs after a failure too: a failed gate is the message that matters most. A scheduled run that
-      # found nothing stays quiet except on Mondays, the weekly sign that the schedule still runs (D46).
-      - name: Tell Discord how it went
-        if: always() && (failure() || steps.detect.outputs.changed == 'true' || github.event_name == 'workflow_dispatch' || steps.when.outputs.weekday == '1')
-        uses: Taka499/nudge/actions/notify@b706447babea35d3b95dcdbae7ec03f007cb2b2a # v1.0.0
-        with:
-          endpoint: https://nudge.tia.run
-          title: "Data update: ${{ job.status }}"
-          body: |
-            ${{ steps.detect.outputs.changed == 'true' && steps.report.outputs.title || 'No changes upstream; nothing published.' }}
-            Held cards: ${{ steps.report.outputs.held || '0' }}
-
   deploy:
     needs: update
     if: needs.update.outputs.changed == 'true'
+    permissions:
+      contents: read
     uses: ./.github/workflows/deploy.yml
     secrets: inherit
+
+  # Runs after everything, whatever happened: a failed gate or deploy is the message that matters
+  # most. A scheduled run that found nothing stays quiet except on Mondays, the weekly sign that the
+  # schedule still runs (D46). deploy is "skipped" when nothing changed, which is not a failure.
+  notify:
+    needs: [update, deploy]
+    if: always()
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+    steps:
+      # 1 is Monday, in UTC and, at 02:30 UTC, in Japan too.
+      - name: Which weekday is it?
+        id: when
+        run: echo "weekday=$(date -u +%u)" >> "$GITHUB_OUTPUT"
+      - name: Tell Discord how it went
+        if: needs.update.result != 'success' || (needs.deploy.result != 'success' && needs.deploy.result != 'skipped') || needs.update.outputs.changed == 'true' || github.event_name == 'workflow_dispatch' || steps.when.outputs.weekday == '1'
+        uses: Taka499/nudge/actions/notify@b706447babea35d3b95dcdbae7ec03f007cb2b2a # v1.0.0
+        with:
+          endpoint: https://nudge.tia.run
+          title: "Data update: update ${{ needs.update.result }}, deploy ${{ needs.deploy.result }}"
+          body: |
+            ${{ needs.update.outputs.title || (needs.update.result == 'success' && 'No changes upstream; nothing published.' || 'Nothing was published.') }}
+            Held cards: ${{ needs.update.outputs.held || '0' }}
