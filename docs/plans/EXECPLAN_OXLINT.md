@@ -17,7 +17,7 @@ No score, page or data file may change because of this plan. It is a refactor of
 - [ ] Milestone 2: mechanical findings drained — non-null assertions, type assertions, the misused promise, the file-path exceptions, the two regular expressions.
 - [ ] Milestone 3: structural findings drained outside `parseTrigger` — long test functions, deep nesting, nested callbacks, `src/app/panel.ts` complexity.
 - [ ] Milestone 4: `parseTrigger` in `scripts/lib/parse-trigger.ts` brought under the limits with no change in behaviour.
-- [ ] Milestone 5: `bun run lint` is a gate in both publishing workflows (and in the pull-request check, if it exists by then), documentation updated, released and seen green on GitHub.
+- [ ] Milestone 5: `bun run lint` is a gate in both publishing workflows and in the pull-request check `check.yml`, documentation updated, released and seen green on GitHub.
 
 ## Surprises & Discoveries
 
@@ -82,7 +82,7 @@ Where the lint must run once it is a gate:
 - `.github/workflows/update-data.yml` regenerates the data weekly (a daily schedule is decided, decision D46 in `docs/plans/EXECPLAN_SUPPORT_CARD_SCORE_TABLE.md`). When the data changed, it runs the gates "Gate: unit tests", "Gate: type check" and "Gate: no score moved without its card's data moving" before it opens and merges a pull request into `main`.
 - `scripts/lib/workflows.test.ts` parses both workflows and pins their properties. One test lists the gates that must come before `gh pr merge`, and the lint gate must be added there.
 
-A pull-request check workflow for `develop` is decided (D47 in the same plan) and may or may not exist when this plan reaches Milestone 5; if it exists, the lint runs there too.
+`.github/workflows/check.yml` (decision D47 in the same plan, added 2026-09-28) runs `bun test`, `bun run type-check`, `bun scripts/check-score-stability.ts` and `bun run build` on every pull request into `develop`, read-only; the lint runs there too, and `scripts/lib/workflows.test.ts`'s test "runs every check deploy.yml runs before production" lists its steps. Every action in the workflows is pinned to a full commit hash, which the same test file enforces.
 
 Branching follows `CLAUDE.md` § Commit Discipline:
 - `develop` is development and `main` is production; merging into `main` deploys.
@@ -137,7 +137,7 @@ Milestone 5 makes the lint a gate and ships it.
 - **`scripts/lib/workflows.test.ts`**:
   - add `"bun run lint"` to the list in the test "every gate comes before the merge, and none of them may be skipped on failure", and watch that test fail when the new step is moved after the merge step, then restore;
   - in the `deploy.yml` test that checks gates run before `wrangler@4 deploy`, add `"bun run lint"` in the same way.
-- **The pull-request check workflow**, if it exists by now: add the same step there.
+- **`.github/workflows/check.yml`**: add `- run: bun run lint` after `bun run type-check`, and add `"bun run lint"` to the list in its test "runs every check deploy.yml runs before production".
 - **Docs**:
   - `CLAUDE.md`: in § Build and Test add a line for `bun run lint` (what it checks, and that exceptions live in `oxlint.config.ts` with reasons). In § Code Style state the limits in one sentence, citing `docs/plans/EXECPLAN_OXLINT.md` and D45. Update the `.github/workflows/update-data.yml` line to name the lint gate.
   - `docs/plans/EXECPLAN_SUPPORT_CARD_SCORE_TABLE.md`: add a revision note that D45 is implemented.
@@ -293,3 +293,7 @@ Dev dependencies: `oxlint` (^1.85), `oxlint-tsgolint` (^7.0.2002, the TypeScript
 Nudge's own file uses quoted keys throughout. The unquoted form above is equivalent and matches this repository's TypeScript style. `security/detect-child-process` stays on: `vite.config.ts` reads the commit with `execFileSync("git", ["rev-parse", "--short=12", "HEAD"])`, and the measurement, which ran that rule, did not flag it, because the command is a fixed string.
 
 The functions whose shape changes, with signatures that must stay as they are: `parseTrigger(triggerId: string, phaseType: string, scenarioTokens?: Readonly<Record<string, string>>): ParseResult` in `scripts/lib/parse-trigger.ts`; `applyOverrides` and `buildPanel` in `src/app/panel.ts`; `FEEDBACK_VIEW_PATTERN` in `infra/worker/feedback-contract.ts` (if it is replaced by a function, every importer must be updated in the same commit, and the page and the Worker must still agree).
+
+## Revision notes
+
+- 2026-09-28: `.github/workflows/check.yml` now exists (D47), so Context and Milestone 5 name it instead of treating it as optional. Reason: D46 and D47 were implemented the same day, before this plan started.

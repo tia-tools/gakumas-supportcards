@@ -10,6 +10,8 @@ import { load } from "js-yaml";
 
 interface Step {
   name?: string;
+  id?: string;
+  if?: string;
   uses?: string;
   run?: string;
   with?: Record<string, unknown>;
@@ -35,14 +37,18 @@ function read(name: string): { text: string; wf: Workflow } {
 const stepsOf = (wf: Workflow, job: string): Step[] => wf.jobs[job]?.steps ?? [];
 const indexOfRun = (steps: Step[], needle: string): number => steps.findIndex((s) => (s.run ?? "").includes(needle));
 
-const ALLOWED_ACTIONS = [
-  "actions/checkout@v7",
-  "oven-sh/setup-bun@v2",
-  "astral-sh/setup-uv@v7",
-  "Taka499/nudge/actions/notify@b706447babea35d3b95dcdbae7ec03f007cb2b2a",
-];
+/**
+ * The actions a workflow may use, by name. Each must be pinned to a full commit hash, which
+ * Dependabot keeps current together with its version comment (first plan, decision D47): a tag can
+ * be moved to other code, a commit cannot.
+ */
+const ALLOWED_ACTIONS = ["actions/checkout", "oven-sh/setup-bun", "astral-sh/setup-uv", "Taka499/nudge/actions/notify"];
+const PINNED = /^[0-9a-f]{40}$/;
+const actionName = (uses: string): string => uses.split("@")[0] ?? uses;
+const branchesOf = (trigger: unknown): unknown =>
+  typeof trigger === "object" && trigger !== null && "branches" in trigger ? trigger.branches : undefined;
 
-for (const name of ["deploy.yml", "update-data.yml"]) {
+for (const name of ["deploy.yml", "update-data.yml", "check.yml"]) {
   describe(name, () => {
     const { text, wf } = read(name);
 
@@ -50,24 +56,47 @@ for (const name of ["deploy.yml", "update-data.yml"]) {
       expect(text.startsWith("# Guards: ")).toBe(true);
     });
 
-    test("uses only the allowed actions and never pull_request_target", () => {
+    test("uses only the allowed actions, each pinned to a full commit hash, and never pull_request_target", () => {
       const used = Object.values(wf.jobs).flatMap((j) => (j.steps ?? []).map((s) => s.uses).filter((u): u is string => u !== undefined));
-      for (const u of used) expect(ALLOWED_ACTIONS).toContain(u);
+      for (const u of used) {
+        expect(ALLOWED_ACTIONS).toContain(actionName(u));
+        expect(u.split("@")[1] ?? "").toMatch(PINNED);
+      }
       expect(Object.keys(wf.on)).not.toContain("pull_request_target");
     });
 
     test("no shell script has an expression spliced into it; values arrive through env", () => {
       for (const job of Object.values(wf.jobs)) for (const s of job.steps ?? []) expect(s.run ?? "").not.toContain("${{");
     });
-
-    test("checks out main explicitly", () => {
-      for (const job of Object.values(wf.jobs)) {
-        const checkout = (job.steps ?? []).find((s) => s.uses?.startsWith("actions/checkout@"));
-        if (job.steps) expect(checkout?.with?.ref).toBe("main");
-      }
-    });
   });
 }
+
+// The two workflows that publish build from main and nothing else; check.yml tests the pull request's own code.
+for (const name of ["deploy.yml", "update-data.yml"]) {
+  test(`${name} checks out main explicitly`, () => {
+    for (const job of Object.values(read(name).wf.jobs)) {
+      const checkout = (job.steps ?? []).find((s) => s.uses?.startsWith("actions/checkout@"));
+      if (job.steps) expect(checkout?.with?.ref).toBe("main");
+    }
+  });
+}
+
+describe("check.yml", () => {
+  const { wf } = read("check.yml");
+  const steps = stepsOf(wf, "check");
+
+  test("runs on pull requests into develop only, and can write nothing", () => {
+    expect(Object.keys(wf.on)).toEqual(["pull_request"]);
+    expect(branchesOf(wf.on.pull_request)).toEqual(["develop"]);
+    expect(wf.permissions).toEqual({ contents: "read" });
+  });
+
+  test("runs every check deploy.yml runs before production", () => {
+    for (const gate of ["bun test", "bun run type-check", "check-score-stability.ts", "bun run build"]) {
+      expect(indexOfRun(steps, gate)).toBeGreaterThanOrEqual(0);
+    }
+  });
+});
 
 describe("deploy.yml", () => {
   const { wf } = read("deploy.yml");
@@ -111,8 +140,8 @@ describe("update-data.yml", () => {
   });
 
   test("only the image steps are best-effort", () => {
-    const soft = steps.filter((s) => s["continue-on-error"] === true).map((s) => s.uses ?? s.name);
-    expect(soft).toEqual(["astral-sh/setup-uv@v7", "Images for cards the site does not show yet"]);
+    const soft = steps.filter((s) => s["continue-on-error"] === true).map((s) => (s.uses ? actionName(s.uses) : s.name));
+    expect(soft).toEqual(["astral-sh/setup-uv", "Images for cards the site does not show yet"]);
   });
 
   test("merges with a merge commit, never a squash or a rebase, and never pushes to main directly", () => {
@@ -121,6 +150,20 @@ describe("update-data.yml", () => {
     expect(scripts).toContain("--merge");
     expect(scripts).not.toMatch(/--squash|--rebase|push origin main/);
     expect(scripts).not.toMatch(/git push[^\n]*(--force|-f\b)/); // `gh label create --force` is an upsert, not a push
+  });
+
+  test("runs daily at 11:30 JST (D46)", () => {
+    expect(wf.on.schedule).toEqual([{ cron: "30 2 * * *" }]);
+  });
+
+  test("tells Discord last, after every failure, change or manual run, and on Mondays when nothing changed (D43, D46)", () => {
+    const last = steps[steps.length - 1];
+    expect(actionName(last?.uses ?? "")).toBe("Taka499/nudge/actions/notify");
+    const condition = last?.if ?? "";
+    for (const part of ["always()", "failure()", "steps.detect.outputs.changed == 'true'", "github.event_name == 'workflow_dispatch'", "steps.when.outputs.weekday == '1'"]) {
+      expect(condition).toContain(part);
+    }
+    expect(steps.findIndex((s) => s.id === "when")).toBe(0);
   });
 
   test("deploys through deploy.yml, only after a change", () => {
