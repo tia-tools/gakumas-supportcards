@@ -49,5 +49,14 @@ export default defineConfig({
       files: ["**/*.test.ts"],
       rules: { "max-lines-per-function": ["error", { max: 120, skipBlankLines: true, skipComments: true }] },
     },
+    {
+      // Build-time scripts read and write repository files by path: cached game tables, generated
+      // data, the committed score snapshot, workflow files; vite.config.ts serves /img/* in the dev
+      // server only after infra/worker/img.ts imageKey has matched the path against fixed image names.
+      // No path comes from outside input (docs/plans/EXECPLAN_OXLINT.md decision O3). Remove an entry
+      // if its file starts taking a path from a request.
+      files: ["scripts/**/*.ts", "vite.config.ts"],
+      rules: { "security/detect-non-literal-fs-filename": "off" },
+    },
   ],
 });
