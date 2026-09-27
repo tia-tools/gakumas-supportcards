@@ -100,7 +100,7 @@ describe("check.yml", () => {
   });
 
   test("runs every check deploy.yml runs before production", () => {
-    for (const gate of ["bun test", "bun run type-check", "check-score-stability.ts", "bun run build"]) {
+    for (const gate of ["bun test", "bun run type-check", "bun run lint", "check-score-stability.ts", "bun run build"]) {
       expect(indexOfRun(steps, gate)).toBeGreaterThanOrEqual(0);
     }
   });
@@ -119,7 +119,7 @@ describe("deploy.yml", () => {
     const steps = stepsOf(wf, "deploy");
     const deploy = indexOfRun(steps, "wrangler@4 deploy");
     expect(deploy).toBeGreaterThan(0);
-    for (const gate of ["bun test", "bun run type-check", "check-score-stability.ts", "bun run build"]) {
+    for (const gate of ["bun test", "bun run type-check", "bun run lint", "check-score-stability.ts", "bun run build"]) {
       const i = indexOfRun(steps, gate);
       expect(i).toBeGreaterThanOrEqual(0);
       expect(i).toBeLessThan(deploy);
@@ -143,7 +143,7 @@ describe("update-data.yml", () => {
   test("every gate comes before the merge, and none of them may be skipped on failure", () => {
     const merge = indexOfRun(steps, "gh pr merge");
     expect(merge).toBeGreaterThan(0);
-    for (const gate of ["bun run generate", "bun test", "bun run type-check", "check-score-stability.ts --base HEAD"]) {
+    for (const gate of ["bun run generate", "bun test", "bun run type-check", "bun run lint", "check-score-stability.ts --base HEAD"]) {
       const i = indexOfRun(steps, gate);
       expect(i).toBeGreaterThanOrEqual(0);
       expect(i).toBeLessThan(merge);
