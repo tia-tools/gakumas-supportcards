@@ -13,7 +13,7 @@ No score, page or data file may change because of this plan. It is a refactor of
 ## Progress
 
 - [x] (2026-09-27 20:45Z) Measured: Nudge's configuration run over this repository from a throwaway folder (nothing installed here) reports 60 findings in 18 files; the full list is in § Artifacts and Notes. Plan written.
-- [ ] Milestone 1: Oxlint installed as dev dependencies, `oxlint.config.ts` and the `lint` script in place, the configuration proven to load, baseline count recorded. Not yet a gate.
+- [x] (2026-09-27 22:02Z) Milestone 1: Oxlint installed as dev dependencies, `oxlint.config.ts` and the `lint` script in place, the configuration proven to load, baseline count recorded. Not yet a gate. Installed oxlint 1.85.0, oxlint-tsgolint 7.0.2003 and eslint-plugin-security 4.1.0 under Bun's default install layout, and the plugin loaded (see Surprises). `bun run lint` exits 1 with 58 findings: the baseline's 60 minus the 2 test files the widened override absorbs; the 14 `security/detect-non-literal-fs-filename` findings remain because the O3 override is added in Milestone 2 after re-reading `vite.config.ts`. The injected `any` in `src/engine/score.ts` failed the lint as `typescript(no-explicit-any)`; `bun test` (198 tests) and `bun run type-check` pass. Work is on the branch `feature/oxlint` in the worktree `.claude/worktrees/oxlint`.
 - [ ] Milestone 2: mechanical findings drained — non-null assertions, type assertions, the misused promise, the file-path exceptions, the two regular expressions.
 - [ ] Milestone 3: structural findings drained outside `parseTrigger` — long test functions, deep nesting, nested callbacks, `src/app/panel.ts` complexity.
 - [ ] Milestone 4: `parseTrigger` in `scripts/lib/parse-trigger.ts` brought under the limits with no change in behaviour.
@@ -25,6 +25,8 @@ No score, page or data file may change because of this plan. It is a refactor of
   Evidence: `ls node_modules/safe-regex` showed only `bin example lib test` before, and the full file set after the reinstall with `BUN_INSTALL_CACHE_DIR="$TMPDIR/bun-cache-ox"`. Milestone 1 must prove in this repository that the plugin loads (see its acceptance) and record which layout was needed.
 - Observation: `.claude/worktrees/counting-model` is a second git checkout of this repository inside it. Oxlint would lint it and report every finding twice unless `.claude/**` is ignored.
   Evidence: `git worktree list` shows `/Users/ghensk/Developer/gakumas-supportcards/.claude/worktrees/counting-model` on branch `chore/ignore-claude-worktrees`. The measurement ignored `.claude/**`.
+- Observation: In this repository `eslint-plugin-security` loaded on the first try under Bun's default (isolated) install layout, with `safe-regex` complete on disk. The damaged cache, not the layout, was the cause of the throwaway failure; no `--linker hoisted` and no `bunfig.toml` is needed, so the runner's `bun install --frozen-lockfile` needs nothing beyond the lockfile.
+  Evidence: `bun add -d …` (2026-09-27 22:02Z), then `ls node_modules/safe-regex` lists `index.js` and `package.json`, and `bun run lint` reports the two `security(detect-unsafe-regex)` findings the baseline expects.
 
 ## Decision Log
 
