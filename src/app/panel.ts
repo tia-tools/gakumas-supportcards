@@ -85,6 +85,33 @@ function filterBase(profile: RouteProfile, occasion: string, f: FilterRef): numb
   return counts?.members?.[f.member] ?? counts?.default ?? 0;
 }
 
+/** The three tables of a profile a player's numbers can change, copied so the profile itself stays as shipped. */
+interface ProfileDraft {
+  occasions: Record<string, number>;
+  filters: Record<string, Partial<Record<FilterFamily, FilterCounts>>>;
+  conditions: Record<string, number>;
+}
+
+/** Writes one override into the draft by its key's kind: `o.`, `w.` or `f.`; an unknown key changes nothing. */
+function setOverride(draft: ProfileDraft, key: string, n: number): void {
+  const [kind, occasion, family, ...member] = key.split(".");
+  if (kind === "o" && occasion) draft.occasions[occasion] = n;
+  else if (kind === "w") draft.conditions[key.slice(2)] = n;
+  else if (kind === "f" && occasion && family && isFilterFamily(family) && member.length > 0) {
+    const families = (draft.filters[occasion] ??= {});
+    families[family] = { ...families[family], members: { ...families[family]?.members, [member.join(".")]: n } };
+  }
+}
+
+/** 通常レッスン follows an SP-lesson override (a lesson is one or the other) unless overridden itself (C18). */
+function deriveNormalLessons(draft: ProfileDraft, overrides: Overrides): void {
+  for (const [occasion, families] of Object.entries(draft.filters)) {
+    const kinds = families.lessonKind?.members;
+    if (kinds?.["sp"] === undefined || kinds["normal"] === undefined || `f.${occasion}.lessonKind.normal` in overrides) continue;
+    families.lessonKind = { ...families.lessonKind, members: { ...kinds, normal: Math.max(0, (draft.occasions[occasion] ?? 0) - kinds["sp"]) } };
+  }
+}
+
 /**
  * The profile with the player's numbers in it. An SP-lesson override moves 通常レッスン
  * with it (a lesson is one or the other) unless 通常レッスン is overridden itself (C18).
@@ -92,25 +119,11 @@ function filterBase(profile: RouteProfile, occasion: string, f: FilterRef): numb
  */
 export function applyOverrides(profile: RouteProfile, overrides: Overrides): RouteProfile {
   if (Object.keys(overrides).length === 0) return profile;
-  const occasions: Record<string, number> = { ...profile.occasions };
-  const filters: Record<string, Partial<Record<FilterFamily, FilterCounts>>> = {};
-  for (const [occasion, families] of Object.entries(profile.filters)) filters[occasion] = { ...families };
-  const conditions: Record<string, number> = { ...profile.conditions };
-  for (const [key, n] of Object.entries(overrides)) {
-    const [kind, occasion, family, ...member] = key.split(".");
-    if (kind === "o" && occasion) occasions[occasion] = n;
-    else if (kind === "w") conditions[key.slice(2)] = n;
-    else if (kind === "f" && occasion && family && isFilterFamily(family) && member.length > 0) {
-      const families = (filters[occasion] ??= {});
-      families[family] = { ...families[family], members: { ...families[family]?.members, [member.join(".")]: n } };
-    }
-  }
-  for (const [occasion, families] of Object.entries(filters)) {
-    const kinds = families.lessonKind?.members;
-    if (kinds?.["sp"] === undefined || kinds["normal"] === undefined || `f.${occasion}.lessonKind.normal` in overrides) continue;
-    families.lessonKind = { ...families.lessonKind, members: { ...kinds, normal: Math.max(0, (occasions[occasion] ?? 0) - kinds["sp"]) } };
-  }
-  return { ...profile, occasions, filters, conditions };
+  const draft: ProfileDraft = { occasions: { ...profile.occasions }, filters: {}, conditions: { ...profile.conditions } };
+  for (const [occasion, families] of Object.entries(profile.filters)) draft.filters[occasion] = { ...families };
+  for (const [key, n] of Object.entries(overrides)) setOverride(draft, key, n);
+  deriveNormalLessons(draft, overrides);
+  return { ...profile, ...draft };
 }
 
 interface Draft {
@@ -130,63 +143,93 @@ function finish(d: Draft, max: number | null, overrides: Overrides, used: Readon
   return input;
 }
 
+/** A condition input: the condition, its occasion, and the filter or occasion key each trigger using it sits under. */
+interface ConditionUse {
+  occasion: string;
+  c: ConditionRef;
+  parents: Set<string>;
+}
+
+/** What the drafts of one panel are built from: the profile as shipped and as overridden, and which inputs exist. */
+interface PanelContext {
+  profile: RouteProfile;
+  applied: RouteProfile;
+  /** occasion → filter input key → the filter */
+  filters: Map<string, Map<string, FilterRef>>;
+  /** condition input key → its use */
+  conditions: Map<string, ConditionUse>;
+}
+
+/** The filters that exist per occasion: those the profile names, then those the cards use. */
+function filtersOf(profile: RouteProfile, all: readonly ParsedTrigger[]): Map<string, Map<string, FilterRef>> {
+  const out = new Map<string, Map<string, FilterRef>>();
+  const add = (occasion: string, f: FilterRef): void => void (out.get(occasion) ?? out.set(occasion, new Map()).get(occasion))?.set(filterKey(occasion, f), f);
+  for (const [occasion, families] of Object.entries(profile.filters)) {
+    for (const [family, counts] of Object.entries(families)) {
+      if (isFilterFamily(family)) for (const member of Object.keys(counts.members ?? {})) add(occasion, { family, member });
+    }
+  }
+  for (const t of all) for (const f of countable(t)) add(t.occasion, f);
+  return out;
+}
+
+/** The conditions the cards use, each with the key of the filter (or occasion) every trigger carrying it sits under. */
+function conditionsOf(all: readonly ParsedTrigger[]): Map<string, ConditionUse> {
+  const out = new Map<string, ConditionUse>();
+  for (const t of all) {
+    const fs = countable(t);
+    const parent = fs.length === 1 && fs[0] ? filterKey(t.occasion, fs[0]) : occasionKey(t.occasion);
+    for (const c of t.conditions ?? []) {
+      const key = conditionInputKey(t.occasion, c);
+      (out.get(key) ?? out.set(key, { occasion: t.occasion, c, parents: new Set() }).get(key))?.parents.add(parent);
+    }
+  }
+  return out;
+}
+
+function filterDraft(ctx: PanelContext, occasion: string, key: string, f: FilterRef): Draft {
+  const derived = f.family === "lessonKind" && f.member === "normal" && ctx.applied.filters[occasion]?.lessonKind?.members?.["sp"] !== undefined;
+  return { key, label: memberLabel(f.family, f.member), base: filterBase(ctx.profile, occasion, f), own: filterBase(ctx.applied, occasion, f), readOnly: derived, children: [] };
+}
+
+function conditionDraft(ctx: PanelContext, key: string, c: ConditionRef, parentOwn: number): Draft {
+  const shipped = ctx.profile.conditions?.[key.slice(2)];
+  const d: Draft = { key, label: conditionLabel(c), base: shipped ?? parentOwn, own: ctx.applied.conditions?.[key.slice(2)] ?? parentOwn, readOnly: false, children: [] };
+  if (shipped !== undefined) d.note = `このルートの既定は${shipped}回（条件を常に満たす場合は${parentOwn}回）`;
+  return d;
+}
+
+/** Each of the occasion's conditions goes under the filter every trigger using it shares, else under the occasion. */
+function placeConditions(ctx: PanelContext, root: Draft, occasion: string): void {
+  for (const [key, { occasion: o, c, parents }] of ctx.conditions) {
+    if (o !== occasion) continue;
+    const [only] = parents;
+    const parent = parents.size === 1 ? root.children.find((ch) => ch.key === only) : undefined;
+    (parent ?? root).children.push(conditionDraft(ctx, key, c, Math.min(root.own, parent?.own ?? root.own)));
+  }
+}
+
+function occasionDraft(ctx: PanelContext, occasion: string, readOnly: boolean): Draft {
+  const own = ctx.applied.occasions[occasion] ?? 0;
+  const root: Draft = { key: occasionKey(occasion), label: occasionLabel(occasion), base: ctx.profile.occasions[occasion] ?? 0, own, readOnly, children: [] };
+  for (const [key, f] of ctx.filters.get(occasion) ?? []) root.children.push(filterDraft(ctx, occasion, key, f));
+  placeConditions(ctx, root, occasion);
+  return root;
+}
+
 /**
  * The panel for a profile: `all` are the triggers of every shipped card (they
  * decide which inputs exist), `visible` those of the cards in view (they decide
  * what is folded away).
  */
 export function buildPanel(profile: RouteProfile, overrides: Overrides, all: readonly ParsedTrigger[], visible: readonly ParsedTrigger[]): PanelSection[] {
-  const applied = applyOverrides(profile, overrides);
+  const ctx: PanelContext = { profile, applied: applyOverrides(profile, overrides), filters: filtersOf(profile, all), conditions: conditionsOf(all) };
   const used = keysUsedBy(visible);
-
-  // Which filters and conditions exist per occasion: those the cards use plus those the profile names.
-  const filtersByOccasion = new Map<string, Map<string, FilterRef>>();
-  const addFilter = (occasion: string, f: FilterRef): void => void (filtersByOccasion.get(occasion) ?? filtersByOccasion.set(occasion, new Map()).get(occasion))?.set(filterKey(occasion, f), f);
-  for (const [occasion, families] of Object.entries(profile.filters)) {
-    for (const [family, counts] of Object.entries(families)) {
-      if (isFilterFamily(family)) for (const member of Object.keys(counts.members ?? {})) addFilter(occasion, { family, member });
-    }
-  }
-  /** condition input key → the condition and the filter keys of each trigger using it. */
-  const conditions = new Map<string, { occasion: string; c: ConditionRef; parents: Set<string> }>();
-  for (const t of all) {
-    for (const f of countable(t)) addFilter(t.occasion, f);
-    const fs = countable(t);
-    const parent = fs.length === 1 && fs[0] ? filterKey(t.occasion, fs[0]) : occasionKey(t.occasion);
-    for (const c of t.conditions ?? []) {
-      const key = conditionInputKey(t.occasion, c);
-      (conditions.get(key) ?? conditions.set(key, { occasion: t.occasion, c, parents: new Set() }).get(key))?.parents.add(parent);
-    }
-  }
-
-  const conditionDraft = (key: string, c: ConditionRef, parentOwn: number): Draft => {
-    const shipped = profile.conditions?.[key.slice(2)];
-    const d: Draft = { key, label: conditionLabel(c), base: shipped ?? parentOwn, own: applied.conditions?.[key.slice(2)] ?? parentOwn, readOnly: false, children: [] };
-    if (shipped !== undefined) d.note = `このルートの既定は${shipped}回（条件を常に満たす場合は${parentOwn}回）`;
-    return d;
-  };
-
-  const occasionDraft = (occasion: string, readOnly: boolean): Draft => {
-    const own = applied.occasions[occasion] ?? 0;
-    const root: Draft = { key: occasionKey(occasion), label: occasionLabel(occasion), base: profile.occasions[occasion] ?? 0, own, readOnly, children: [] };
-    for (const [key, f] of filtersByOccasion.get(occasion) ?? []) {
-      const derived = f.family === "lessonKind" && f.member === "normal" && applied.filters[occasion]?.lessonKind?.members?.["sp"] !== undefined;
-      root.children.push({ key, label: memberLabel(f.family, f.member), base: filterBase(profile, occasion, f), own: filterBase(applied, occasion, f), readOnly: derived, children: [] });
-    }
-    for (const [key, { occasion: o, c, parents }] of conditions) {
-      if (o !== occasion) continue;
-      const [only] = parents;
-      const parent = parents.size === 1 ? root.children.find((ch) => ch.key === only) : undefined;
-      (parent ?? root).children.push(conditionDraft(key, c, Math.min(own, parent?.own ?? own)));
-    }
-    return root;
-  };
-
   const known = new Set(SECTIONS.flatMap((s) => s.occasions));
-  const named = new Set([...Object.keys(profile.occasions), ...all.map((t) => t.occasion), ...[...conditions.values()].map((c) => c.occasion), ...Object.keys(profile.conditions ?? {}).map(occasionOfConditionKey)]);
-  const sections = SECTIONS.map((s) => ({ id: s.id, title: s.title, inputs: s.occasions.filter((o) => named.has(o)).map((o) => finish(occasionDraft(o, s.readOnly), null, overrides, used)) }));
+  const named = new Set([...Object.keys(profile.occasions), ...all.map((t) => t.occasion), ...[...ctx.conditions.values()].map((c) => c.occasion), ...Object.keys(profile.conditions ?? {}).map(occasionOfConditionKey)]);
+  const sections = SECTIONS.map((s) => ({ id: s.id, title: s.title, inputs: s.occasions.filter((o) => named.has(o)).map((o) => finish(occasionDraft(ctx, o, s.readOnly), null, overrides, used)) }));
   const others = [...named].filter((o) => !known.has(o)).sort();
-  if (others.length > 0) sections.push({ id: OTHER_SECTION.id, title: OTHER_SECTION.title, inputs: others.map((o) => finish(occasionDraft(o, OTHER_SECTION.readOnly), null, overrides, used)) });
+  if (others.length > 0) sections.push({ id: OTHER_SECTION.id, title: OTHER_SECTION.title, inputs: others.map((o) => finish(occasionDraft(ctx, o, OTHER_SECTION.readOnly), null, overrides, used)) });
   return sections;
 }
 
