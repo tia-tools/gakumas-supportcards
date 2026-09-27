@@ -14,7 +14,7 @@ The manifest and downloads come from GkmasObjectManager (`AllenHeartcore/GkmasOb
 
     ./fetch-vendor.sh
 
-The pinned commit is the one line in `GkmasObjectManager.sha`, which is committed so that a person and the weekly workflow fetch the same version. To move to a newer commit, change that file and run the script again. It is used only for fetching and decrypting the manifest and downloading de-obfuscated bundles; it runs on your machine and never ships with the site.
+The pinned commit is the one line in `GkmasObjectManager.sha`, which is committed so that a person and the daily data-update workflow fetch the same version. To move to a newer commit, change that file and run the script again. It is used only for fetching and decrypting the manifest and downloading de-obfuscated bundles; it runs on your machine and never ships with the site.
 
 ## Extract
 
@@ -40,9 +40,9 @@ After extracting, `bun run dev` at the repository root shows the real thumbnails
 
 The Cache-Control given at upload is stored with the object and comes back on every download, dashboard downloads included. Thumbnails are stored as `public, max-age=31536000, immutable`, because a thumbnail never changes under its name. Masters are stored as `private, no-cache`, because a master is overwritten whenever its rule changes: with an immutable header, a browser that had opened a master once keeps showing the old bytes after a re-upload, which makes a correct bucket look stale. To check what the bucket really holds, bypass the browser: `bunx wrangler r2 object get tia-assets/master/<file> --file /tmp/check.webp --remote` and compare `md5 -q` with the local file.
 
-Only art for cards present in `data/cards.generated.ts` is uploaded. The game's manifest carries art for cards that are not released yet, and publishing those early would leak them; the script prints which images it held back. They go out on the first upload after the weekly data update adds their cards.
+Only art for cards present in `data/cards.generated.ts` is uploaded. The game's manifest carries art for cards that are not released yet, and publishing those early would leak them; the script prints which images it held back. They go out on the first upload after the daily data update adds their cards.
 
-## In the weekly workflow
+## In the daily data-update workflow
 
 `.github/workflows/update-data.yml` runs `./fetch-vendor.sh`, `uv sync --frozen`, `uv run extract.py --only-missing` and `uv run upload.py` after the data gates have passed. `--only-missing` asks the deployed site which released cards have no thumbnail and downloads only those bundles, so a runner that starts with nothing fetches a few hundred kilobytes instead of 130 MB, and never fetches art of a card that is not in the data. These steps are best effort: if the game's servers refuse the runner or a new engine version breaks decoding, the data still publishes and the card shows its name until someone runs the two commands locally.
 

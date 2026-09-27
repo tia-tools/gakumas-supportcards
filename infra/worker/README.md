@@ -56,7 +56,7 @@ The Vite dev server has no `/feedback`; the form there reports a send failure, w
 
 ## Deploy
 
-Deployment is automatic: every push to `main` that touches the page, the data or this directory runs `.github/workflows/deploy.yml`, which tests, builds and deploys, and the weekly data update calls the same workflow. It needs the repository secrets `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`.
+Deployment is automatic: every push to `main` that touches the page, the data or this directory runs `.github/workflows/deploy.yml`, which tests, builds and deploys, and the daily data update calls the same workflow. It needs the repository secrets `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`.
 
 The token is an **account-owned** API token (dashboard → Manage Account → Account API Tokens, on the account that holds `tia.run`; it needs Super Administrator to create), not a user token, so it survives any person leaving and can carry the granular Workers roles Cloudflare introduced on 2026-09-15. Its permissions, the least the two workflows use:
 
