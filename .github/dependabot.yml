@@ -1,8 +1,10 @@
-# Keeps the actions in .github/workflows current. For the hash-pinned Nudge action, a new release arrives
-# as a pull request that changes both the commit hash and its version comment, so each update is reviewed
-# instead of arriving silently through a moved tag (docs/plans/EXECPLAN_SUPPORT_CARD_SCORE_TABLE.md,
-# D43 and its 2026-09-24 revision note). Pull requests go to develop, since main receives only releases
-# and data updates (D40). Each one must also update ALLOWED_ACTIONS in scripts/lib/workflows.test.ts.
+# Keeps the actions in .github/workflows current. Every action is pinned to a full commit hash with a
+# version comment, so a new release arrives as a pull request that changes both, and each update is
+# reviewed instead of arriving silently through a moved tag. All updates of a week come as one pull
+# request into develop, since main receives only releases and data updates (D40); check.yml tests it
+# there, and scripts/lib/workflows.test.ts accepts it without edits because it checks the action's
+# name and that the ref is a hash, not the version (docs/plans/EXECPLAN_SUPPORT_CARD_SCORE_TABLE.md,
+# D43, D47). Merging stays a person's decision.
 version: 2
 updates:
   - package-ecosystem: github-actions
@@ -10,3 +12,7 @@ updates:
     target-branch: develop
     schedule:
       interval: weekly
+    groups:
+      actions:
+        patterns:
+          - "*"
