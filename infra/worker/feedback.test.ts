@@ -6,7 +6,13 @@ const URL_FEEDBACK = "https://gakumas-supportcards.tia.run/feedback";
 const NOW = new Date("2026-09-23T12:00:00Z");
 const GOOD: FeedbackPayload = { category: "bug", message: "点数がおかしい\n2行目", view: "?p=sashiire&o.lesson=6", commit: "abc1234def56" };
 
-function store(initial: Record<string, string> = {}): CountStore & { data: Record<string, string>; ttls: number[] } {
+/** A fake KV namespace that exposes what was written and with which TTL. */
+interface FakeStore extends CountStore {
+  data: Record<string, string>;
+  ttls: number[];
+}
+
+function store(initial: Record<string, string> = {}): FakeStore {
   const data = { ...initial };
   const ttls: number[] = [];
   return {
@@ -20,16 +26,18 @@ function store(initial: Record<string, string> = {}): CountStore & { data: Recor
   };
 }
 
-function deps(overrides: Partial<FeedbackDeps> = {}, githubStatus = 201): FeedbackDeps & { issues: NewIssue[] } {
+type FakeDeps = FeedbackDeps & { issues: NewIssue[]; store: FakeStore };
+
+function deps(overrides: Partial<Omit<FeedbackDeps, "store">> & { store?: FakeStore } = {}, githubStatus = 201): FakeDeps {
   const issues: NewIssue[] = [];
   return {
     issues,
-    store: store(),
     salt: "salt",
     token: "token",
     createIssue: async (issue) => (issues.push(issue), githubStatus),
     now: () => NOW,
     ...overrides,
+    store: overrides.store ?? store(),
   };
 }
 
@@ -105,8 +113,8 @@ describe("handleFeedback", () => {
     expect(await res.json()).toEqual({ ok: true });
     expect(d.issues).toHaveLength(1);
     const key = `fb/2026-09-23/${await dailyBucket("203.0.113.7", "2026-09-23", "salt")}`;
-    expect((d.store as ReturnType<typeof store>).data).toEqual({ [key]: "1" });
-    expect((d.store as ReturnType<typeof store>).ttls).toEqual([172800]);
+    expect(d.store.data).toEqual({ [key]: "1" });
+    expect(d.store.ttls).toEqual([172800]);
   });
 
   test(`refuses the ${PER_DAY + 1}th issue of a day without calling GitHub`, async () => {
@@ -121,7 +129,7 @@ describe("handleFeedback", () => {
   test("a GitHub failure is a 502 and does not use up the quota", async () => {
     const d = deps({}, 403);
     expect((await handleFeedback(post(GOOD), d)).status).toBe(502);
-    expect((d.store as ReturnType<typeof store>).data).toEqual({});
+    expect(d.store.data).toEqual({});
   });
 
   test("refuses to run without its secrets rather than storing unsalted keys", async () => {
@@ -129,7 +137,7 @@ describe("handleFeedback", () => {
       const d = deps(missing);
       expect((await handleFeedback(post(GOOD), d)).status).toBe(503);
       expect(d.issues).toHaveLength(0);
-      expect((d.store as ReturnType<typeof store>).data).toEqual({});
+      expect(d.store.data).toEqual({});
     }
   });
 
@@ -173,7 +181,7 @@ describe("handleFeedback", () => {
     const res = await handleFeedback(new Request(URL_FEEDBACK, { method: "POST", body: JSON.stringify(GOOD) }), d);
     expect(res.status).toBe(400);
     expect(d.issues).toHaveLength(0);
-    expect((d.store as ReturnType<typeof store>).data).toEqual({});
+    expect(d.store.data).toEqual({});
   });
 
   test("only POST", async () => {

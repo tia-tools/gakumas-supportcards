@@ -8,6 +8,11 @@
 export const FEEDBACK_CATEGORIES = { bug: "バグ", request: "要望", other: "その他" } as const;
 export type FeedbackCategory = keyof typeof FEEDBACK_CATEGORIES;
 
+/** True for one of the category keys: the form lists exactly these, the Worker refuses anything else. */
+export function isFeedbackCategory(value: unknown): value is FeedbackCategory {
+  return typeof value === "string" && Object.hasOwn(FEEDBACK_CATEGORIES, value);
+}
+
 /** Characters of the user's message, after trimming. */
 export const FEEDBACK_MESSAGE_MAX = 4000;
 

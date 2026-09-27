@@ -296,7 +296,7 @@ class CardBuilder {
 export function buildLevelLimits(tables: Tables): LevelLimits {
   const byId = new Map<string, number[]>();
   for (const ll of tables.levelLimits) {
-    const rank = TOTSU_RANKS.indexOf(ll.rank as (typeof TOTSU_RANKS)[number]);
+    const rank = TOTSU_RANKS.findIndex((r) => r === ll.rank);
     if (rank < 0) throw new Error(`SupportCardLevelLimit ${ll.id}: unknown rank ${ll.rank}`);
     const arr = byId.get(ll.id) ?? [];
     arr[rank] = ll.levelLimit;

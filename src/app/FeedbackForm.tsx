@@ -7,12 +7,12 @@
  */
 
 import { useState } from "preact/hooks";
-import { FEEDBACK_CATEGORIES, FEEDBACK_MESSAGE_MAX, type FeedbackCategory } from "../../infra/worker/feedback-contract.ts";
+import { FEEDBACK_CATEGORIES, FEEDBACK_MESSAGE_MAX, isFeedbackCategory, type FeedbackCategory } from "../../infra/worker/feedback-contract.ts";
 import { buildPayload, resultText, viewToAttach } from "./feedback.ts";
 
 type Phase = { kind: "editing" } | { kind: "sending" } | { kind: "done"; status: number };
 
-const CATEGORY_KEYS = Object.keys(FEEDBACK_CATEGORIES) as FeedbackCategory[];
+const CATEGORY_KEYS = Object.keys(FEEDBACK_CATEGORIES).filter(isFeedbackCategory);
 
 async function send(body: string): Promise<number> {
   try {
