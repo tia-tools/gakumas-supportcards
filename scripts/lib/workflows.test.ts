@@ -20,9 +20,10 @@ interface Step {
 interface Job {
   steps?: Step[];
   uses?: string;
-  needs?: string;
+  needs?: string | string[];
   if?: string;
   secrets?: string;
+  permissions?: Record<string, string>;
 }
 interface Workflow {
   on: Record<string, unknown>;
@@ -43,7 +44,8 @@ const indexOfRun = (steps: Step[], needle: string): number => steps.findIndex((s
  * be moved to other code, a commit cannot.
  */
 const ALLOWED_ACTIONS = ["actions/checkout", "oven-sh/setup-bun", "astral-sh/setup-uv", "Taka499/nudge/actions/notify"];
-const PINNED = /^[0-9a-f]{40}$/;
+/** The whole `uses:` value: one name, one `@`, a full commit hash, nothing after it. */
+const PINNED = /^([^@\s]+)@[0-9a-f]{40}$/;
 const actionName = (uses: string): string => uses.split("@")[0] ?? uses;
 const branchesOf = (trigger: unknown): unknown =>
   typeof trigger === "object" && trigger !== null && "branches" in trigger ? trigger.branches : undefined;
@@ -59,8 +61,8 @@ for (const name of ["deploy.yml", "update-data.yml", "check.yml"]) {
     test("uses only the allowed actions, each pinned to a full commit hash, and never pull_request_target", () => {
       const used = Object.values(wf.jobs).flatMap((j) => (j.steps ?? []).map((s) => s.uses).filter((u): u is string => u !== undefined));
       for (const u of used) {
-        expect(ALLOWED_ACTIONS).toContain(actionName(u));
-        expect(u.split("@")[1] ?? "").toMatch(PINNED);
+        expect(u).toMatch(PINNED);
+        expect(ALLOWED_ACTIONS).toContain(PINNED.exec(u)?.[1] ?? "");
       }
       expect(Object.keys(wf.on)).not.toContain("pull_request_target");
     });
@@ -73,11 +75,10 @@ for (const name of ["deploy.yml", "update-data.yml", "check.yml"]) {
 
 // The two workflows that publish build from main and nothing else; check.yml tests the pull request's own code.
 for (const name of ["deploy.yml", "update-data.yml"]) {
-  test(`${name} checks out main explicitly`, () => {
-    for (const job of Object.values(read(name).wf.jobs)) {
-      const checkout = (job.steps ?? []).find((s) => s.uses?.startsWith("actions/checkout@"));
-      if (job.steps) expect(checkout?.with?.ref).toBe("main");
-    }
+  test(`${name} checks out main explicitly, wherever it checks out`, () => {
+    const checkouts = Object.values(read(name).wf.jobs).flatMap((job) => (job.steps ?? []).filter((s) => s.uses?.startsWith("actions/checkout@")));
+    expect(checkouts.length).toBeGreaterThan(0);
+    for (const c of checkouts) expect(c.with?.ref).toBe("main");
   });
 }
 
@@ -125,7 +126,11 @@ describe("update-data.yml", () => {
 
   test("runs on a schedule and by hand, with exactly the permissions it needs", () => {
     expect(Object.keys(wf.on).sort()).toEqual(["schedule", "workflow_dispatch"]);
-    expect(wf.permissions).toEqual({ contents: "write", "pull-requests": "write", issues: "write", "id-token": "write" });
+    // Nothing at workflow level; only notify can mint an OIDC token, and deploy only reads.
+    expect(wf.permissions).toEqual({});
+    expect(wf.jobs.update?.permissions).toEqual({ contents: "write", "pull-requests": "write", issues: "write" });
+    expect(wf.jobs.deploy?.permissions).toEqual({ contents: "read" });
+    expect(wf.jobs.notify?.permissions).toEqual({ "id-token": "write" });
   });
 
   test("every gate comes before the merge, and none of them may be skipped on failure", () => {
@@ -156,14 +161,25 @@ describe("update-data.yml", () => {
     expect(wf.on.schedule).toEqual([{ cron: "30 2 * * *" }]);
   });
 
-  test("tells Discord last, after every failure, change or manual run, and on Mondays when nothing changed (D43, D46)", () => {
-    const last = steps[steps.length - 1];
+  test("tells Discord in a last job, after any update or deploy that did not succeed, a change, a manual run, and on Mondays (D43, D46)", () => {
+    const notify = wf.jobs.notify;
+    expect(notify?.needs).toEqual(["update", "deploy"]);
+    expect(notify?.if).toBe("always()");
+    const own = stepsOf(wf, "notify");
+    expect(own[0]?.id).toBe("when");
+    const last = own[own.length - 1];
     expect(actionName(last?.uses ?? "")).toBe("Taka499/nudge/actions/notify");
     const condition = last?.if ?? "";
-    for (const part of ["always()", "failure()", "steps.detect.outputs.changed == 'true'", "github.event_name == 'workflow_dispatch'", "steps.when.outputs.weekday == '1'"]) {
+    for (const part of [
+      "needs.update.result != 'success'",
+      "needs.deploy.result != 'success' && needs.deploy.result != 'skipped'",
+      "needs.update.outputs.changed == 'true'",
+      "github.event_name == 'workflow_dispatch'",
+      "steps.when.outputs.weekday == '1'",
+    ]) {
       expect(condition).toContain(part);
     }
-    expect(steps.findIndex((s) => s.id === "when")).toBe(0);
+    expect(steps.some((s) => actionName(s.uses ?? "") === "Taka499/nudge/actions/notify")).toBe(false);
   });
 
   test("deploys through deploy.yml, only after a change", () => {
