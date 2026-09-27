@@ -127,7 +127,9 @@ describe("buildCards", () => {
     expect([...report.occasionsUsed].sort()).toEqual(["ProduceStart", "StartShop"]);
     expect(report.skippedByType.get("ProduceEffectType_ProduceCardUpgrade")).toBe(2);
   });
+});
 
+describe("buildCards: what holds a card, and what stops the run", () => {
   /** Adds a Dance +5 skill on `triggerId` to the SSR fixture card. */
   function withSkill(triggerId: string, phase: string, effectType = "ProduceEffectType_DanceAddition"): Tables {
     const t = fixture();

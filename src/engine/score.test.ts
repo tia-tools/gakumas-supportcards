@@ -50,7 +50,7 @@ describe("levelFor / resolveAtLevel", () => {
   });
 });
 
-describe("score", () => {
+describe("score: skills and occasions", () => {
   test("a card with no parameter effect scores 0 with empty parts and lines (SP発生率-only, Pポイント-only cards)", () => {
     const s = score(card([{ minLevel: 1, effects: [], eventBonusPermil: 500 }]), 4, ctx);
     expect(s).toEqual({ total: 0, byStat: { vocal: 0, dance: 0, visual: 0 }, parts: { skills: 0, events: 0, items: 0 }, lines: [], lessons: ctx.lessons });
@@ -112,7 +112,9 @@ describe("score", () => {
     ]);
     expect(score(c, 0, ctx).lines.map((l) => l.points)).toEqual([0, 50]);
   });
+});
 
+describe("score: パラメータボーナス, events and items", () => {
   test("パラメータボーナス+: tenths of a percent × the profile's bonus base for the stat's lesson count (D4, D26)", () => {
     const c = card([{ minLevel: 1, effects: [{ stat: "vocal", value: 85, kind: "skill", cap: 1, trigger: START, bonus: true }], eventBonusPermil: 0 }]);
     const s = score(c, 0, ctx);
@@ -151,7 +153,9 @@ describe("score", () => {
     expect(s.lines[0]).toMatchObject({ kind: "item", itemName: "切磋琢磨のタオル", count: 1, points: 30 });
     expect(s.lines[1]).toMatchObject({ count: 9, points: 180 });
   });
+});
 
+describe("score: totals, presets and levels", () => {
   test("total equals the sum of byStat and the sum of parts", () => {
     const c = card([
       {
