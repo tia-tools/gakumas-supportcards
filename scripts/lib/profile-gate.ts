@@ -11,22 +11,25 @@ import { missingNumbers } from "../../src/engine/count.ts";
 import type { Card, HeldCard, Scenario } from "../../src/engine/types.ts";
 import { byCodeUnit } from "./build-cards.ts";
 
+/** Over every trigger of the card: missing path → the `scenario/profile` ids lacking a number for it. */
+function numbersLacking(card: Card, scenarios: readonly Scenario[]): Map<string, Set<string>> {
+  const lacking = new Map<string, Set<string>>();
+  const triggers = card.breakpoints.flatMap((bp) => bp.effects.flatMap((e) => (e.trigger ? [e.trigger] : [])));
+  for (const trigger of triggers) {
+    for (const s of scenarios) {
+      for (const p of s.profiles) {
+        for (const path of missingNumbers(trigger, p)) (lacking.get(path) ?? lacking.set(path, new Set()).get(path))?.add(`${s.id}/${p.id}`);
+      }
+    }
+  }
+  return lacking;
+}
+
 /** Cards with a trigger some shipped profile cannot count, each with one reason per missing number naming the profiles that lack it. */
 export function heldForMissingNumbers(cards: readonly Card[], scenarios: readonly Scenario[]): HeldCard[] {
   const out: HeldCard[] = [];
   for (const card of cards) {
-    /** missing path → profiles lacking it */
-    const lacking = new Map<string, Set<string>>();
-    for (const bp of card.breakpoints) {
-      for (const e of bp.effects) {
-        if (!e.trigger) continue;
-        for (const s of scenarios) {
-          for (const p of s.profiles) {
-            for (const path of missingNumbers(e.trigger, p)) (lacking.get(path) ?? lacking.set(path, new Set()).get(path))?.add(`${s.id}/${p.id}`);
-          }
-        }
-      }
-    }
+    const lacking = numbersLacking(card, scenarios);
     if (lacking.size === 0) continue;
     const reasons = [...lacking].map(([path, profiles]) => `${card.id}: no route profile number for ${path} (${[...profiles].sort(byCodeUnit).join(", ")})`).sort(byCodeUnit);
     out.push({ id: card.id, name: card.name, reasons });
