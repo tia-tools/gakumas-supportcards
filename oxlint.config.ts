@@ -13,7 +13,8 @@ export default defineConfig({
   jsPlugins: ["eslint-plugin-security"],
   categories: { correctness: "error" },
   options: { typeAware: true },
-  ignorePatterns: ["node_modules/**", "dist/**", ".cache/**", ".claude/**", ".wrangler/**", "scripts/images/**"],
+  // .claude/worktrees holds other checkouts of this repository (gitignored); the rest of .claude stays lintable.
+  ignorePatterns: ["node_modules/**", "dist/**", ".cache/**", ".claude/worktrees/**", ".wrangler/**", "scripts/images/**"],
   rules: {
     "max-lines-per-function": ["error", { max: 60, skipBlankLines: true, skipComments: true }],
     complexity: ["error", 15],

@@ -44,6 +44,10 @@ No score, page or data file may change because of this plan. It is a refactor of
   Rationale: Those 14 findings are the scripts doing their job: reading the cached game tables, writing generated data, reading the committed score snapshot. The rule exists to catch a request-controlled path, and none of these paths comes from a request. An exception in the configuration file carries its reason and can be re-judged later; inline suppressions are forbidden by the user's rules.
   Date/Author: 2026-09-28 / agent.
 
+- Decision (O4): After Milestone 4 a Codex second opinion (`codex-review` skill, 2026-09-27) over the whole branch diff returned `CODEX VERDICT: LGTM` and confirmed the four invariants it was asked about (parseTrigger output, panel output and input order, the accepted view strings, the form's error reporting). Of its two nits, one is taken and one declined. Taken: the ignore pattern `.claude/**` is narrowed to `.claude/worktrees/**`, which is the stated reason (a second checkout inside the repository) and leaves anything else under `.claude/` lintable. Declined: narrowing the `security/detect-non-literal-fs-filename` exception from `scripts/**/*.ts` to the files that read the disk today. O3 exempts a class — build-time scripts run by a person or by CI, whose paths are fixed or come from our own arguments, never from a request — and a per-file list would have to be edited for every new script while catching nothing, because the rule's purpose is a request-controlled path and no script sees a request. If a script ever does, O3's own removal condition applies.
+  Rationale: An exception should be as wide as its reason and no wider; the first nit found it wider, the second would have made it narrower than its reason.
+  Date/Author: 2026-09-27 / agent, on Codex's findings.
+
 ## Outcomes & Retrospective
 
 Nothing yet.
