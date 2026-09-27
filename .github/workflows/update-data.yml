@@ -3,7 +3,7 @@
 # is safe only because every gate below runs first, in this job, before anything is merged:
 #   - the generator stops on a broken upstream dump, and hides (never zeroes) a card it cannot
 #     score, listing it in data/held.generated.ts (docs/adr/0005);
-#   - the unit tests and the type check pass;
+#   - the unit tests, the type check and the lint pass;
 #   - scripts/check-score-stability.ts finds no card whose score moved although its own data did
 #     not (docs/adr/0006).
 # A failure publishes nothing: the site keeps its last good data, GitHub mails the failure, and
@@ -77,6 +77,9 @@ jobs:
       - name: "Gate: type check"
         if: steps.detect.outputs.changed == 'true'
         run: bun run type-check
+      - name: "Gate: lint"
+        if: steps.detect.outputs.changed == 'true'
+        run: bun run lint
       - name: "Gate: no score moved without its card's data moving"
         if: steps.detect.outputs.changed == 'true'
         run: bun scripts/check-score-stability.ts --base HEAD

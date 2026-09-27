@@ -69,7 +69,8 @@ function parseList<T extends string>(raw: string | null, allowed: readonly T[]):
 function parseSort(raw: string | null): SortSpec {
   const m = raw ? /^([0-4])([ad])$/.exec(raw) : null;
   if (!m) return DEFAULT_SORT;
-  return { totsu: Number(m[1]) as Totsu, desc: m[2] === "d" };
+  const totsu = TOTSUS.find((t) => t === Number(m[1]));
+  return totsu === undefined ? DEFAULT_SORT : { totsu, desc: m[2] === "d" };
 }
 
 function parseOverrides(params: URLSearchParams, adjustable: ReadonlySet<string>): Record<string, number> {

@@ -1,5 +1,5 @@
 # Guards: develop. Runs on every pull request into develop — Dependabot's action updates above all —
-# the same checks deploy.yml runs before production (unit tests, type check, score snapshot, build),
+# the same checks deploy.yml runs before production (unit tests, type check, lint, score snapshot, build),
 # so a pull request is known to pass before a person merges it rather than at the next release
 # (first plan, decision D47). Read-only: it gets no secrets and cannot write to the repository,
 # which is what makes it safe to run on a pull request whose code is not yet trusted.
@@ -28,5 +28,6 @@ jobs:
       - run: bun install --frozen-lockfile
       - run: bun test
       - run: bun run type-check
+      - run: bun run lint
       - run: bun scripts/check-score-stability.ts
       - run: bun run build

@@ -7,12 +7,12 @@
  */
 
 import { useState } from "preact/hooks";
-import { FEEDBACK_CATEGORIES, FEEDBACK_MESSAGE_MAX, type FeedbackCategory } from "../../infra/worker/feedback-contract.ts";
+import { FEEDBACK_CATEGORIES, FEEDBACK_MESSAGE_MAX, isFeedbackCategory, type FeedbackCategory } from "../../infra/worker/feedback-contract.ts";
 import { buildPayload, resultText, viewToAttach } from "./feedback.ts";
 
 type Phase = { kind: "editing" } | { kind: "sending" } | { kind: "done"; status: number };
 
-const CATEGORY_KEYS = Object.keys(FEEDBACK_CATEGORIES) as FeedbackCategory[];
+const CATEGORY_KEYS = Object.keys(FEEDBACK_CATEGORIES).filter(isFeedbackCategory);
 
 async function send(body: string): Promise<number> {
   try {
@@ -52,13 +52,16 @@ export function FeedbackForm() {
   const payload = buildPayload(category, message, search, __BUILD_COMMIT__);
   const view = viewToAttach(search);
 
-  const onSubmit = async (e: Event): Promise<void> => {
+  // Synchronous, as a form handler must be; `send` never rejects (a failed fetch answers 0,
+  // which resultText words), so the promise it hands back needs no catch.
+  const onSubmit = (e: Event): void => {
     e.preventDefault();
     if (payload === null) return;
     setPhase({ kind: "sending" });
-    const status = await send(JSON.stringify(payload));
-    setPhase({ kind: "done", status });
-    if (status === 200) setMessage("");
+    void send(JSON.stringify(payload)).then((status) => {
+      setPhase({ kind: "done", status });
+      if (status === 200) setMessage("");
+    });
   };
 
   return (

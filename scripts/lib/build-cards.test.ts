@@ -78,6 +78,11 @@ function skill(id: string, level: number, effectId: string, triggerId: string, a
 function effect(id: string, produceEffectType: string, value: number) {
   return { id, produceEffectType, effectValueMin: value, effectValueMax: value, produceRewards: [] };
 }
+/** The fixture row, or a thrown error naming what was missing, so a test fails where the gap is. */
+function must<T>(value: T | undefined, what: string): T {
+  if (value === undefined) throw new Error(`${what} is missing from the fixture`);
+  return value;
+}
 
 describe("buildCards", () => {
   const { cards, report } = buildCards(fixture());
@@ -122,7 +127,9 @@ describe("buildCards", () => {
     expect([...report.occasionsUsed].sort()).toEqual(["ProduceStart", "StartShop"]);
     expect(report.skippedByType.get("ProduceEffectType_ProduceCardUpgrade")).toBe(2);
   });
+});
 
+describe("buildCards: what holds a card, and what stops the run", () => {
   /** Adds a Dance +5 skill on `triggerId` to the SSR fixture card. */
   function withSkill(triggerId: string, phase: string, effectType = "ProduceEffectType_DanceAddition"): Tables {
     const t = fixture();
@@ -167,7 +174,7 @@ describe("buildCards", () => {
   test("an uncountable effect on a granted P-item holds the card that grants it", () => {
     const t = fixture();
     t.triggers.push({ id: "p_trigger-start_shop-mystery", phaseType: "ProducePhaseType_StartShop" });
-    t.items[0]!.skills[0]!.produceTriggerId = "p_trigger-start_shop-mystery";
+    must(t.items[0]?.skills[0], "the item's skill").produceTriggerId = "p_trigger-start_shop-mystery";
     const r = buildCards(t);
     expect(r.report.held.map((h) => h.id)).toEqual(["s_card-3-9999"]);
     expect(r.report.held[0]?.reasons[0]).toContain("item pitem-x テストアイテム: trigger p_trigger-start_shop-mystery has a piece of unknown kind: mystery");
@@ -177,31 +184,31 @@ describe("buildCards", () => {
   test("an event effect of an unaudited type holds the card", () => {
     const t = fixture();
     t.effects.push(effect("e-new", "ProduceEffectType_BrandNewThing", 1));
-    t.eventDetails[1]!.produceEffectIds = ["e-new"];
+    must(t.eventDetails[1], "event #2").produceEffectIds = ["e-new"];
     expect(buildCards(t).report.held[0]?.reasons[0]).toContain("s_card-3-9999 event #2: event effect type ProduceEffectType_BrandNewThing");
   });
 
   test("unknown enum values throw naming the card", () => {
     const t = fixture();
-    t.cards[0]!.planType = "ProducePlanType_Plan9";
+    must(t.cards[0], "the SSR card").planType = "ProducePlanType_Plan9";
     expect(() => buildCards(t)).toThrow('s_card-3-9999: unknown planType "ProducePlanType_Plan9"');
   });
 
   test("dangling ids throw", () => {
     const t = fixture();
-    t.eventDetails[1]!.produceEffectIds = ["e-missing"];
+    must(t.eventDetails[1], "event #2").produceEffectIds = ["e-missing"];
     expect(() => buildCards(t)).toThrow("missing ProduceEffect e-missing");
   });
 
   test("an item effect of an unknown type throws instead of scoring 0", () => {
     const t = fixture();
-    t.itemEffects[0]!.effectType = "ProduceItemEffectType_Bogus";
+    must(t.itemEffects[0], "the item effect").effectType = "ProduceItemEffectType_Bogus";
     expect(() => buildCards(t)).toThrow('item pitem-x テストアイテム: unknown ProduceItemEffect type "ProduceItemEffectType_Bogus"');
   });
 
   test("an event reward of a resource type the engine does not know throws instead of being dropped", () => {
     const t = fixture();
-    t.effects.find((e) => e.id === "e-grant-item")!.produceRewards = [{ resourceType: "ProduceResourceType_ProduceDrink", resourceId: "pdrink-x" }];
+    must(t.effects.find((e) => e.id === "e-grant-item"), "e-grant-item").produceRewards = [{ resourceType: "ProduceResourceType_ProduceDrink", resourceId: "pdrink-x" }];
     expect(() => buildCards(t)).toThrow('s_card-3-9999 event #1: unsupported reward "ProduceResourceType_ProduceDrink" (pdrink-x)');
   });
 

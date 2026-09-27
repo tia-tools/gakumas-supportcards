@@ -9,13 +9,23 @@
 import { describe, expect, test } from "bun:test";
 import { conditionKey, missingNumbers, occasionOfConditionKey } from "../../src/engine/count.ts";
 import { scoreBest } from "../../src/engine/score.ts";
-import type { Totsu } from "../../src/engine/types.ts";
+import type { Card, RouteProfile, Totsu } from "../../src/engine/types.ts";
 import { CARDS } from "../cards.generated.ts";
 import { HELD } from "../held.generated.ts";
 import { LEVEL_LIMITS } from "../levelLimits.generated.ts";
 import { ALL_SCENARIOS, SCENARIOS } from "./index.ts";
 
 const TOTSU: Totsu[] = [0, 1, 2, 3, 4];
+
+/** Some effect of the card, at some level, carries the condition `key` (an `<occasion>.<condition>` key). */
+function carriesCondition(card: Card, key: string): boolean {
+  return card.breakpoints.some((b) => b.effects.some((e) => e.trigger?.conditions?.some((x) => conditionKey(e.trigger?.occasion ?? "", x) === key)));
+}
+
+/** Every occasion or filter path the cards' triggers need that the profile has no number for. */
+function numbersMissing(cards: readonly Card[], p: RouteProfile): string[] {
+  return [...new Set(cards.flatMap((c) => c.breakpoints.flatMap((b) => b.effects.flatMap((e) => (e.trigger ? missingNumbers(e.trigger, p) : [])))))];
+}
 
 describe("shipped scenarios", () => {
   test("only H.I.F. is published; 初LEGEND stays in the code and under test but off the page (D39)", () => {
@@ -39,21 +49,19 @@ describe("shipped scenarios", () => {
     const [p] = s?.profiles ?? [];
     if (!s || !p) throw new Error("no default scenario profile");
     const key = "EndLesson.produce_card_count.ge20";
-    const carries = (c: (typeof CARDS)[number]): boolean => c.breakpoints.some((b) => b.effects.some((e) => e.trigger?.conditions?.some((x) => conditionKey(e.trigger?.occasion ?? "", x) === key)));
     const ctx = { profile: p, limits: LEVEL_LIMITS, scenarioId: s.id };
     const lowered = { ...ctx, profile: { ...p, conditions: { ...p.conditions, [key]: 0 } } };
     const moved = CARDS.filter((c) => scoreBest(c, 4, ctx).total !== scoreBest(c, 4, lowered).total);
     expect(moved.length).toBeGreaterThan(0);
-    expect(moved.filter((c) => !carries(c)).map((c) => c.name)).toEqual([]);
-    expect(CARDS.filter((c) => carries(c) && !moved.includes(c)).map((c) => c.name)).toEqual([]);
+    expect(moved.filter((c) => !carriesCondition(c, key)).map((c) => c.name)).toEqual([]);
+    expect(CARDS.filter((c) => carriesCondition(c, key) && !moved.includes(c)).map((c) => c.name)).toEqual([]);
   });
 
   for (const s of ALL_SCENARIOS) {
     for (const p of s.profiles) {
       test(`${s.id}/${p.id}: every occasion and filter the published cards' triggers need has a number; a missing one would silently count 0, so the generator holds such a card`, () => {
         const held = new Set(HELD.map((h) => h.id));
-        const missing = new Set(CARDS.filter((c) => !held.has(c.id)).flatMap((c) => c.breakpoints.flatMap((b) => b.effects.flatMap((e) => (e.trigger ? missingNumbers(e.trigger, p) : [])))));
-        expect([...missing]).toEqual([]);
+        expect(numbersMissing(CARDS.filter((c) => !held.has(c.id)), p)).toEqual([]);
       });
 
       test(`${s.id}/${p.id}: occasion, filter and condition counts are non-negative integers, and no filter or condition exceeds its occasion`, () => {

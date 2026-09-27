@@ -8,6 +8,11 @@
 export const FEEDBACK_CATEGORIES = { bug: "バグ", request: "要望", other: "その他" } as const;
 export type FeedbackCategory = keyof typeof FEEDBACK_CATEGORIES;
 
+/** True for one of the category keys: the form lists exactly these, the Worker refuses anything else. */
+export function isFeedbackCategory(value: unknown): value is FeedbackCategory {
+  return typeof value === "string" && Object.hasOwn(FEEDBACK_CATEGORIES, value);
+}
+
 /** Characters of the user's message, after trimming. */
 export const FEEDBACK_MESSAGE_MAX = 4000;
 
@@ -15,9 +20,19 @@ export const FEEDBACK_MESSAGE_MAX = 4000;
  * The page's query string at the time of sending (scenario, profile, filters, count overrides),
  * so a report can be reproduced by opening the same view. `URLSearchParams` percent-encodes
  * everything outside this set, so a real query string always matches, and nothing matching it
- * can break out of the Markdown link it is written into.
+ * can break out of the Markdown link it is written into. The empty (default) view and the
+ * length bound are decided in `isFeedbackView`, not in the pattern: one repetition with no
+ * group around it is what the lint's regex check accepts, and a bound in code reads as a rule.
  */
-export const FEEDBACK_VIEW_PATTERN = /^(\?[A-Za-z0-9._~%&=+*-]{1,2000})?$/;
+const FEEDBACK_VIEW_PATTERN = /^\?[A-Za-z0-9._~%&=+*-]+$/;
+
+/** Characters of the view, its leading `?` included. */
+export const FEEDBACK_VIEW_MAX = 2001;
+
+/** "" (the default view), or a `?`-led query of the allowed characters within FEEDBACK_VIEW_MAX. */
+export function isFeedbackView(view: string): boolean {
+  return view === "" || (view.length <= FEEDBACK_VIEW_MAX && FEEDBACK_VIEW_PATTERN.test(view));
+}
 
 /** The commit the page was built from (`git rev-parse --short=12 HEAD`), or "unknown". */
 export const FEEDBACK_COMMIT_PATTERN = /^([0-9a-f]{7,40}|unknown)$/;
