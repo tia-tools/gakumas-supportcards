@@ -41,6 +41,10 @@ describe("parseViewState", () => {
     expect(parse("").share).toBeNull();
   });
 
+  test("the share's text is exactly three plain integers: no empty part, sign, exponent or whitespace, even where Number() would read a valid share", () => {
+    for (const raw of ["a=..10", "a=+3.6.1", "a=1e1.0.0", "a=%203.6.1", "a=3.6.1%20", "a=03.6.1", "a=3.6.1."]) expect(parse(raw).share, raw).toBeNull();
+  });
+
   test("sp=1 narrows to SP発生率+ cards; anything else is off", () => {
     expect(parse("sp=1").sp).toBe(true);
     expect(parse("sp=0").sp).toBe(false);

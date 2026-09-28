@@ -15,8 +15,9 @@ export type Role = 0 | 1 | 2;
 const ROLES: readonly Role[] = [0, 1, 2];
 const STATS: readonly Stat[] = ["vocal", "dance", "visual"];
 
-/** Moves a thumb to tenth `to`; thumbs may meet but not cross, so no segment goes below 0. */
+/** Moves a thumb to tenth `to`; thumbs may meet but not cross, so no segment goes below 0. A non-finite position changes nothing. */
 export function moveThumb(share: AuditionShare, thumb: 0 | 1, to: number): AuditionShare {
+  if (!Number.isFinite(to)) return share;
   const t = Math.max(0, Math.min(10, Math.round(to)));
   const [main, sub] = share;
   if (thumb === 0) {

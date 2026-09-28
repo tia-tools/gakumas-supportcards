@@ -84,9 +84,12 @@ function parseSort(raw: string | null): SortSpec {
 
 const isDefaultShare = (s: AuditionShare): boolean => s.every((n, i) => n === DEFAULT_AUDITION_SHARE[i]);
 
+/** Exactly three plain integers 0–10 joined by dots: no sign, exponent, whitespace or empty part (`Number("")` is 0). */
+const SHARE_TEXT = /^(?:10|\d)\.(?:10|\d)\.(?:10|\d)$/;
+
 /** `a=2.7.1` → null (the default), `a=3.6.1` → [3, 6, 1]; anything that is not three tenths summing to 10 → null. */
 function parseShare(raw: string | null): AuditionShare | null {
-  if (raw === null) return null;
+  if (raw === null || !SHARE_TEXT.test(raw)) return null;
   const parts = raw.split(".").map(Number);
   return isAuditionShare(parts) && !isDefaultShare(parts) ? parts : null;
 }

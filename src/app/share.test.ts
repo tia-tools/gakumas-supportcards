@@ -14,10 +14,12 @@ describe("moveThumb", () => {
     expect(moveThumb([2, 7, 1], 1, 0)).toEqual([2, 0, 8]);
   });
 
-  test("positions are rounded and clamped to 0–10", () => {
+  test("positions are rounded and clamped to 0–10; a non-finite position changes nothing", () => {
     expect(moveThumb([2, 7, 1], 0, 3.4)).toEqual([3, 6, 1]);
     expect(moveThumb([2, 7, 1], 1, 42)).toEqual([2, 8, 0]);
     expect(moveThumb([2, 7, 1], 0, -3)).toEqual([0, 9, 1]);
+    expect(moveThumb([2, 7, 1], 0, Number.NaN)).toEqual([2, 7, 1]);
+    expect(moveThumb([2, 7, 1], 1, Number.POSITIVE_INFINITY)).toEqual([2, 7, 1]);
   });
 });
 
