@@ -10,7 +10,7 @@
 import { useState } from "preact/hooks";
 import { triggerLabel } from "./count-labels.ts";
 import { itemIconUrl } from "./images.ts";
-import { deckKey, itemCapKey, type ItemRow } from "./item-panel.ts";
+import { deckKey, isItemKey, itemCapKey, type ItemRow } from "./item-panel.ts";
 import type { Overrides } from "./panel.ts";
 
 interface Props {
@@ -59,8 +59,6 @@ function ItemRowView({ row, onCap, onDeck }: { row: ItemRow; onCap: (row: ItemRo
     </div>
   );
 }
-
-const isItemKey = (key: string): boolean => key.startsWith("i.") || key.startsWith("d.");
 
 export function ItemPanel({ items, overrides, onChange }: Props) {
   const changed = Object.keys(overrides).filter(isItemKey).length;

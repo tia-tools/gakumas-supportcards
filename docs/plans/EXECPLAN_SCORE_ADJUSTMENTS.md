@@ -113,7 +113,7 @@ How to see it working, at the end: run `bun run dev`, open `http://localhost:517
   Date/Author: 2026-09-28, agent, from a Codex MUST-FIX.
 - Decision (A24): the 「Pアイテム」 rows are their own folded panel (`src/app/ItemPanel.tsx`) directly below 「カウントを調整」, not a section inside it; and the Pドリンク獲得 input in ドリンク・アイテム shows the player's own count, with the deck's drinks as a separate read-only line 「Pアイテムによる追加（計 N回）」 that is not bounded by its parent. Two observations of the user on the released site (2026-09-29): the section did not read as its own thing inside the counts panel; and ticking 「デッキに入れる」 raised the Pドリンク獲得 input's displayed value (16 → 30) while an edit of that input wrote the plain override, so anyone touching it while an item was ticked stored the folded number and unticking did not bring the count back. The engine still scores the override plus the addition; only what the input displays changed.
   Rationale: an editable value must be exactly what an edit writes; an addition on top belongs on its own line, unclamped (it can exceed the parent after a lowered override).
-  Date/Author: 2026-09-29, user's observations, agent's diagnosis and fix.
+  Date/Author: 2026-09-29, user's observations, agent's diagnosis and fix. Codex's review of the fix (PR #16) added: each panel's 既定に戻す clears only its own keys (`isItemKey` in `src/app/item-panel.ts` decides ownership), since the counts panel's reset had still wiped the item caps and ticks it no longer counted as its own changes.
 
 
 ## Outcomes & Retrospective

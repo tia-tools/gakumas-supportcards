@@ -6,6 +6,7 @@
  * (plan decision D2). Renders `buildPanel` of ./panel.ts and holds no rule itself.
  */
 
+import { isItemKey } from "./item-panel.ts";
 import type { Overrides, PanelInput, PanelSection } from "./panel.ts";
 
 interface Props {
@@ -100,7 +101,9 @@ function Section({ section, onCount }: { section: PanelSection; onCount: RowProp
 }
 
 export function CustomizePanel({ profileName, sections, overrides, onChange }: Props) {
-  const changed = Object.keys(overrides).filter((key) => !key.startsWith("i.") && !key.startsWith("d.")).length; // the P-item keys are the ItemPanel's
+  const changed = Object.keys(overrides).filter((key) => !isItemKey(key)).length; // the P-item keys are the ItemPanel's
+  /** Clears this panel's keys only; the P-item panel keeps its caps and ticks (A24). */
+  const reset = (): void => onChange(Object.fromEntries(Object.entries(overrides).filter(([key]) => isItemKey(key))));
   const onCount = (input: PanelInput, raw: string): void => {
     const next: Record<string, number> = { ...overrides };
     const n = Number(raw);
@@ -122,7 +125,7 @@ export function CustomizePanel({ profileName, sections, overrides, onChange }: P
         <p class="mb-2 text-xs text-slate-500">
           「{profileName}」で1回のプロデュース中に何が何回起きるか。字下げされた項目は上の項目のうち何回が当てはまるかで、上の回数を超えられません。条件（○○以上の場合 など）は既定では毎回成立とみなします。スキル自体に回数上限があればそこまで発動します。Pアイテムの発動回数とデッキのドリンクは下の「Pアイテム」で調整します。
           {changed > 0 && (
-            <button type="button" onClick={() => onChange({})} class="ml-2 underline text-slate-700">
+            <button type="button" onClick={reset} class="ml-2 underline text-slate-700">
               既定に戻す
             </button>
           )}
