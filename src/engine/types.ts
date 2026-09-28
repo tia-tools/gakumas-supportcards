@@ -110,6 +110,12 @@ export interface Card {
   plan: Plan;
   /** Sorted by minLevel ascending; the first entry is the card at level 1. */
   breakpoints: Breakpoint[];
+  /**
+   * The card has an SP発生率+ skill from level 1. It scores 0 (docs/adr/0001) and is
+   * not among the effects; the page marks the card and can filter by it
+   * (docs/plans/EXECPLAN_SCORE_ADJUSTMENTS.md, Milestone 1).
+   */
+  spRate?: true;
 }
 
 /** Card level at 凸0..凸4, per rarity. */

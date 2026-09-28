@@ -22,6 +22,8 @@ export interface RowFilter {
   types: readonly CardType[];
   plans: readonly Plan[];
   rarities: readonly Rarity[];
+  /** Only cards with an SP発生率+ skill (`Card.spRate`). */
+  sp: boolean;
 }
 
 /** The cards the table may show: a held card has an effect that cannot be counted, so no number of it is published (docs/adr/0005). */
@@ -41,10 +43,14 @@ export function buildRows(cards: readonly Card[], ctx: Omit<ScoreContext, "lesso
   }));
 }
 
-/** An empty list for a facet means "no restriction". */
+/** An empty list for a facet means "no restriction"; `sp` off means the same. */
 export function filterRows(rows: readonly Row[], filter: RowFilter): Row[] {
   return rows.filter(
-    (r) => (filter.types.length === 0 || filter.types.includes(r.card.type)) && (filter.plans.length === 0 || filter.plans.includes(r.card.plan)) && (filter.rarities.length === 0 || filter.rarities.includes(r.card.rarity)),
+    (r) =>
+      (filter.types.length === 0 || filter.types.includes(r.card.type)) &&
+      (filter.plans.length === 0 || filter.plans.includes(r.card.plan)) &&
+      (filter.rarities.length === 0 || filter.rarities.includes(r.card.rarity)) &&
+      (!filter.sp || r.card.spRate === true),
   );
 }
 

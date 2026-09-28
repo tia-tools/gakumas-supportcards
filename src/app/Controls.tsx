@@ -64,6 +64,15 @@ export function Controls({ scenarios, scenario, profile, state, update }: Props)
         <Facet label="タイプ" values={CARD_TYPES} selected={state.types} labels={TYPE_LABEL} onToggle={(v: CardType) => update({ types: toggle(state.types, v) })} />
         <Facet label="プラン" values={PLANS} selected={state.plans} labels={PLAN_LABEL} onToggle={(v: Plan) => update({ plans: toggle(state.plans, v) })} />
         <Facet label="レアリティ" values={RARITIES} selected={state.rarities} labels={RARITY_LABEL} onToggle={(v: Rarity) => update({ rarities: toggle(state.rarities, v) })} />
+        <button
+          type="button"
+          aria-pressed={state.sp}
+          title="SP発生率+のスキルを持つカードだけを表示（点数には含めません）"
+          onClick={() => update({ sp: !state.sp })}
+          class={`px-2 py-0.5 rounded-full text-xs border transition ${state.sp ? "bg-emerald-700 text-white border-emerald-700" : "bg-white text-slate-700 border-slate-300 hover:border-slate-500"}`}
+        >
+          SP発生率+
+        </button>
       </div>
     </div>
   );

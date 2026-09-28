@@ -1,0 +1,285 @@
+# Score adjustments: SP発生率 badge, audition-share slider, P-item counts and icons
+
+This ExecPlan is a living document. The sections `Progress`, `Surprises & Discoveries`, `Decision Log`, and `Outcomes & Retrospective` must be kept up to date as work proceeds. It is maintained in accordance with `docs/PLANS.md` at the repository root.
+
+The design was settled in a grill session on 2026-09-28 (the `grill-me` skill of the user-level configuration); every decision from it is in the Decision Log below with its reasoning, numbered A1–A14, and nothing from that conversation is needed beyond this file.
+
+
+## Purpose / Big Picture
+
+The site `https://gakumas-supportcards.tia.run` shows every 学園アイドルマスター support card (サポカ) as a row with its 点数 — its expected Vo+Da+Vi parameter gain over one run of the H.I.F. scenario — at 凸0 through 凸4. Four things a player wants are missing, and this plan adds them in four milestones:
+
+1. A card with SP発生率+ (a skill raising the chance that a lesson becomes an SP lesson) scores 0 for that skill by definition (docs/adr/0001), so the table cannot tell it apart from a card without it, although players build decks around it. After Milestone 1 such a card carries a small 「SP」 badge in its cell and a facet button 「SP発生率+」 shows only those cards.
+2. The パラメータボーナス+ effect (a percentage of the parameter a stat gains from lessons and the 選抜試験) is converted with a fixed number today that assumes the 選抜試験's distributed rewards follow the lesson split (7 of 8 lessons → 7/8 of the reward). Players deliberately score the *sub* stat higher in the exam to balance the gain. After Milestone 2 a slider in the controls row sets how the 選抜試験's distributed reward is shared between the main, sub and remaining stat (default 2:7:1), every bonus line follows it, and the committed score snapshot pins the parts of a score that data can move rather than a folded total.
+3. A card that grants a P-item (Pアイテム, an item that fires on a trigger during the run) is counted with the item's fires under the route profile, and the player cannot lower one item's fires without lowering the shared count every card uses. Some items grant P-drinks instead of parameter, which matters through *other* cards' 「Pドリンク獲得時」 skills. After Milestone 3 a 「Pアイテム」 section of the 「カウントを調整」 panel lists each item with its own cap on fires, and a drink-granting item can be ticked 「デッキに入れる」 so its drinks raise the run's Pドリンク獲得 count for every card.
+4. After Milestone 4 each row of that section shows the item's in-game icon, served from the site's own image library like the card thumbnails.
+
+How to see it working, at the end: run `bun run dev`, open `http://localhost:5173`, press 「SP発生率+」 and see 75 cards; move the 選抜試験 slider and watch bonus cards' numbers move while flat cards stay; open 「カウントを調整」, tick ふわふわでもこもこ 「デッキに入れる」 and watch おい、来てやったぞ！ gain 70 points at 凸4 under 差し入れ育成; and see the item's icon in that row.
+
+
+## Progress
+
+- [ ] Milestone 1 — SP発生率 badge and facet (branch `feature/sp-badge`, from `develop` at acb0c6f). Plan drafted and committed 2026-09-28 (71c5f31). Edits written 2026-09-28: `SP_RATE_EFFECT_TYPES` (`scripts/lib/effect-types.ts`), the `spRate` flag and the level-1 rule in `scripts/lib/build-cards.ts` with two tests, `Card.spRate` (`src/engine/types.ts`), `sp` in `ViewState`/`RowFilter` with parse, serialise and filter tests, the 「SP発生率+」 button in `Controls.tsx`, the badge in `ScoreTable.tsx`, the header sentence in `App.tsx`, CLAUDE.md § Architecture and § Build and Test. Gates run by the user 2026-09-28 (the session's Bash classifier gave no verdict): 203 tests pass, `tsc` clean, `oxlint` clean after a `bun install` (this checkout lacked oxlint), `bun run generate` changed 75 lines of `cards.generated.ts` and `scores.generated.json` each, `grep -c '"spRate":true'` = 75, stability `204 cards now, 0 new, 0 gone or held, 75 with changed data, 0 unexplained score moves`, build 1,353.83 kB / 57.93 kB gzip. Committed as 8c1bcad, pushed, PR #10 into `develop`. Codex review (`codex-review` skill, 2026-09-28) on the PR diff: verdict CHANGES REQUESTED — one MUST-FIX, real: the `rows` memo in `src/app/App.tsx` did not list `state.sp`, so the facet re-filtered only when another facet changed (the unit tests cover `filterRows`, not the memo); fixed by adding it; gates green again (203 tests, `tsc`, `oxlint`, build) and the re-run returned LGTM. The NIT it repeated (an accessible label on the badge) was applied (A18). Remaining: the fix commit, a look at the page (`bun run dev`, press 「SP発生率+」).
+- [ ] Milestone 2 — audition-share slider, `bonusBase(n, share)`, snapshot of flat points and bonus permil, regenerated snapshot and golden values, user's re-confirmation of the moved golden lines (branch `feature/audition-share`).
+- [ ] Milestone 3 — P-item section: per-item caps, deck drinks (branch `feature/item-panel`).
+- [ ] Milestone 4 — P-item icons through the image pipeline, R2 and the Worker (branch `feature/item-icons`).
+- [ ] Close-out (`close-out` skill): ADR 0001 addendum, ADR 0009, CLAUDE.md synced.
+
+
+## Surprises & Discoveries
+
+- Observation (2026-09-28, F1): SP発生率+ is on 75 of 204 cards and every instance is 「プロデュース開始時 SP発生率+X%」, once per run. 71 typed cards carry the per-stat effect type for their own stat (`ProduceEffectType_Lesson{Vocal,Dance,Visual}SpChangeRatePermilAddition`, 105 → 280 permil by card level); 4 assist cards carry the all-lessons type (`ProduceEffectType_LessonSpChangeRatePermilAddition`, 52 → 280). The generator lists all four types in `NON_PARAMETER_EFFECT_TYPES` (`scripts/lib/effect-types.ts`) and drops them, so no trace reaches the page today.
+  Evidence: audit script over the cached dump (`ProduceSkill.yaml`, `SupportCardProduceSkillLevel*.yaml`), counts by type `Dance 8/16, Visual 10/14, Vocal 8/15 (SR/SSR)`, `Assist Sr 1, Assist Ssr 3`.
+- Observation (F2): the H.I.F. パラメータボーナス base, `bonusBase(n)` in `data/scenarios/hif.ts`, is `round(800·n/8 + 340·(8−n)/16 + 200 + 500·n/8)` for a stat trained by `n` of the 8 lessons: SP-lesson gains to the selected stat (60+80+80+100+100+120 in 選抜試験, 120+140 in 本戦 = 800), the sub-parameter each lesson gives a non-selected stat (340 in total, half to each of the two other stats), the 選抜試験 base rewards every stat gets (20+80+100 = 200) and the 選抜試験 distributed rewards (80+200+220 = 500) shared by *score* — for which the lesson share is used as a proxy. That proxy is what Milestone 2 replaces. The user confirmed the first two terms as expected values and that 本戦 rounds give no parameter.
+- Observation (F3): 133 P-items are granted by support-card events: 37 give a stat directly, 8 only grant rewards, 5 do both (そっくりワンワン, びっくり仮装グッズ, 完全制覇でポン, 居眠り注意！, 真夏に咲く太陽), 83 have no parameter effect (exam enchants, P-points, stamina, card upgrades). Of the 13 reward-granting items, 10 grant P-drinks and 3 grant skill cards (思い出カタメコイメ a fixed mental card, 居眠り注意！ and 真夏に咲く太陽 an R card). The quantity per fire is encoded in the reward id: `…-drink_set-all-random-02_02` on ふわふわでもこもこ is two drinks per fire (confirmed by the user in game), every other set is `…-01_01`, and a direct reward reads `p_effect-produce_reward-0001_0001-produce_drink-…`. There is no `ProduceRewardSet.yaml` upstream (HTTP 404), so the id is the only source.
+- Observation (F4): only 6 cards react to Pドリンク獲得時 and 4 to 相談でPドリンク交換時. Of the 6, おやすみのふたり is capped at 10 fires (already saturated by 差し入れ育成's 16 drinks) and the other five — よくやったな、倉本。, いつも頑張ってるね。, いつまでも続けばいいのに, おい、来てやったぞ！ (+5 each, unlimited) and none other — are unlimited, so deck drinks move exactly those five cards. This bounds what Milestone 3's deck part can change.
+- Observation (F5): all 87 cards with パラメータボーナス+ carry it on their own stat, so under a card's best lesson-split preset the bonus always uses the *main* share; a Vo card sees the sub share only when the player fixes a preset with Vo as the sub stat.
+- Observation (F6): a `git fetch`, `gh` and `curl` to GitHub fail inside the session sandbox (proxy authentication, TLS); `raw.githubusercontent.com` works when allowed per command. Branching from `origin/develop` needed one fetch run outside the sandbox.
+
+
+## Decision Log
+
+- Decision (A1): One ExecPlan for all four milestones, grilled before drafting.
+  Rationale: the four changes share the engine, the panel and the URL state; one plan keeps their interactions (the snapshot format of Milestone 2, the override keys of Milestone 3) in one Decision Log.
+  Date/Author: 2026-09-28, user.
+- Decision (A2): Milestone 1 keeps SP発生率+ non-scoring (docs/adr/0001 unchanged) and only marks it: the generator sets a card-level flag `spRate`, the page shows a plain 「SP」 badge in the card cell — no percentage, no per-凸 line in the breakdown — and a facet button 「SP発生率+」 (URL `sp=1`) narrows the table to those cards.
+  Rationale: the user wanted a simple, unified mark; the percentage differs by level (10.5 % → 28 %) and would need per-凸 handling for a fact players already know from the card. Rejected: a badge with the 凸4 value plus a breakdown line (more than needed); a mark in each 凸 cell (clutter over 5 × 204 cells).
+  Date/Author: 2026-09-28, user (agent proposed the value badge).
+- Decision (A3): Milestone 2 changes only the 選抜試験 distributed term of the bonus base: `500 · n/8` becomes `500 · share`, where `share` is the stat's share of the exam's distributed rewards; the lesson term, the sub-parameter term and the 200 base stay as they are; 本戦 rounds contribute no parameter. `parameterBonusBase(lessonsOfStat, auditionShare)` on `RouteProfile` takes the share as a second argument; 初LEGEND's function ignores it (its formula has no exam term and the scenario is unpublished).
+  Rationale: the user judged the lesson terms fine as expected values and named the distributed term as the one whose proxy is wrong.
+  Date/Author: 2026-09-28, user.
+- Decision (A4): the share is a player input in *role* terms — main, sub and other stat of whichever lesson-split preset scores the card — not in absolute Vo/Da/Vi terms, so it works under 「カードごとに最適」 (each card scored under its best preset). Roles: the stat with the most lessons is main, the next is sub, the last is other; ties broken by the order vocal, dance, visual (no shipped preset has ties). Default 2:7:1.
+  Rationale: with best-preset scoring "sub" is a different stat per card; an absolute slider would only make sense with a fixed preset. Rejected: absolute Vo/Da/Vi (meaningless under best preset); both (two encodings).
+  Date/Author: 2026-09-28, user chose the recommended option.
+- Decision (A5): the slider lives in the controls row beside 「レッスン配分」, as a two-thumb bar with +/− buttons in *tenths* — three integers summing to 10 — labelled メイン / サブ / その他 and recoloured with the Vo/Da/Vi colours when a preset is fixed. URL `a=<main>.<sub>.<other>`, e.g. `a=2.7.1`; absent means the default.
+  Rationale: it is a scoring input like the split, not a count, so it does not belong in the 「カウントを調整」 panel; one tenth of the distributed 500 is 50 parameter, the finest step that still moves a score visibly. Rejected: percent granularity (ten times the states for sub-point differences).
+  Date/Author: 2026-09-28, user.
+- Decision (A6): Milestone 2 moves published scores by design — H.I.F. bases become 1021 / 799 / 420 (main / sub / other) instead of 1359 / 511 / 370 — so its pull request carries the regenerated `data/scores.generated.json` and the updated golden totals, and its acceptance is the user's line-by-line re-confirmation of every golden breakdown line that moved (the bonus lines), on a scratch page like the earlier `golden-breakdowns.html`. Nothing about the slider is accepted on the engine's word alone.
+  Rationale: docs/adr/0001's validation is the user's check of the golden breakdowns, so a change of the bonus arithmetic must be re-checked the same way.
+  Date/Author: 2026-09-28, agent, accepted by the user with the plan.
+- Decision (A7): `data/scores.generated.json` stops storing folded totals and stores, per card and route profile at each 凸, the *flat* points (skills, events and items under the best preset) and, per card at each 凸, the パラメータボーナス permil; the base is applied at read time. `scripts/check-score-stability.ts` compares those parts.
+  Rationale (user's): the folded amount is not durable — the base is a modelling parameter and now a user input with a default, so every refinement of it would rewrite 87 cards' snapshot lines and the "moved by design" review would be noise; the flat points and the permil are what a data update can actually move. The agent had advised keeping totals (the check catches unattended moves and a base change is never unattended); the user's argument was accepted. The best preset is still chosen by the total under the default share (F5: this cannot flip today).
+  Date/Author: 2026-09-28, user.
+- Decision (A8): Milestone 3's cross-card part enters the *route profile*, never the granting card's 点数: a drink-granting item's fires × drinks per fire are added to the run's Pドリンク獲得 count that every card's 「Pドリンク獲得時」 skill is scored against. The granting card's own number does not change.
+  Rationale: a 点数 is one card's marginal gain under a route (docs/adr/0001); crediting the granting card with what it unlocks in other cards needs a deck assumption no number in the table makes. Rejected: per-card credit; a bare "items in deck" multi-select without per-item numbers (the user wanted individual settings).
+  Date/Author: 2026-09-28, user.
+- Decision (A9): one row of the 「Pアイテム」 section per item, for items of the cards in view (the same folding rule as the other sections): the item, its granting card, and 「発動回数」; a drink-granting item additionally has a checkbox 「デッキに入れる」, off by default so the published table is unchanged. The count defaults to the item's fires under maximum performance — its trigger counted under the lesson-split preset that favours it, capped by the item's `fireLimit` — and the drinks added to the deck are fires × quantity per fire, shown under Pドリンク獲得 in the ドリンク・アイテム section as a read-only child 「Pアイテムによる追加 +N」. URL `i.<itemId>=<n>` for the count (only when below the computed count) and `d.<itemId>=1` for the tick.
+  Rationale: checkbox + count was the user's preference over a plain on/off; a 7-fire default (14 drinks) is one someone will want to lower.
+  Date/Author: 2026-09-28, user.
+- Decision (A10): the section covers the 10 drink-granting items only; the 3 skill-card items are a documented gap.
+  Rationale: Pドリンク獲得 has no filters, so fires × quantity is exact; スキルカード獲得 is narrowed by filters (mental / active, effect group, SSR) the generator cannot evaluate for a granted card without `ProduceCard.yaml`, so any number would be a guess (docs/adr/0005). Workaround: the existing `o.GetProduceCard` override.
+  Date/Author: 2026-09-28, user.
+- Decision (A11): the per-item count is an *extra cap*, not a replacement: `fires = min(override, computed)`, the input's ceiling is the computed count under the current view, and the same count drives a mixed item's own stat effect and its deck drinks.
+  Rationale: consistent with conditions (start at the maximum, the player lowers); follows a shared count lowered later automatically; harmless under best-preset scoring. Rejected: a free count up to the occasion's count — it goes stale when a shared count drops and can claim fires the route's filters deny (shown side by side in the scratch page `item-override-approaches.html`, 2026-09-28).
+  Date/Author: 2026-09-28, user.
+- Decision (A12): P-item icons are Milestone 4, after the three: Milestone 3 ships the section with item names and Milestone 4 extends the image pipeline (the game's `img_general_pitem_<n>` asset, a new R2 prefix for the icon rendition as docs/adr/0003 foresaw, extract/upload planning admitting items of shipped cards, the Worker path admitting the prefix, best-effort daily extraction like card art).
+  Rationale: a different toolchain (Python, R2, Worker) and a separate verification; folding it into Milestone 3 would block the panel on an upload.
+  Date/Author: 2026-09-28, user.
+- Decision (A13): one feature branch per milestone (`feature/sp-badge`, `feature/audition-share`, `feature/item-panel`, `feature/item-icons`), each its own pull request into `develop`, each started from `develop` after the previous merge; releases (`develop` → `main`, which deploys) are the user's call per milestone.
+  Rationale: milestones differ in weight and Milestone 2 moves published scores; small PRs keep each move reviewable and a daily data update's merge-back touches one branch.
+  Date/Author: 2026-09-28, user accepted with A1.
+- Decision (A14): merge `docs/golden-acceptance` into `develop` first and branch from that; done as PR #9 (acb0c6f) before the plan was written.
+  Rationale: the plan cites the closed-out first plan and ADR 0008, which that branch carried.
+  Date/Author: 2026-09-28, user.
+- Decision (A15): the `spRate` flag means "the card has an SP発生率+ skill at level 1", and the generator exits 1 if a card has one at a later level only.
+  Rationale: the badge is shown in the card cell for all five 凸 columns; a card gaining the effect only at a higher level would make the badge wrong at 凸0, and today no such card exists, so the shape check costs nothing and a person decides if one appears (the same rule as the other "dump looks unlike what the engine assumes" exits).
+  Date/Author: 2026-09-28, agent while drafting.
+- Decision (A16): an item reward the generator cannot classify — a reward set whose id names neither `drink` nor `card`, a quantity whose min and max differ, or a direct reward of an unknown resource — makes `bun run generate` exit 1, like an unknown item effect type does today; it does not hold the card.
+  Rationale: the deck addition is a published number, so an unreadable quantity must reach a person; but hiding a whole card over a non-scoring reward would punish the card for the deck feature, and the existing exit-1 path already stops the unattended update and reports.
+  Date/Author: 2026-09-28, agent while drafting.
+- Decision (A17): the deck drinks of a ticked item assume the granting card is at a level where the item is granted; the tick is not level-aware.
+  Rationale: the deck is the player's own and they tick what they own; a per-凸 deck would need a deck model this table does not have.
+  Date/Author: 2026-09-28, agent while drafting.
+- Decision (A18): the 「SP」 badge carries an `aria-label` with the same text as its `title` (「SP発生率+（点数には含めません）」). Codex's review of PR #10 noted, twice, that `title` alone does not reach touch, keyboard or assistive-technology users; the first evaluation deferred it as a page-wide question (the type bar and thumbnail also rely on `title`), the second applied it because one attribute costs nothing and the other marks have visible text of their own.
+  Rationale: the badge's visible text 「SP」 is an abbreviation whose meaning is only in the page header; the label says it in place.
+  Date/Author: 2026-09-28, agent evaluating the Codex finding (NIT in both runs).
+
+
+## Outcomes & Retrospective
+
+To be written at each milestone's end and at completion.
+
+
+## Context and Orientation
+
+The reader is a coding agent in a fresh session with the working tree and git history and nothing else. This section repeats everything needed.
+
+**What the site computes.** `data/cards.generated.ts` is a list of `Card` objects (type in `src/engine/types.ts`), generated by `bun run generate` (`scripts/generate-cards.ts` over `scripts/lib/`) from the `vertesan/gakumasu-diff` YAML dump of the game's tables, cached under `.cache/gakumasu-diff/`. A card has *breakpoints*: at a card level (`minLevel`) its skills change value, and a 凸 (limit break, 0–4) sets the card's maximum level (`data/levelLimits.generated.ts`). Each breakpoint lists `ClassifiedEffect`s: `stat` (vocal / dance / visual), `value`, `kind` (`skill`, `event` for the card's own サポートイベント reward, `item` for an effect of a P-item the card grants), an optional per-run `cap` (`activationCount` of a skill, `fireLimit` of an item), `itemId`/`itemName` for items, `bonus: true` for パラメータボーナス+ (then `value` is tenths of a percent), and a `trigger` parsed as *occasion* (the game's phase type, e.g. `EndLesson`), *filters* (which occurrences qualify: a lesson of a stat, an SP lesson, a card type) and *conditions* (a stat ≥ N, a deck size). docs/adr/0004 defines this counting.
+
+A *route profile* (`RouteProfile` in `src/engine/types.ts`; H.I.F.'s three in `data/scenarios/hif.ts`) says how often each occasion happens in a run (`occasions`), how many of those each filter selects (`filters`), optionally how many meet a condition (`conditions`; unstated = every time), which lesson-split presets a player may pick (`lessonSplits`: H.I.F. 7/1/0 and its permutations over 8 lessons), and `parameterBonusBase(lessonsOfStat)`, the parameter a stat gains from the sources the bonus multiplies. `src/engine/count.ts` `occurrences(effect, ctx)` = min(occasion count, each filter's count — the lesson-stat filter uses the split — each stated condition's count, the effect's own cap). `src/engine/score.ts` sums `value × occurrences` for skills and items, `value × (1 + eventBonusPermil/1000)` for events, and `value/1000 × parameterBonusBase(split[stat])` for bonus effects; `scoreBest` takes the preset with the highest total. `Score.lines` is the breakdown shown on hover (`src/app/Breakdown.tsx`).
+
+**The page.** `src/app/App.tsx` reads the view state from the URL (`src/app/url-state.ts`: scenario `s`, profile `p`, split `ls`, facets `type`/`plan`/`rarity`, `sort`, and count overrides `o.<Occasion>`, `f.<Occasion>.<family>.<member>`, `w.<condition key>`), applies the overrides to the profile (`applyOverrides` in `src/app/panel.ts`), builds rows (`src/app/rows.ts`), and renders `Controls.tsx` (selects and facet buttons), `CustomizePanel.tsx` (the 「カウントを調整」 panel: four fixed sections — スケジュール, 行動, スキルカード, ドリンク・アイテム — each an occasion with its filters and conditions nested and bounded by it, inputs no card in view uses folded away; the model is `buildPanel` in `panel.ts`) and `ScoreTable.tsx` (a 96 × 56 thumbnail per card with the name on hover, five 凸 columns). Thumbnails come from `/img/w192/img_general_<assetId>_full.webp`, served in production by the Worker in `infra/worker/img.ts` from the R2 bucket `tia-assets` and in `bun run dev` from `scripts/images/out/w192/` (docs/adr/0003).
+
+**Stability.** `data/scores.generated.json` is written by the generator (`scripts/lib/score-snapshot.ts`): per card, a hash of its generated record and, per `<scenario>/<profile>`, its five totals. `bun scripts/check-score-stability.ts` recomputes from the working tree and fails when a card whose hash did not change scores differently from the committed file (docs/adr/0006). A deliberate engine or profile change fails it by design and is resolved by committing the regenerated file. `data/scenarios/golden.test.ts` pins ten cards' 凸0/凸4 totals over frozen copies in `golden.snapshot.ts`; the user confirmed all 38 breakdown lines on 2026-09-28.
+
+**Gates.** `bun test`, `bun run type-check`, `bun run lint` (Oxlint, every rule an error: a function ≤ 60 lines, complexity ≤ 15, no `any`, no `as T`, no `!`, no inline disable comments — exceptions only in `oxlint.config.ts`, docs/adr/0007), `bun scripts/check-score-stability.ts`, `bun run build`; `uv run pytest` in `scripts/images/` for the Python pipeline. `.github/workflows/check.yml` runs them on every PR into `develop`; `update-data.yml` runs them daily before publishing.
+
+**Terms used below.** *P-item* (Pアイテム): an item granted to the idol during a run by a support card's event at some card level, which fires on its own trigger (`ProduceItem.produceTriggerId`, or per skill) at most `fireLimit` times (0 = unlimited). *P-drink* (Pドリンク): a consumable; getting one is the occasion `GetProduceDrink` (Pドリンク獲得). *Reward set*: `ProduceEffectType_ProduceRewardSet`, a random or selected pick from a set named by id, e.g. `p_rd-drink_set-all-random-02_02`. *Best preset*: the lesson split that gives a card the highest total. *Snapshot*: `data/scores.generated.json`.
+
+
+## Plan of Work
+
+### Milestone 1 — SP発生率 badge and facet
+
+Goal: a card with SP発生率+ is recognisable and filterable; no score changes.
+
+In `scripts/lib/effect-types.ts` add `SP_RATE_EFFECT_TYPES`, the four `…SpChangeRatePermilAddition` types (they stay in `NON_PARAMETER_EFFECT_TYPES`; the new set only names them). In `scripts/lib/build-cards.ts`, where `skillEffects` walks a skill's three (effect, trigger) pairs, note when the effect's type is in that set; `buildCard` (the function assembling a `Card`) sets `spRate: true` when the level-1 skills carry one, and throws `${cardId}: SP発生率+ appears at level ${level} but not at level 1; the badge would be wrong at 凸0` when a higher level carries one and level 1 does not (A15). In `src/engine/types.ts` add `spRate?: true` to `Card` with a comment pointing at docs/adr/0001 (scores 0). Regenerate: 75 cards gain the field; every score is unchanged (their hashes change, which the stability check allows, and `MOVED` lines must be none).
+
+In `src/app/url-state.ts` add `sp: boolean` to `ViewState` (default false), parse `sp=1`, serialise `sp=1` when true. In `src/app/rows.ts` add `sp: boolean` to `RowFilter` and the clause `(!filter.sp || r.card.spRate === true)` to `filterRows`. In `src/app/Controls.tsx` add a single toggle button 「SP発生率+」 after the rarity facet, styled like a facet button with `aria-pressed`. In `src/app/ScoreTable.tsx`'s card cell add, when `card.spRate`, a badge `<span class="absolute top-0 left-0 rounded-br bg-emerald-600 px-1 text-[10px] font-bold text-white">SP</span>` inside the thumbnail box. In `App.tsx`'s `filterRows` call pass `state.sp` (the call passes `state` today, which now carries `sp`).
+
+Tests: `scripts/lib/build-cards.test.ts` — a fixture card with an SP-rate skill at level 1 gets `spRate: true`, one without has no field, one with it only at level 10 throws; `src/app/url-state.test.ts` — `sp=1` round-trips and `sp=0`/absent is false; `src/app/rows.test.ts` — the facet keeps only flagged cards. Add a real-data test in `data/scenarios/scenarios.test.ts` (or a new `data/cards.test.ts`): exactly the cards with `spRate` … no — do not pin 75, pin the invariant: every card with `spRate` has no SP-rate effect in its breakpoints (they are dropped) and `HELD` is unaffected.
+
+Documentation: CLAUDE.md § Architecture (`src/app/` line: the `sp` facet) and § Build and Test (generate: the `spRate` flag and its exit). The page header sentence in `App.tsx` gains 「SP発生率+ は点数に含めません（「SP」バッジで表示）」.
+
+### Milestone 2 — audition-share slider and the parts snapshot
+
+Goal: the bonus base follows a player-set share of the 選抜試験's distributed rewards; the snapshot pins flat points and bonus permil.
+
+Engine. In `src/engine/types.ts`: `export type AuditionShare = readonly [number, number, number]` (tenths for main, sub, other; sum 10), `export const DEFAULT_AUDITION_SHARE: AuditionShare = [2, 7, 1]`, and change `RouteProfile.parameterBonusBase(lessonsOfStat: number, auditionShare: number): number` where `auditionShare` is the stat's fraction (0–1) of the distributed rewards. In a new pure `src/engine/share.ts`: `roleOf(split: LessonSplit, stat: Stat): 0 | 1 | 2` (rank by lessons descending, ties by vocal, dance, visual) and `shareOf(split, stat, share: AuditionShare): number` (= `share[roleOf(...)] / 10`), with `share.test.ts`. In `score.ts` add `share: AuditionShare` to `ScoreContext`, and in `lineFor` compute `ctx.profile.parameterBonusBase(ctx.lessons[stat], shareOf(ctx.lessons, stat, ctx.share))`; `BreakdownLine.count` stays the base. `scoreBest` passes `share` through. In `count.ts` nothing changes.
+
+Scenarios. `data/scenarios/hif.ts`: `bonusBase(n, share) = Math.round(800·n/8 + 340·(8−n)/16 + 200 + 500·share)` with the comment rewritten to say what each term is (F2) and that `share` is the player's 選抜試験 share, default 2:7:1 → 1021 / 799 / 420. `data/scenarios/hajime-legend.ts`: the function accepts and ignores the second argument, with a comment (A3). `scenarios.test.ts`'s "bonus base grows with lessons" test passes a fixed share, and a new test checks `bonusBase(7, 0.2) = 1021`, `(1, 0.7) = 799`, `(0, 0.1) = 420` and that the three sum to what `(7,1)+(1,7)+(0,1)` gave before minus nothing — simply pin the three numbers.
+
+Snapshot. In `scripts/lib/score-snapshot.ts`: `SnapshotEntry { name; data; flat: Record<string, number[]>; bonus: number[] }` — `flat[profile][k]` = the sum of the non-bonus lines' points of `scoreBest(card, k, {…, share: DEFAULT_AUDITION_SHARE})`, rounded to 3 decimals; `bonus[k]` = the sum of `value` over the bonus effects of the breakpoint in force at `levelFor(limits, rarity, k)` (permil; profile-independent). `unexplainedMoves` compares `flat` per profile and `bonus` (report `bonus` moves with profile `"bonus"`). `parseSnapshot` rejects an entry with `scores` with the message `score snapshot: old format (folded totals); regenerate with bun run generate (docs/plans/EXECPLAN_SCORE_ADJUSTMENTS.md Milestone 2)`. Update `score-snapshot.test.ts`. `scripts/check-score-stability.ts` needs no logic change; its comment gains one sentence on the parts. The first `bun run generate` on this branch rewrites the file in the new format; commit it with the format change in one commit so `--base HEAD` compares like with like afterwards.
+
+Page. `url-state.ts`: `share: AuditionShare | null` on `ViewState` (null = default), parse `a=<m>.<s>.<o>` as three integers 0–10 summing to 10 else null, serialise when non-null. `rows.ts` `buildRows(cards, ctx, split)` receives `share` inside `ctx`. New `src/app/share.ts` (pure): `moveThumb(share, thumb: 0 | 1, to: number): AuditionShare` (thumb 0 is the main/sub boundary at `main`, thumb 1 the sub/other boundary at `main + sub`; a move clamps so no segment goes below 0), `step(share, role, delta): AuditionShare` (+/− one tenth, taken from or given to the next role to the right, else the left), `roleLabels(profile, split | null): [string, string, string]` (メイン/サブ/その他, or Vo/Da/Vi names with `STAT_TEXT` colours when a preset is fixed); `share.test.ts`. New `src/app/ShareSlider.tsx`: a track of three coloured segments, two `<input type="range" min="0" max="10">` overlaid for the thumbs (keyboard-accessible), and a +/− pair under each segment label with the tenth as text, as in the user's reference screenshot. `Controls.tsx` renders it beside 「レッスン配分」 with the label 「選抜試験のスコア配分」. `Breakdown.tsx`'s header line adds 「選抜試験 2:7:1」. `App.tsx` builds `ctx` with `share: state.share ?? DEFAULT_AUDITION_SHARE`. The page header sentence gains the assumption 「選抜試験のスコア配分は既定でメイン2:サブ7:その他1」. The feedback form attaches the query string as it is (`src/app/feedback.ts` `viewToAttach`), so `a=` travels with a report without a change.
+
+Golden. Regenerate; update `golden.test.ts` totals for the bonus cards (大切な思い出、またひとつ: 8.5 % × 1021 instead of × 1359; おやすみのふたり: 6.4 % × 1021; any other of the ten with a bonus line) and update their `covers` strings; add a test that 大切な思い出 under `share = [10, 0, 0]` scores exactly `8.5 % × (700 + 21.25 + 200 + 500 rounded = 1421)` more than under `[0, 0, 10]`'s `… + 0 = 921` … precisely: assert `total([10,0,0]) − total([0,10,0]) = 0.085 × (1421 − 921) = 42.5` at 凸4, which proves the slider reaches the score and nothing else moves. Build the scratch page `golden-breakdowns.html` again for the moved lines only (untracked, at the repository root as before) and ask the user to confirm each; record the confirmation in Progress and the moved values in Artifacts.
+
+Documentation: CLAUDE.md § Project Overview (the share), § Architecture (`share.ts`, `ShareSlider.tsx`, URL `a=`), § Build and Test (snapshot parts), the ADR index line for 0001 (addendum at close-out) and 0006 (parts). `hif.ts`'s header comment.
+
+### Milestone 3 — P-item section: per-item caps and deck drinks
+
+Goal: each item of a card in view has its own cap on fires; a drink-granting item can be added to the deck.
+
+Data. In `src/engine/types.ts`: `export interface ItemGrant { itemId: string; itemName: string; assetId: string; cap?: number; drinks?: { perFire: number; trigger: ParsedTrigger } }` and `items?: readonly ItemGrant[]` on `Card` (every P-item the card's events grant that has a countable stat effect or grants drinks; level-independent, A17). In `scripts/lib/build-cards.ts`, `itemEffects` also returns the grant: `cap` from `fireLimit` (absent when 0), `assetId` from `ProduceItem.assetId` (add the field to `RawProduceItem` in `tables.ts`), and `drinks` when a skill's effect is a drink reward: `ProduceEffectType_ProduceReward` whose `produceRewards` has `resourceType: "ProduceResourceType_ProduceDrink"` — quantity from the effect id `/^p_effect-produce_reward-(\d{4})_(\d{4})-/` — or `ProduceEffectType_ProduceRewardSet` whose id contains `drink` — quantity from `/-(\d{2})_(\d{2})$/`; a set whose id contains `card` is ignored (A10); anything else, or min ≠ max, throws (A16). The trigger of the drink effect is resolved with the same `parseTrigger` as stat effects (an unknown piece holds the card as today). `rewardEffects` collects grants onto the card (deduplicated by `itemId`). Regenerate: 47 cards gain `items` (42 with stat items, 10 with drink items, 5 overlapping); scores unchanged.
+
+Engine. `CountContext` and `ScoreContext` gain `itemCaps?: Readonly<Record<string, number>>`; `occurrences` ends with `if (effect.itemId !== undefined) { const c = ctx.itemCaps?.[effect.itemId]; if (c !== undefined) n = Math.min(n, c); }` before the effect's own cap (A11). Test in `count.test.ts`.
+
+Panel model. New pure `src/app/item-panel.ts`: `itemFires(grant, profile): number` — for a drink item, `occurrences` of a synthetic effect `{ trigger: grant.drinks.trigger, cap: grant.cap }` under the preset of `profile.lessonSplits` that maximises it; for a stat item, the maximum over the card's item effects of their `occurrences` under their best preset — this is the row's computed count and the input ceiling; `itemRows(cardsInView, profile, overrides): ItemRow[]` with `ItemRow { itemId; itemName; assetId; cardName; computed; value (min(override, computed)); overridden; drinks?: { perFire; inDeck; added (= value × perFire when inDeck) } }`, one per distinct item, ordered by card id; `deckDrinks(allCards, profile, overrides): number` = the sum of `added` over ticked items of *all* shipped cards (a ticked item stays in the deck when its card is filtered out of view); `itemCapsOf(overrides): Record<string, number>` from the `i.` keys; `itemKeys(allCards): Set<string>` = every `i.<itemId>` and, for drink items, `d.<itemId>`, for `adjustableKeys`. `applyOverrides(profile, overrides)` in `panel.ts` gains a third argument `deckDrinks: number` added to `occasions.GetProduceDrink` (and `buildPanel` shows it as a read-only child of Pドリンク獲得 with key `x.GetProduceDrink.items`, label 「Pアイテムによる追加」, `note` naming the ticked items). `url-state.ts`: `OVERRIDE_KEY = /^[ofwid]\./`, `d.` values must be exactly 1, `AdjustableKeys` gains the item keys. Tests: `item-panel.test.ts` (fires under the favouring preset; extra cap; deck sum; a ticked item of a card out of view still counts), `panel.test.ts` (the read-only child), `url-state.test.ts` (`i.`/`d.` round trip, `d.x=2` dropped).
+
+Component. In `CustomizePanel.tsx` a fifth section 「Pアイテム」 rendered full-width under the grid: one row per `ItemRow` — the item name, `← <card name>` muted, the path-like line naming its trigger in words (`triggerLabel` of `count-labels.ts`) and 「上限N回」 when capped, a number input bounded by `computed` styled like the other rows (amber when overridden, 「既定 N」 before it), and for drink items a checkbox 「デッキに入れる」 and the text 「N本 × 発動回数 = M本」. `App.tsx`: `deckDrinks` and `itemCaps` computed from `state.overrides` and passed into `applyOverrides` and `ctx`.
+
+Proof. A real-data test in `scenarios.test.ts`: under 差し入れ育成 with `d.<ふわふわでもこもこ id>=1`, おい、来てやったぞ！ 凸4 gains exactly 5 × 7 × 2 = 70 and ふわふわでワクワク itself gains 0; with `i.<びっくり仮装グッズ id>=1`, はっぴぃはろうぃ～～ん！ loses exactly 20 at 凸4. (Item ids come from the generated data; read them in the test rather than hard-coding.)
+
+Documentation: CLAUDE.md § Architecture (`item-panel.ts`, URL `i.`/`d.`, the `items` field, the gap of A10), § Build and Test (the exit of A16); the page header's panel sentence in `CustomizePanel.tsx` gains 「Pアイテムの発動回数は上限として下げられます。ドリンクを配るPアイテムは「デッキに入れる」で全カードのPドリンク獲得回数に加算されます」.
+
+### Milestone 4 — P-item icons
+
+Goal: each 「Pアイテム」 row shows the item's icon from the site's own library.
+
+Lookup first (record in Surprises): in `scripts/images/`, `uv run python -c "import sys; sys.path.insert(0,'vendor'); import GkmasObjectManager as g; m=g.fetch(); print([o.name for o in m.search('img_general_pitem')][:5])"` to learn the object names (expected `img_general_pitem_<r>-<nnn>.unity3d`, no `_full`) and, after one download, the texture size and shape. Then decide the rendition size: the row is about 24 px high, so a 48 × 48 rendition (2× DPR) under the prefix `w48/`, named `<assetId>.webp` (the asset id already starts with `img_general_`); if the source is not square, keep its aspect at 48 px height. Masters keep the rule of docs/adr/0003: lossless at source size under `master/`.
+
+`scripts/images/thumbnail.py`: `ITEM_OBJECT_NAME`, `ITEM_PATTERN`, `ICON_PREFIX = "w48/"`, `file_name_for` accepting both kinds, `to_icon(image)`, `is_item(file_name)`; tests in `test_thumbnail.py`. `extract.py`: search both patterns; write master + thumbnail for cards and master + icon for items; `--only-missing` reads item asset ids from `cards.generated.ts` (`"assetId":"(img_general_pitem_[^"]+)"` inside `items`) and asks `HEAD /img/w48/<file>`. `uploads.py`: `ASSET_ID` extended, `upload_order` chooses `w48/` for items, `select_renditions` accepts `w48`; tests. `infra/worker/img.ts`: `IMAGE_PATH = /^\/img\/((?:w192\/img_general_csprt-\d-\d{4}_full|w48\/img_general_pitem_[\w-]+)\.webp)$/`; `img.test.ts`. `src/app/images.ts`: `itemIconUrl(assetId)`. The dev server's `localImageLibrary` in `vite.config.ts` resolves through `imageKey`, so `out/w48/` is served without a change once the regex admits it — verify. The `CustomizePanel` item row shows `<img>` with the name as fallback on error, as the card cell does. `update-data.yml`'s image step needs no change (`extract.py --only-missing` then `upload.py` now cover items); `scripts/lib/workflows.test.ts` pins nothing about it.
+
+Documentation: `scripts/images/README.md` (items, `w48/`, sizes), `infra/worker/README.md` (the path), CLAUDE.md § Architecture, docs/adr/0003 addendum at close-out (one more prefix, as it foresaw).
+
+
+## Concrete Steps
+
+All commands run at the repository root unless stated. Before each milestone: `git checkout develop && git pull` outside the sandbox if the fetch is blocked (F6), then `git checkout -b <branch> develop`.
+
+Milestone 1:
+
+    bun install
+    bun test                                   # baseline: all green
+    # edits per Plan of Work
+    bun run generate                           # rewrites data/*.generated.ts and scores.generated.json
+    git diff --stat data/                      # cards.generated.ts and scores.generated.json only
+    bun scripts/check-score-stability.ts       # expect: no MOVED lines, exit 0
+    bun test && bun run type-check && bun run lint && bun run build
+    bun run dev                                # press 「SP発生率+」: 75 rows, each with an SP badge
+
+Milestone 2:
+
+    # engine, scenarios, snapshot edits
+    bun run generate                           # snapshot in the parts format
+    bun scripts/check-score-stability.ts --base HEAD   # fails to parse the old committed file until committed together; after the commit: exit 0
+    bun test                                   # golden totals for bonus cards fail until updated by decision
+    # update golden.test.ts, build the re-confirmation page, wait for the user's confirmation
+
+Milestone 3:
+
+    bun run generate                           # 47 cards gain items; scores unchanged
+    bun scripts/check-score-stability.ts       # exit 0
+    bun test && bun run type-check && bun run lint && bun run build
+
+Milestone 4 (`scripts/images/`):
+
+    uv sync
+    uv run pytest
+    uv run extract.py --only 'img_general_pitem_2-004' --force   # one icon, look at out/w48/
+    uv run upload.py --dry-run                 # if the script has one; else read plan_uploads' output in a test
+
+Each milestone ends with a pull request into `develop` (body ending with the line `work in gakumas-supportcards`) and a proposed commit after each meaningful piece, never a batch.
+
+
+## Validation and Acceptance
+
+Milestone 1 is accepted when `bun test`, `bun run type-check`, `bun run lint` and `bun scripts/check-score-stability.ts` pass with the regenerated data, the stability output has no `MOVED` line, and on `bun run dev` the 「SP発生率+」 button shows exactly the 75 cards F1 counted, each with the badge, with `?sp=1` in the address bar and the default view's query string still empty.
+
+Milestone 2 is accepted when the three bases 1021 / 799 / 420 are pinned by a test; moving the slider on the page changes bonus cards (e.g. 大切な思い出、またひとつ) and leaves flat cards (e.g. ｖギャルピーーースッｖ) unchanged; `data/scores.generated.json` holds `flat` and `bonus` and `check-score-stability` passes against the committed file; and the user has confirmed every moved golden line on the scratch page (recorded in Progress with the date and the count of lines).
+
+Milestone 3 is accepted when the real-data test of the Plan of Work passes (おい、来てやったぞ！ +70 with ふわふわでもこもこ ticked; はっぴぃはろうぃ～～ん！ −20 with びっくり仮装グッズ capped at 1), the page shows the section with the rows of the cards in view, ticking an item raises the read-only 「Pアイテムによる追加」 line, and the URL carries `i.`/`d.` keys that survive a reload.
+
+Milestone 4 is accepted when `uv run pytest` passes with the new rules, `HEAD https://gakumas-supportcards.tia.run/img/w48/img_general_pitem_2-004.webp` returns 200 after the upload, and the row for ふわふわでもこもこ shows the icon on the deployed site.
+
+
+## Idempotence and Recovery
+
+`bun run generate` is deterministic and safe to rerun. The snapshot format change (Milestone 2) is the one step with an order: commit the format change and the regenerated file together; if `check-score-stability` reports the old-format parse error, the committed file is still the old one — regenerate and commit, or run with `--base-file` pointing at a regenerated copy. A milestone's branch can be discarded without touching `develop`; `git checkout develop` restores the published state. Image extraction writes only under `scripts/images/out/` (gitignored); an upload that dies halfway is completed by rerunning (master first, then the served rendition).
+
+
+## Artifacts and Notes
+
+- The audit scripts that produced F1, F3 and F4 were run from `$TMPDIR` on 2026-09-28 over the cached dump; they are not checked in. Their essence: F1 — for each `SupportCardProduceSkillLevel*` row, resolve the skill and test its three effect types against `/SpChangeRate/`; F3 — for each `ProduceEventSupportCard` row, follow `produceStepEventDetailId` → `produceEffectIds` → `produceRewards` with `resourceType: ProduceResourceType_ProduceItem`, then classify the item's skills' effects; F4 — filter `cards.generated.ts` effects by `trigger.occasion`.
+- `item-override-approaches.html` (untracked, repository root): the side-by-side mock of A11's two options, with five real items and live numbers.
+- Bases under the default share, H.I.F.: main (7 lessons) 700 + 21.25 + 200 + 100 = 1021.25 → 1021; sub (1 lesson) 100 + 148.75 + 200 + 350 = 798.75 → 799; other (0) 0 + 170 + 200 + 50 = 420.
+
+
+## Interfaces and Dependencies
+
+No new dependencies. Signatures that must exist at the end of each milestone:
+
+Milestone 1, `src/engine/types.ts`:
+
+    export interface Card { …; spRate?: true }
+
+`scripts/lib/effect-types.ts`:
+
+    export const SP_RATE_EFFECT_TYPES: ReadonlySet<string>
+
+`src/app/url-state.ts` / `src/app/rows.ts`:
+
+    interface ViewState { …; sp: boolean }
+    interface RowFilter { …; sp: boolean }
+
+Milestone 2, `src/engine/types.ts`:
+
+    export type AuditionShare = readonly [number, number, number];
+    export const DEFAULT_AUDITION_SHARE: AuditionShare;
+    interface RouteProfile { …; parameterBonusBase(lessonsOfStat: number, auditionShare: number): number }
+
+`src/engine/share.ts`:
+
+    export function roleOf(split: LessonSplit, stat: Stat): 0 | 1 | 2
+    export function shareOf(split: LessonSplit, stat: Stat, share: AuditionShare): number
+
+`src/engine/score.ts`: `ScoreContext { …; share: AuditionShare }`. `scripts/lib/score-snapshot.ts`:
+
+    export interface SnapshotEntry { name: string; data: string; flat: Record<string, number[]>; bonus: number[] }
+
+`src/app/share.ts`: `moveThumb`, `step`, `roleLabels` as described. `ViewState { …; share: AuditionShare | null }`.
+
+Milestone 3, `src/engine/types.ts`:
+
+    export interface ItemGrant { itemId: string; itemName: string; assetId: string; cap?: number; drinks?: { perFire: number; trigger: ParsedTrigger } }
+    export interface Card { …; items?: readonly ItemGrant[] }
+
+`src/engine/count.ts`: `CountContext { …; itemCaps?: Readonly<Record<string, number>> }`. `src/app/item-panel.ts`: `itemFires`, `itemRows`, `deckDrinks`, `itemCapsOf`, `itemKeys`. `src/app/panel.ts`: `applyOverrides(profile, overrides, deckDrinks: number)`.
+
+Milestone 4, `scripts/images/thumbnail.py`: `ITEM_PATTERN`, `ICON_PREFIX`, `to_icon`; `infra/worker/img.ts`: `IMAGE_PATH` admitting `w48/`; `src/app/images.ts`: `itemIconUrl(assetId: string): string`.
+
+
+## Revision notes
+
+- 2026-09-28: plan drafted from the grill session's decisions A1–A14 and findings F1–F6; A15–A17 added while drafting to close gaps the interview did not reach (the `spRate` level rule, unreadable rewards, the level-blindness of the deck tick).

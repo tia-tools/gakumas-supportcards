@@ -20,13 +20,20 @@ describe("parseViewState", () => {
   });
 
   test("unknown scenario, profile, split, sort and facet values fall back", () => {
-    const s = parse("s=zzz&p=nope&ls=9&sort=7x&type=vocal,bogus&rarity=ur");
+    const s = parse("s=zzz&p=nope&ls=9&sort=7x&type=vocal,bogus&rarity=ur&sp=yes");
     expect(s.scenarioId).toBe("a");
     expect(s.profileId).toBe("a1");
     expect(s.split).toBeNull();
     expect(s.sort).toEqual({ totsu: 4, desc: true });
     expect(s.types).toEqual(["vocal"]);
     expect(s.rarities).toEqual([]);
+    expect(s.sp).toBe(false);
+  });
+
+  test("sp=1 narrows to SP発生率+ cards; anything else is off", () => {
+    expect(parse("sp=1").sp).toBe(true);
+    expect(parse("sp=0").sp).toBe(false);
+    expect(parse("").sp).toBe(false);
   });
 
   test("a profile of another scenario is not accepted for the chosen scenario", () => {
@@ -70,11 +77,12 @@ describe("serializeViewState", () => {
       types: ["dance", "assist"],
       plans: ["logic"],
       rarities: ["sr", "ssr"],
+      sp: true,
       sort: { totsu: 2, desc: false },
       overrides: { "o.StartShop": 5, "w.EndLesson.produce_card_count.ge20": 3 },
     };
     const q = serialize(state);
-    expect(q).toBe("s=b&p=b1&ls=1&type=dance%2Cassist&plan=logic&rarity=sr%2Cssr&sort=2a&o.StartShop=5&w.EndLesson.produce_card_count.ge20=3");
+    expect(q).toBe("s=b&p=b1&ls=1&type=dance%2Cassist&plan=logic&rarity=sr%2Cssr&sp=1&sort=2a&o.StartShop=5&w.EndLesson.produce_card_count.ge20=3");
     expect(parse(q)).toEqual(state);
   });
 

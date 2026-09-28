@@ -7,6 +7,7 @@
  * Query parameters:
  *   s=<scenario id>  p=<profile id>  ls=<lesson-split preset index; absent = best preset (D26)>
  *   type=vocal,dance  plan=sense,logic  rarity=ssr   (comma-separated; absent = all)
+ *   sp=1              (only cards with an SP発生率+ skill; absent = all)
  *   sort=4d           (凸 column 0–4 followed by d or a; default 4d)
  *   o.<Occasion>=<n>  f.<Occasion>.<family>.<member>=<n>  w.<condition key>=<n>
  *                     count overrides (D2), keyed as in src/app/panel.ts. The `c.<category>`
@@ -28,6 +29,8 @@ export interface ViewState {
   types: readonly CardType[];
   plans: readonly Plan[];
   rarities: readonly Rarity[];
+  /** Only cards flagged `spRate` (an SP発生率+ skill). */
+  sp: boolean;
   sort: SortSpec;
   /** Count key (`o.…`, `f.…`, `w.…`; see src/app/panel.ts) → the player's number in place of the profile's. */
   overrides: Readonly<Record<string, number>>;
@@ -48,7 +51,7 @@ export function defaultViewState(scenarios: readonly Scenario[]): ViewState {
   const scenario = scenarios[0];
   const profile = scenario?.profiles[0];
   if (!scenario || !profile) throw new Error("no scenario shipped");
-  return { scenarioId: scenario.id, profileId: profile.id, split: null, types: [], plans: [], rarities: [], sort: DEFAULT_SORT, overrides: {} };
+  return { scenarioId: scenario.id, profileId: profile.id, split: null, types: [], plans: [], rarities: [], sp: false, sort: DEFAULT_SORT, overrides: {} };
 }
 
 /** The scenario and profile the state names, falling back to the defaults when an id is unknown. */
@@ -97,6 +100,7 @@ export function parseViewState(params: URLSearchParams, scenarios: readonly Scen
     types: parseList(params.get("type"), CARD_TYPES),
     plans: parseList(params.get("plan"), PLANS),
     rarities: parseList(params.get("rarity"), RARITIES),
+    sp: params.get("sp") === "1",
     sort: parseSort(params.get("sort")),
     overrides: parseOverrides(params, adjustable(profile)),
   };
@@ -112,6 +116,7 @@ export function serializeViewState(state: ViewState, scenarios: readonly Scenari
   if (state.types.length > 0) out.set("type", state.types.join(","));
   if (state.plans.length > 0) out.set("plan", state.plans.join(","));
   if (state.rarities.length > 0) out.set("rarity", state.rarities.join(","));
+  if (state.sp) out.set("sp", "1");
   if (state.sort.totsu !== DEFAULT_SORT.totsu || state.sort.desc !== DEFAULT_SORT.desc) out.set("sort", `${state.sort.totsu}${state.sort.desc ? "d" : "a"}`);
   for (const [key, n] of Object.entries(state.overrides)) out.set(key, String(n));
   return out;
