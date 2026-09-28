@@ -51,22 +51,23 @@ const EXPLANATION = (
   </span>
 );
 
+/** The cap on the item's fires; a row that cannot fire under the selected split shows a static 0 whose hint says why (no input: nothing could be typed into it). */
 function CountInput({ row, onCap }: { row: ItemRow; onCap: (row: ItemRow, raw: string) => void }) {
-  const idle = row.computed === 0;
-  const input = (
-    <input type="number" min={0} max={row.computed} step={1} value={row.value} disabled={idle} aria-label={`${row.itemName}の発動回数`} onInput={(e) => onCap(row, e.currentTarget.value)} class={`w-14 rounded border px-1 py-0.5 text-right ${row.overridden ? "border-amber-400 bg-amber-50" : "border-slate-300"} disabled:bg-slate-100 disabled:text-slate-400`} />
-  );
+  if (row.computed === 0) {
+    return (
+      <span class="flex items-center gap-1 tabular-nums">
+        <Hint hint="このレッスン配分では発動しません" label={`${row.itemName}が発動しない理由`}>
+          <span class="inline-block w-14 rounded border border-slate-200 bg-slate-100 px-1 py-0.5 text-right text-slate-400">0</span>
+        </Hint>
+        <span class="w-8 text-[10px] text-slate-300">/ 0</span>
+      </span>
+    );
+  }
   return (
     <span class="flex items-center gap-1 tabular-nums">
       {row.overridden && <span class="text-[10px] text-slate-400">既定 {row.computed}</span>}
-      {idle ? (
-        <Hint hint="このレッスン配分では発動しません" label="発動しない理由" trigger="wrap">
-          {input}
-        </Hint>
-      ) : (
-        input
-      )}
-      <span class={`w-8 text-[10px] ${idle ? "text-slate-300" : "text-slate-400"}`}>/ {row.computed}</span>
+      <input type="number" min={0} max={row.computed} step={1} value={row.value} aria-label={`${row.itemName}の発動回数`} onInput={(e) => onCap(row, e.currentTarget.value)} class={`w-14 rounded border px-1 py-0.5 text-right ${row.overridden ? "border-amber-400 bg-amber-50" : "border-slate-300"}`} />
+      <span class="w-8 text-[10px] text-slate-400">/ {row.computed}</span>
     </span>
   );
 }
@@ -77,10 +78,12 @@ function DeckToggle({ row, onDeck }: { row: ItemRow; onDeck: (row: ItemRow, inDe
   const on = drinks.inDeck;
   const total = drinks.perFire * drinks.fires;
   return (
-    <Hint hint={`デッキに入れる — ${drinks.perFire}本 × ${drinks.fires}回 = ${total}本${on ? "（加算中）" : ""}`} label="デッキのドリンク" trigger="wrap">
-      <button type="button" aria-pressed={on} aria-label={`デッキに入れる（${total}本）`} onClick={() => onDeck(row, !on)} class={`h-7 w-7 rounded border text-sm leading-none transition ${on ? "border-sky-600 bg-sky-600 text-white" : "border-slate-300 bg-white text-slate-400 hover:border-slate-500"}`}>
-        🥤
-      </button>
+    <Hint hint={`デッキに入れる — ${drinks.perFire}本 × ${drinks.fires}回 = ${total}本${on ? "（加算中）" : ""}`} trigger="wrap">
+      {(describedBy) => (
+        <button type="button" aria-pressed={on} aria-label={`デッキに入れる（${total}本）`} aria-describedby={describedBy} onClick={() => onDeck(row, !on)} class={`h-7 w-7 rounded border text-sm leading-none transition ${on ? "border-sky-600 bg-sky-600 text-white" : "border-slate-300 bg-white text-slate-400 hover:border-slate-500"}`}>
+          🥤
+        </button>
+      )}
     </Hint>
   );
 }
