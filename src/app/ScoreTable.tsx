@@ -14,6 +14,11 @@ function Thumb({ card }: { card: Card }) {
     <div class="group relative w-24 h-14 shrink-0 rounded overflow-hidden bg-slate-200" title={card.name}>
       {failed ? <div class="w-full h-full p-1 text-[10px] leading-tight text-slate-600 overflow-hidden">{card.name}</div> : <img src={thumbnailUrl(card.assetId)} alt={card.name} loading="lazy" width={96} height={56} class="w-full h-full object-cover" onError={() => setFailed(true)} />}
       <div class="absolute inset-x-0 bottom-0 hidden group-hover:block bg-black/70 text-white text-[10px] leading-tight px-1 py-0.5">{card.name}</div>
+      {card.spRate && (
+        <span class="absolute top-0 left-0 rounded-br bg-emerald-600 px-1 text-[10px] font-bold leading-4 text-white" title="SP発生率+（点数には含めません）">
+          SP
+        </span>
+      )}
     </div>
   );
 }

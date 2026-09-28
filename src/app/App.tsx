@@ -36,7 +36,7 @@ export function App() {
           <FeedbackLink />
         </div>
         <p class="text-xs text-slate-500">
-          点数 = 1回のプロデュースで得られる Vo+Da+Vi 上昇量の期待値。全レッスンをSPレッスン、条件付き効果は常に成立とみなします。数字にカーソルを合わせると内訳、サムネイルに合わせるとカード名が表示されます。
+          点数 = 1回のプロデュースで得られる Vo+Da+Vi 上昇量の期待値。全レッスンをSPレッスン、条件付き効果は常に成立とみなします。SP発生率+ は点数に含めず、「SP」バッジで示します。数字にカーソルを合わせると内訳、サムネイルに合わせるとカード名が表示されます。
         </p>
       </header>
       <section class="rounded-lg border border-slate-200 bg-white p-3">

@@ -228,6 +228,26 @@ describe("buildCards: what holds a card, and what stops the run", () => {
     expect(r.held).toEqual([]);
     expect(r.skippedByType.get("ProduceEffectType_LessonSpChangeRatePermilAddition")).toBe(3); // once per breakpoint level (1, 20, 40) the skill is active at
   });
+
+  test("an SP発生率+ skill from level 1 marks the card spRate and stays out of its effects; a card without one has no flag", () => {
+    const t = fixture();
+    t.effects.push(effect("e-sp", "ProduceEffectType_LessonVocalSpChangeRatePermilAddition", 105));
+    t.skills.push(skill("sk-sp", 1, "e-sp", "p_trigger-produce_start-no_description", 1));
+    t.skillLevels.push({ supportCardId: "s_card-3-9999", produceSkillId: "sk-sp", produceSkillLevel: 1, supportCardLevel: 1 });
+    const { cards } = buildCards(t);
+    const flagged = cards.find((c) => c.id === "s_card-3-9999");
+    expect(flagged?.spRate).toBe(true);
+    expect(flagged?.breakpoints.flatMap((b) => b.effects).some((e) => e.value === 105)).toBe(false);
+    expect(cards.find((c) => c.id === "s_card-2-9999")).not.toHaveProperty("spRate");
+  });
+
+  test("an SP発生率+ skill that appears only above level 1 stops the run: the badge would be wrong at 凸0 (decision A15)", () => {
+    const t = fixture();
+    t.effects.push(effect("e-sp", "ProduceEffectType_LessonSpChangeRatePermilAddition", 105));
+    t.skills.push(skill("sk-sp", 1, "e-sp", "p_trigger-produce_start-no_description", 1));
+    t.skillLevels.push({ supportCardId: "s_card-3-9999", produceSkillId: "sk-sp", produceSkillLevel: 1, supportCardLevel: 20 });
+    expect(() => buildCards(t)).toThrow("s_card-3-9999: SP発生率+ appears at level 20 but not at level 1");
+  });
 });
 
 describe("buildLevelLimits", () => {

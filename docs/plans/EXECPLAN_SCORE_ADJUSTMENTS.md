@@ -19,7 +19,7 @@ How to see it working, at the end: run `bun run dev`, open `http://localhost:517
 
 ## Progress
 
-- [ ] Milestone 1 — SP発生率 badge and facet (branch `feature/sp-badge`, from `develop` at acb0c6f). Plan drafted 2026-09-28.
+- [ ] Milestone 1 — SP発生率 badge and facet (branch `feature/sp-badge`, from `develop` at acb0c6f). Plan drafted and committed 2026-09-28 (71c5f31). Edits written 2026-09-28: `SP_RATE_EFFECT_TYPES` (`scripts/lib/effect-types.ts`), the `spRate` flag and the level-1 rule in `scripts/lib/build-cards.ts` with two tests, `Card.spRate` (`src/engine/types.ts`), `sp` in `ViewState`/`RowFilter` with parse, serialise and filter tests, the 「SP発生率+」 button in `Controls.tsx`, the badge in `ScoreTable.tsx`, the header sentence in `App.tsx`, CLAUDE.md § Architecture and § Build and Test. Gates run by the user 2026-09-28 (the session's Bash classifier gave no verdict): 203 tests pass, `tsc` clean, `oxlint` clean after a `bun install` (this checkout lacked oxlint), `bun run generate` changed 75 lines of `cards.generated.ts` and `scores.generated.json` each, `grep -c '"spRate":true'` = 75, stability `204 cards now, 0 new, 0 gone or held, 75 with changed data, 0 unexplained score moves`, build 1,353.83 kB / 57.93 kB gzip. Remaining: the commit, and a look at the page (`bun run dev`, press 「SP発生率+」) before the pull request.
 - [ ] Milestone 2 — audition-share slider, `bonusBase(n, share)`, snapshot of flat points and bonus permil, regenerated snapshot and golden values, user's re-confirmation of the moved golden lines (branch `feature/audition-share`).
 - [ ] Milestone 3 — P-item section: per-item caps, deck drinks (branch `feature/item-panel`).
 - [ ] Milestone 4 — P-item icons through the image pipeline, R2 and the Worker (branch `feature/item-icons`).

@@ -14,7 +14,7 @@
  */
 
 import { type Breakpoint, type Card, type CardType, type ClassifiedEffect, type HeldCard, type LevelLimits, type ParsedTrigger, type Plan, type Rarity, type Stat } from "../../src/engine/types.ts";
-import { EVENT_BONUS_EFFECT_TYPE, NON_PARAMETER_EFFECT_TYPES, PARAM_ADDITION_TYPES, PARAM_BONUS_TYPES, parameterStatOf } from "./effect-types.ts";
+import { EVENT_BONUS_EFFECT_TYPE, NON_PARAMETER_EFFECT_TYPES, PARAM_ADDITION_TYPES, PARAM_BONUS_TYPES, SP_RATE_EFFECT_TYPES, parameterStatOf } from "./effect-types.ts";
 import { parseTrigger, type ParseResult } from "./parse-trigger.ts";
 import type { RawEventSupportCard, RawProduceEffect, RawProduceItem, RawProduceSkill, RawSkillLevel, RawSupportCard, Tables } from "./tables.ts";
 
@@ -169,9 +169,11 @@ class CardBuilder {
     });
   }
 
-  private skillEffects(cardId: string, level: number): { effects: ClassifiedEffect[]; eventBonusPermil: number } {
+  /** `spRate`: a skill active at this level is SP発生率+ (skipped as non-parameter, marked on the card). */
+  private skillEffects(cardId: string, level: number): { effects: ClassifiedEffect[]; eventBonusPermil: number; spRate: boolean } {
     const effects: ClassifiedEffect[] = [];
     let eventBonusPermil = 0;
+    let spRate = false;
     for (const skill of this.skillsAt(cardId, level)) {
       const pairs = [
         [skill.produceEffectId1, skill.produceTriggerId1],
@@ -186,6 +188,7 @@ class CardBuilder {
           eventBonusPermil += effect.effectValueMin;
           continue;
         }
+        if (SP_RATE_EFFECT_TYPES.has(effect.produceEffectType)) spRate = true;
         const r = this.resolve(effect, triggerId, where);
         if (!r) continue;
         if ("held" in r) {
@@ -199,7 +202,7 @@ class CardBuilder {
         effects.push(e);
       }
     }
-    return { effects, eventBonusPermil };
+    return { effects, eventBonusPermil, spRate };
   }
 
   private itemEffects(itemId: string): { effects: ClassifiedEffect[]; held: string[] } {
@@ -277,8 +280,12 @@ class CardBuilder {
     for (const r of this.skillLevelsByCard.get(raw.id) ?? []) levels.add(r.supportCardLevel);
     for (const ev of this.eventsByCard.get(raw.id) ?? []) levels.add(ev.supportCardLevel);
     const breakpoints: Breakpoint[] = [];
+    let spRate = false;
     for (const level of [...levels].sort((a, b) => a - b)) {
-      const { effects, eventBonusPermil } = this.skillEffects(raw.id, level);
+      const { effects, eventBonusPermil, spRate: spHere } = this.skillEffects(raw.id, level);
+      // The badge covers every 凸 column, so the flag must hold from level 1; a later-only case is for a person to decide.
+      if (spHere && level === 1) spRate = true;
+      else if (spHere && !spRate) throw new Error(`${raw.id}: SP発生率+ appears at level ${level} but not at level 1; the SP badge would be wrong at 凸0`);
       const all = [...effects, ...this.eventEffects(raw.id, level)].sort((a, b) => byCodeUnit(effectSortKey(a), effectSortKey(b)));
       const bp: Breakpoint = { minLevel: level, effects: all, eventBonusPermil };
       const prev = breakpoints.at(-1);
@@ -287,7 +294,7 @@ class CardBuilder {
     }
     const reasons = this.heldReasons.get(raw.id);
     if (reasons) this.report.held.push({ id: raw.id, name: raw.name, reasons: [...reasons].sort(byCodeUnit) });
-    return {
+    const card: Card = {
       id: raw.id,
       name: raw.name,
       assetId: raw.assetId,
@@ -296,6 +303,8 @@ class CardBuilder {
       plan: mapEnum(PLAN, raw.planType, "planType", raw.id),
       breakpoints,
     };
+    if (spRate) card.spRate = true;
+    return card;
   }
 }
 
