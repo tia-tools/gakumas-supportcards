@@ -1,11 +1,12 @@
 # gakumas-supportcards.tia.run Worker
 
-One Cloudflare Worker serves the whole app: the built page as static assets, the owned image library's thumbnails at `/img/w192/*` from the R2 bucket `tia-assets` (per `docs/adr/0003-owned-image-library-on-r2-served-through-the-app-worker.md`), and the feedback form's `POST /feedback` (§ Feedback). `wrangler.toml` routes only `/img/*` and `/feedback` through the Worker code (`run_worker_first`); every other path is answered by the assets directly.
+One Cloudflare Worker serves the whole app: the built page as static assets, the owned image library's card thumbnails at `/img/w192/*` and P-item icons at `/img/w48/*` from the R2 bucket `tia-assets` (per `docs/adr/0003-owned-image-library-on-r2-served-through-the-app-worker.md`), and the feedback form's `POST /feedback` (§ Feedback). `wrangler.toml` routes only `/img/*` and `/feedback` through the Worker code (`run_worker_first`); every other path is answered by the assets directly.
 
 | Route | Serves |
 |---|---|
 | `https://gakumas-supportcards.tia.run/` | the page built by `bun run build` (`dist/`) |
 | `https://gakumas-supportcards.tia.run/img/w192/img_general_{assetId}_full.webp` | the 192 × 108 card thumbnail from R2, `Cache-Control: public, max-age=31536000, immutable` |
+| `https://gakumas-supportcards.tia.run/img/w48/img_general_pitem_{r}-{nnn}.webp` | the 48 × 48 P-item icon from R2, same caching (Milestone 4 of `docs/plans/EXECPLAN_SCORE_ADJUSTMENTS.md`) |
 | any other `/img/...` path, including `/img/master/...`, or a thumbnail not in the bucket | 404 with `Cache-Control: no-store` |
 | `POST https://gakumas-supportcards.tia.run/feedback` | creates an issue in the private `tia-tools/feedback` repository; JSON `{"ok": true}` or `{"ok": false}` with 400, 405, 413, 429, 502 or 503 |
 
