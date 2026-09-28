@@ -6,6 +6,7 @@
  * (plan decision D2). Renders `buildPanel` of ./panel.ts and holds no rule itself.
  */
 
+import { Hint } from "./Hint.tsx";
 import { isItemKey } from "./item-panel.ts";
 import type { Overrides, PanelInput, PanelSection } from "./panel.ts";
 
@@ -122,14 +123,24 @@ export function CustomizePanel({ profileName, sections, overrides, onChange }: P
         {changed > 0 && <span class="ml-2 rounded-full bg-amber-100 px-2 py-0.5 text-xs text-amber-800">{changed}件変更中</span>}
       </summary>
       <div class="border-t border-slate-200 px-3 py-2 text-sm">
-        <p class="mb-2 text-xs text-slate-500">
-          「{profileName}」で1回のプロデュース中に何が何回起きるか。字下げされた項目は上の項目のうち何回が当てはまるかで、上の回数を超えられません。条件（○○以上の場合 など）は既定では毎回成立とみなします。スキル自体に回数上限があればそこまで発動します。Pアイテムの発動回数とデッキのドリンクは下の「Pアイテム」で調整します。
-          {changed > 0 && (
-            <button type="button" onClick={reset} class="ml-2 underline text-slate-700">
-              既定に戻す
-            </button>
-          )}
-        </p>
+        <div class="mb-2 flex items-center gap-3 text-xs text-slate-500">
+          <Hint
+            hint={
+              <span class="block space-y-1">
+                <span class="block">「{profileName}」で1回のプロデュース中に何が何回起きるか。</span>
+                <span class="block">字下げされた項目は上の項目のうち何回が当てはまるかで、上の回数を超えられません。</span>
+                <span class="block">条件（○○以上の場合 など）は既定では毎回成立とみなします。スキル自体に回数上限があればそこまで発動します。</span>
+                <span class="block">Pアイテムの発動回数とデッキのドリンクは下の「Pアイテム」で調整します。</span>
+              </span>
+            }
+            label="カウントの説明"
+          >
+            <span class="inline-flex h-4 w-4 items-center justify-center rounded-full border border-slate-400 text-[10px] font-semibold text-slate-500">i</span>
+          </Hint>
+          <button type="button" onClick={reset} disabled={changed === 0} class="underline text-slate-700 disabled:no-underline disabled:text-slate-300">
+            既定に戻す
+          </button>
+        </div>
         <div class="grid items-start gap-2 sm:grid-cols-2 lg:grid-cols-4">
           {sections.map((s) => (
             <Section key={s.id} section={s} onCount={onCount} />
