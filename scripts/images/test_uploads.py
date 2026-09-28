@@ -54,8 +54,13 @@ def test_a_single_rendition_can_be_selected_without_changing_the_order():
     keys = ["master/a.webp", "w192/a.webp", "master/b.webp", "w48/b.webp"]
     assert select_renditions(keys, "all", "master/", "w192/", "w48/") == keys
     assert select_renditions(keys, "master", "master/", "w192/", "w48/") == ["master/a.webp", "master/b.webp"]
-    assert select_renditions(keys, "w192", "master/", "w192/", "w48/") == ["w192/a.webp"]
-    assert select_renditions(keys, "w48", "master/", "w192/", "w48/") == ["w48/b.webp"]
+
+
+def test_a_public_rendition_is_never_sent_without_its_master():
+    keys = ["master/a.webp", "w192/a.webp", "master/b.webp", "w48/b.webp"]
+    assert select_renditions(keys, "w192", "master/", "w192/", "w48/") == ["master/a.webp", "w192/a.webp"]
+    assert select_renditions(keys, "w48", "master/", "w192/", "w48/") == ["master/b.webp", "w48/b.webp"]
+    assert select_renditions(["master/c.webp"], "w48", "master/", "w192/", "w48/") == []  # a master alone is not that rendition
 
 
 def test_masters_must_revalidate_and_thumbnails_are_immutable():

@@ -60,10 +60,18 @@ def upload_order(file_name: str, master_prefix: str, public_prefix: str) -> list
 
 def select_renditions(keys: list[str], rendition: str, master_prefix: str, thumbnail_prefix: str, icon_prefix: str) -> list[str]:
     """Keeps the order and drops the keys of the renditions that were not asked for. `rendition`
-    is "all", "master", "w192" or "w48"; re-sending only masters is what a change of the master
-    rule needs."""
-    prefix = {"all": "", "master": master_prefix, "w192": thumbnail_prefix, "w48": icon_prefix}[rendition]
-    return [k for k in keys if k.startswith(prefix)]
+    is "all", "master", "w192" or "w48". "master" re-sends only masters, what a change of the
+    master rule needs. A public rendition is never sent without its master: "w192" and "w48"
+    keep the master step of every file served under that prefix, because a file the site lacks
+    would otherwise end up public with no master stored, and a master cannot be checked from
+    outside (Codex review of Milestone 4, decision A23 of docs/plans/EXECPLAN_SCORE_ADJUSTMENTS.md)."""
+    if rendition == "all":
+        return list(keys)
+    if rendition == "master":
+        return [k for k in keys if k.startswith(master_prefix)]
+    public_prefix = {"w192": thumbnail_prefix, "w48": icon_prefix}[rendition]
+    names = {k[len(public_prefix):] for k in keys if k.startswith(public_prefix)}
+    return [k for k in keys if k.startswith(public_prefix) or (k.startswith(master_prefix) and k[len(master_prefix):] in names)]
 
 
 IMMUTABLE = "public, max-age=31536000, immutable"
