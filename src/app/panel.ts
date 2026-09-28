@@ -145,9 +145,12 @@ interface Draft {
   children: Draft[];
 }
 
+/** An `x.` child is an addition on top of its parent, not a part of it, so it is not bounded by the parent. */
+const isAddition = (key: string): boolean => key.startsWith("x.");
+
 function finish(d: Draft, max: number | null, overrides: Overrides, used: ReadonlySet<string>): PanelInput {
   const value = max === null ? d.own : Math.min(d.own, max);
-  const input: PanelInput = { key: d.key, label: d.label, base: d.base, value, max, overridden: d.key in overrides, readOnly: d.readOnly, used: used.has(d.key), children: d.children.map((c) => finish(c, value, overrides, used)) };
+  const input: PanelInput = { key: d.key, label: d.label, base: d.base, value, max, overridden: d.key in overrides, readOnly: d.readOnly, used: used.has(d.key), children: d.children.map((c) => finish(c, isAddition(c.key) ? null : value, overrides, used)) };
   if (d.note !== undefined) input.note = d.note;
   return input;
 }
@@ -167,7 +170,7 @@ interface PanelContext {
   filters: Map<string, Map<string, FilterRef>>;
   /** condition input key → its use */
   conditions: Map<string, ConditionUse>;
-  /** Drinks ticked P-items add to Pドリンク獲得 (src/app/item-panel.ts). */
+  /** Drinks ticked P-items add to Pドリンク獲得 (src/app/item-panel.ts); shown as a line of their own, never folded into an input's value (A24). */
   deckDrinks: number;
 }
 
@@ -225,7 +228,8 @@ function occasionDraft(ctx: PanelContext, occasion: string, readOnly: boolean): 
   const root: Draft = { key: occasionKey(occasion), label: occasionLabel(occasion), base: ctx.profile.occasions[occasion] ?? 0, own, readOnly, children: [] };
   for (const [key, f] of ctx.filters.get(occasion) ?? []) root.children.push(filterDraft(ctx, occasion, key, f));
   placeConditions(ctx, root, occasion);
-  if (occasion === DRINK_OCCASION && ctx.deckDrinks > 0) root.children.push({ key: DECK_DRINKS_KEY, label: "Pアイテムによる追加", base: ctx.deckDrinks, own: ctx.deckDrinks, readOnly: true, note: "「Pアイテム」で「デッキに入れる」にしたアイテムが配るドリンク", children: [] });
+  // The input shows the player's own count; the deck's drinks are a separate line stating the total, so editing the input never folds them in (A24).
+  if (occasion === DRINK_OCCASION && ctx.deckDrinks > 0) root.children.push({ key: DECK_DRINKS_KEY, label: `Pアイテムによる追加（計 ${own + ctx.deckDrinks}回）`, base: ctx.deckDrinks, own: ctx.deckDrinks, readOnly: true, note: "「Pアイテム」で「デッキに入れる」にしたアイテムが配るドリンク。上の回数に加算して数えます", children: [] });
   return root;
 }
 
@@ -236,7 +240,7 @@ function occasionDraft(ctx: PanelContext, occasion: string, readOnly: boolean): 
  * Pドリンク獲得, shown as a read-only child of it.
  */
 export function buildPanel(profile: RouteProfile, overrides: Overrides, all: readonly ParsedTrigger[], visible: readonly ParsedTrigger[], deckDrinks = 0): PanelSection[] {
-  const ctx: PanelContext = { profile, applied: applyOverrides(profile, overrides, deckDrinks), filters: filtersOf(profile, all), conditions: conditionsOf(all), deckDrinks };
+  const ctx: PanelContext = { profile, applied: applyOverrides(profile, overrides), filters: filtersOf(profile, all), conditions: conditionsOf(all), deckDrinks };
   const used = keysUsedBy(visible);
   if (deckDrinks > 0) used.add(DECK_DRINKS_KEY);
   const known = new Set(SECTIONS.flatMap((s) => s.occasions));

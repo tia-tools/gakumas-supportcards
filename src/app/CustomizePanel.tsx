@@ -6,17 +6,11 @@
  * (plan decision D2). Renders `buildPanel` of ./panel.ts and holds no rule itself.
  */
 
-import { useState } from "preact/hooks";
-import { triggerLabel } from "./count-labels.ts";
-import { itemIconUrl } from "./images.ts";
-import { deckKey, itemCapKey, type ItemRow } from "./item-panel.ts";
 import type { Overrides, PanelInput, PanelSection } from "./panel.ts";
 
 interface Props {
   profileName: string;
   sections: readonly PanelSection[];
-  /** The 「Pアイテム」 rows of the cards in view (src/app/item-panel.ts). */
-  items: readonly ItemRow[];
   overrides: Overrides;
   onChange: (overrides: Record<string, number>) => void;
 }
@@ -105,48 +99,8 @@ function Section({ section, onCount }: { section: PanelSection; onCount: RowProp
   );
 }
 
-/** The item's icon from the image library, or nothing when the site does not serve it yet (the name beside it stands alone). */
-function ItemIcon({ assetId }: { assetId: string }) {
-  const [failed, setFailed] = useState(false);
-  if (failed) return null;
-  return <img src={itemIconUrl(assetId)} alt="" width={24} height={24} loading="lazy" class="h-6 w-6 shrink-0" onError={() => setFailed(true)} />;
-}
-
-/** One 「Pアイテム」 row: the item with its icon, its card and trigger, a cap on its fires bounded by the computed count, and for a drink item its tick (decisions A9, A11). */
-function ItemRowView({ row, onCap, onDeck }: { row: ItemRow; onCap: (row: ItemRow, raw: string) => void; onDeck: (row: ItemRow, inDeck: boolean) => void }) {
-  const labelClass = row.overridden ? "font-semibold text-amber-800" : "text-slate-700";
-  return (
-    <div class="flex items-center justify-between gap-2 py-0.5">
-      <ItemIcon assetId={row.assetId} />
-      <span class={`min-w-0 flex-1 text-xs ${labelClass}`}>
-        <span class="truncate">
-          {row.itemName} <span class="text-slate-400">← {row.cardName}</span>
-        </span>
-        <span class="block truncate text-[10px] text-slate-400">
-          {row.trigger ? triggerLabel(row.trigger) : ""}
-          {row.cap !== undefined && ` · 上限${row.cap}回`}
-        </span>
-      </span>
-      <span class="flex shrink-0 items-center gap-1 text-xs tabular-nums">
-        {row.overridden && <span class="text-[10px] text-slate-400">既定 {row.computed}</span>}
-        <input type="number" min={0} max={row.computed} step={1} value={row.value} onInput={(e) => onCap(row, e.currentTarget.value)} class={`w-14 rounded border px-1 py-0.5 text-right ${row.overridden ? "border-amber-400 bg-amber-50" : "border-slate-300"}`} />
-        <span class="w-8 text-[10px] text-slate-400">/ {row.computed}</span>
-        {row.drinks && (
-          <label class="flex items-center gap-1 whitespace-nowrap text-[10px] text-slate-600">
-            <input type="checkbox" checked={row.drinks.inDeck} onChange={(e) => onDeck(row, e.currentTarget.checked)} />
-            デッキに入れる
-            <span class={row.drinks.inDeck ? "text-sky-700" : "text-slate-400"}>
-              {row.drinks.perFire}本 × {row.drinks.fires} = {row.drinks.perFire * row.drinks.fires}本
-            </span>
-          </label>
-        )}
-      </span>
-    </div>
-  );
-}
-
-export function CustomizePanel({ profileName, sections, items, overrides, onChange }: Props) {
-  const changed = Object.keys(overrides).length;
+export function CustomizePanel({ profileName, sections, overrides, onChange }: Props) {
+  const changed = Object.keys(overrides).filter((key) => !key.startsWith("i.") && !key.startsWith("d.")).length; // the P-item keys are the ItemPanel's
   const onCount = (input: PanelInput, raw: string): void => {
     const next: Record<string, number> = { ...overrides };
     const n = Number(raw);
@@ -158,19 +112,6 @@ export function CustomizePanel({ profileName, sections, items, overrides, onChan
     }
     onChange(next);
   };
-  const onCap = (row: ItemRow, raw: string): void => {
-    const next: Record<string, number> = { ...overrides };
-    const n = Number(raw);
-    if (raw === "" || !Number.isInteger(n) || n < 0 || n >= row.computed) delete next[itemCapKey(row.itemId)];
-    else next[itemCapKey(row.itemId)] = n;
-    onChange(next);
-  };
-  const onDeck = (row: ItemRow, inDeck: boolean): void => {
-    const next: Record<string, number> = { ...overrides };
-    if (inDeck) next[deckKey(row.itemId)] = 1;
-    else delete next[deckKey(row.itemId)];
-    onChange(next);
-  };
   return (
     <details class="rounded-lg border border-slate-200 bg-white">
       <summary class="cursor-pointer select-none px-3 py-2 text-sm font-medium">
@@ -179,7 +120,7 @@ export function CustomizePanel({ profileName, sections, items, overrides, onChan
       </summary>
       <div class="border-t border-slate-200 px-3 py-2 text-sm">
         <p class="mb-2 text-xs text-slate-500">
-          「{profileName}」で1回のプロデュース中に何が何回起きるか。字下げされた項目は上の項目のうち何回が当てはまるかで、上の回数を超えられません。条件（○○以上の場合 など）は既定では毎回成立とみなします。スキル自体に回数上限があればそこまで発動します。「Pアイテム」の発動回数は上限として下げられます。ドリンクを配るPアイテムは「デッキに入れる」にすると、配るドリンクが全カードのPドリンク獲得回数に加算されます。
+          「{profileName}」で1回のプロデュース中に何が何回起きるか。字下げされた項目は上の項目のうち何回が当てはまるかで、上の回数を超えられません。条件（○○以上の場合 など）は既定では毎回成立とみなします。スキル自体に回数上限があればそこまで発動します。Pアイテムの発動回数とデッキのドリンクは下の「Pアイテム」で調整します。
           {changed > 0 && (
             <button type="button" onClick={() => onChange({})} class="ml-2 underline text-slate-700">
               既定に戻す
@@ -191,16 +132,6 @@ export function CustomizePanel({ profileName, sections, items, overrides, onChan
             <Section key={s.id} section={s} onCount={onCount} />
           ))}
         </div>
-        {items.length > 0 && (
-          <section class="mt-2 rounded border border-slate-200 p-2">
-            <h3 class="mb-1 text-xs font-semibold text-slate-600">Pアイテム（表示中のカードが持つもの）</h3>
-            <div class="grid gap-x-6 sm:grid-cols-2">
-              {items.map((row) => (
-                <ItemRowView key={row.itemId} row={row} onCap={onCap} onDeck={onDeck} />
-              ))}
-            </div>
-          </section>
-        )}
       </div>
     </details>
   );

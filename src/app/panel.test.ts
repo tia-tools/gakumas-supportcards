@@ -44,13 +44,16 @@ describe("deck drinks (Milestone 3 of docs/plans/EXECPLAN_SCORE_ADJUSTMENTS.md, 
     expect(applyOverrides(PROFILE, {}, 3).occasions["GetProduceDrink"]).toBe(3);
   });
 
-  test("the panel shows the addition as a read-only, used child of Pドリンク獲得, only when there is one", () => {
+  test("the panel shows the addition as a read-only, unbounded, used child of Pドリンク獲得 stating the total, while the input keeps the player's own count (A24)", () => {
     const drink: ParsedTrigger = { occasion: "GetProduceDrink" };
     const withAddition = buildPanel(withDrinks, {}, [...ALL, drink], [drink], 14);
     const parent = find(withAddition, "o.GetProduceDrink");
-    expect(parent.value).toBe(30);
+    expect(parent.value).toBe(16); // not 30: editing this input must never fold the addition in
     expect(parent.children.map((c) => c.key)).toEqual(["x.GetProduceDrink.items"]);
-    expect(parent.children[0]).toMatchObject({ label: "Pアイテムによる追加", value: 14, readOnly: true, used: true });
+    expect(parent.children[0]).toMatchObject({ label: "Pアイテムによる追加（計 30回）", value: 14, max: null, readOnly: true, used: true });
+    const lowered = find(buildPanel(withDrinks, { "o.GetProduceDrink": 5 }, [...ALL, drink], [drink], 14), "o.GetProduceDrink");
+    expect(lowered.value).toBe(5);
+    expect(lowered.children[0]).toMatchObject({ label: "Pアイテムによる追加（計 19回）", value: 14 }); // more than the parent, and not clamped
     expect(find(buildPanel(withDrinks, {}, [...ALL, drink], [drink]), "o.GetProduceDrink").children).toEqual([]);
   });
 });
