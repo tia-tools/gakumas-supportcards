@@ -59,6 +59,7 @@ describe("itemRows", () => {
       ["pitem-towel", "card c-towel", 1, 1, false],
       ["pitem-fluffy", "card c-fluffy", 7, 7, false],
     ]);
+    expect(rows[0]).toMatchObject({ cardAssetId: "c-towel", cardType: "dance" }); // for the card popover (A26)
     expect(rows[0]?.drinks).toBeUndefined();
     expect(rows[1]?.drinks).toEqual({ perFire: 2, inDeck: false, fires: 7, added: 0 });
     const capped = itemRows([fluffyCard], ctx, { "i.pitem-fluffy": 3, "d.pitem-fluffy": 1 });

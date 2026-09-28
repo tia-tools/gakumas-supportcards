@@ -13,7 +13,7 @@
  */
 
 import { occurrences } from "../engine/count.ts";
-import type { Card, ClassifiedEffect, ItemGrant, LessonSplit, ParsedTrigger, RouteProfile } from "../engine/types.ts";
+import type { Card, CardType, ClassifiedEffect, ItemGrant, LessonSplit, ParsedTrigger, RouteProfile } from "../engine/types.ts";
 import type { Overrides } from "./panel.ts";
 
 export const itemCapKey = (itemId: string): string => `i.${itemId}`;
@@ -33,6 +33,9 @@ export interface ItemRow {
   itemName: string;
   assetId: string;
   cardName: string;
+  /** The granting card's art and type, for the popover that names the card (A26). */
+  cardAssetId: string;
+  cardType: CardType;
   /** The trigger the fires are counted on, for wording the row: the drink trigger, else the first stat effect's. */
   trigger: ParsedTrigger | undefined;
   /** `fireLimit`, when the item has one. */
@@ -72,7 +75,7 @@ function rowOf(card: Card, grant: ItemGrant, ctx: ItemContext, overrides: Overri
   const computed = itemFires(card, grant, ctx);
   const override = overrides[itemCapKey(grant.itemId)];
   const value = override === undefined ? computed : Math.min(override, computed);
-  const row: ItemRow = { itemId: grant.itemId, itemName: grant.itemName, assetId: grant.assetId, cardName: card.name, trigger: triggersOf(card, grant)[0], cap: grant.cap, computed, value, overridden: override !== undefined && override < computed };
+  const row: ItemRow = { itemId: grant.itemId, itemName: grant.itemName, assetId: grant.assetId, cardName: card.name, cardAssetId: card.assetId, cardType: card.type, trigger: triggersOf(card, grant)[0], cap: grant.cap, computed, value, overridden: override !== undefined && override < computed };
   if (grant.drinks) {
     const inDeck = overrides[deckKey(grant.itemId)] === 1;
     const fires = Math.min(override ?? Number.POSITIVE_INFINITY, maxFires(grant.drinks.trigger, grant.cap, ctx));
