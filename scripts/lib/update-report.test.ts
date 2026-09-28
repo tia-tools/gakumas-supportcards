@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import type { Snapshot } from "./score-snapshot.ts";
 import { diffSnapshots, isEmpty, renderHeldIssue, renderPullRequest, updateTitle } from "./update-report.ts";
 
-const entry = (name: string, data: string, score = 100, bonus = 0) => ({ name, data, flat: { "hif/sashiire": [score, 1, 2, 3, score + 50] }, bonus: [bonus, bonus, bonus, bonus, bonus] });
+const entry = (name: string, data: string, score = 100, bonus = 0) => ({ name, data, flat: { "hif/sashiire": { "7/1/0": [score, 1, 2, 3, score + 50], "1/7/0": [score - 1, 0, 0, 0, 0] } }, bonus: [bonus, bonus, bonus, bonus, bonus] });
 const base: Snapshot = { "s-1": entry("旧カード", "h1"), "s-2": entry("調整されるカード", "h2"), "s-3": entry("消えるカード", "h3") };
 const current: Snapshot = { "s-1": entry("旧カード", "h1"), "s-2": entry("調整されるカード", "h2-new"), "s-4": entry("新カード", "h4", 300) };
 

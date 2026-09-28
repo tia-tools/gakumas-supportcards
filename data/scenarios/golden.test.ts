@@ -74,6 +74,8 @@ describe("golden scores (H.I.F. 差し入れ育成, best preset)", () => {
     const at = (share: readonly [number, number, number]): number => scoreBest(big, 4, { ...ctx, share }).total;
     expect(at([10, 0, 0]) - at([0, 10, 0])).toBeCloseTo(0.085 * 500, 3);
     expect(at([2, 7, 1])).toBeCloseTo(433.785, 3);
+    const small = (share: readonly [number, number, number]): number => scoreBest(card("s_card-2-0055"), 4, { ...ctx, share }).total;
+    expect(small([10, 0, 0]) - small([0, 10, 0])).toBeCloseTo(0.064 * 500, 3); // おやすみのふたり, the other golden bonus card
     for (const g of GOLDEN.filter((x) => x.id !== "s_card-3-0107" && x.id !== "s_card-2-0055")) {
       expect(scoreBest(card(g.id), 4, { ...ctx, share: [10, 0, 0] }).total).toBeCloseTo(g.totsu4, 3);
     }
