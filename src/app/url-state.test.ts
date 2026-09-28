@@ -30,6 +30,21 @@ describe("parseViewState", () => {
     expect(s.sp).toBe(false);
   });
 
+  test("a=<main>.<sub>.<other> is the audition share in tenths; the default and anything malformed read as null (A5)", () => {
+    expect(parse("a=3.6.1").share).toEqual([3, 6, 1]);
+    expect(parse("a=10.0.0").share).toEqual([10, 0, 0]);
+    expect(parse("a=2.7.1").share).toBeNull();
+    expect(parse("a=5.5").share).toBeNull();
+    expect(parse("a=4.4.3").share).toBeNull();
+    expect(parse("a=2.5.6.5.1").share).toBeNull();
+    expect(parse("a=x.y.z").share).toBeNull();
+    expect(parse("").share).toBeNull();
+  });
+
+  test("the share's text is exactly three plain integers: no empty part, sign, exponent or whitespace, even where Number() would read a valid share", () => {
+    for (const raw of ["a=..10", "a=+3.6.1", "a=1e1.0.0", "a=%203.6.1", "a=3.6.1%20", "a=03.6.1", "a=3.6.1."]) expect(parse(raw).share, raw).toBeNull();
+  });
+
   test("sp=1 narrows to SP発生率+ cards; anything else is off", () => {
     expect(parse("sp=1").sp).toBe(true);
     expect(parse("sp=0").sp).toBe(false);
@@ -74,6 +89,7 @@ describe("serializeViewState", () => {
       scenarioId: "b",
       profileId: "b1",
       split: 1,
+      share: [3, 6, 1],
       types: ["dance", "assist"],
       plans: ["logic"],
       rarities: ["sr", "ssr"],
@@ -82,8 +98,12 @@ describe("serializeViewState", () => {
       overrides: { "o.StartShop": 5, "w.EndLesson.produce_card_count.ge20": 3 },
     };
     const q = serialize(state);
-    expect(q).toBe("s=b&p=b1&ls=1&type=dance%2Cassist&plan=logic&rarity=sr%2Cssr&sp=1&sort=2a&o.StartShop=5&w.EndLesson.produce_card_count.ge20=3");
+    expect(q).toBe("s=b&p=b1&ls=1&a=3.6.1&type=dance%2Cassist&plan=logic&rarity=sr%2Cssr&sp=1&sort=2a&o.StartShop=5&w.EndLesson.produce_card_count.ge20=3");
     expect(parse(q)).toEqual(state);
+  });
+
+  test("the default share, set explicitly, is not written", () => {
+    expect(serialize({ ...defaultViewState(scenarios), share: [2, 7, 1] })).toBe("");
   });
 
   test("a non-default profile of the default scenario is written", () => {

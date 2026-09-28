@@ -3,7 +3,7 @@ import { CARDS } from "../../data/cards.generated.ts";
 import { HELD } from "../../data/held.generated.ts";
 import { LEVEL_LIMITS } from "../../data/levelLimits.generated.ts";
 import { SCENARIOS } from "../../data/scenarios/index.ts";
-import type { Totsu } from "../engine/types.ts";
+import { DEFAULT_AUDITION_SHARE, type Totsu } from "../engine/types.ts";
 import { Controls } from "./Controls.tsx";
 import { CustomizePanel } from "./CustomizePanel.tsx";
 import { FeedbackForm, FeedbackLink } from "./FeedbackForm.tsx";
@@ -20,7 +20,10 @@ export function App() {
   const [state, update] = useUrlState();
   const { scenario, profile } = resolveSelection(state, SCENARIOS);
 
-  const scored = useMemo(() => buildRows(SHOWN_CARDS, { scenarioId: scenario.id, profile: applyOverrides(profile, state.overrides), limits: LEVEL_LIMITS }, state.split), [scenario, profile, state.overrides, state.split]);
+  const scored = useMemo(
+    () => buildRows(SHOWN_CARDS, { scenarioId: scenario.id, profile: applyOverrides(profile, state.overrides), limits: LEVEL_LIMITS, share: state.share ?? DEFAULT_AUDITION_SHARE }, state.split),
+    [scenario, profile, state.overrides, state.split, state.share],
+  );
   const rows = useMemo(() => sortRows(filterRows(scored, state), state.sort), [scored, state.types, state.plans, state.rarities, state.sp, state.sort]);
 
   // Which inputs the panel folds away depends on the cards in view, not on their order.
@@ -36,7 +39,7 @@ export function App() {
           <FeedbackLink />
         </div>
         <p class="text-xs text-slate-500">
-          点数 = 1回のプロデュースで得られる Vo+Da+Vi 上昇量の期待値。全レッスンをSPレッスン、条件付き効果は常に成立とみなします。SP発生率+ は点数に含めず、「SP」バッジで示します。数字にカーソルを合わせると内訳、サムネイルに合わせるとカード名が表示されます。
+          点数 = 1回のプロデュースで得られる Vo+Da+Vi 上昇量の期待値。全レッスンをSPレッスン、条件付き効果は常に成立とみなします。パラメータボーナス+ は選抜試験のスコア配分（既定はメイン2：サブ7：その他1）に従います。SP発生率+ は点数に含めず、「SP」バッジで示します。数字にカーソルを合わせると内訳、サムネイルに合わせるとカード名が表示されます。
         </p>
       </header>
       <section class="rounded-lg border border-slate-200 bg-white p-3">

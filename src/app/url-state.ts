@@ -6,6 +6,9 @@
  *
  * Query parameters:
  *   s=<scenario id>  p=<profile id>  ls=<lesson-split preset index; absent = best preset (D26)>
+ *   a=<main>.<sub>.<other>  tenths of the 選抜試験's distributed reward for the main, sub and
+ *                     other stat of the split (docs/plans/EXECPLAN_SCORE_ADJUSTMENTS.md A4, A5);
+ *                     absent = the default 2.7.1
  *   type=vocal,dance  plan=sense,logic  rarity=ssr   (comma-separated; absent = all)
  *   sp=1              (only cards with an SP発生率+ skill; absent = all)
  *   sort=4d           (凸 column 0–4 followed by d or a; default 4d)
@@ -14,7 +17,8 @@
  *                     keys of the former counting model are ignored.
  */
 
-import type { CardType, Plan, Rarity, RouteProfile, Scenario, Totsu } from "../engine/types.ts";
+import { isAuditionShare } from "../engine/share.ts";
+import { DEFAULT_AUDITION_SHARE, type AuditionShare, type CardType, type Plan, type Rarity, type RouteProfile, type Scenario, type Totsu } from "../engine/types.ts";
 
 export interface SortSpec {
   totsu: Totsu;
@@ -26,6 +30,8 @@ export interface ViewState {
   profileId: string;
   /** Index into the profile's `lessonSplits`; null scores each card under its best preset. */
   split: number | null;
+  /** The player's audition share in tenths (main, sub, other); null is the default 2:7:1. */
+  share: AuditionShare | null;
   types: readonly CardType[];
   plans: readonly Plan[];
   rarities: readonly Rarity[];
@@ -51,7 +57,7 @@ export function defaultViewState(scenarios: readonly Scenario[]): ViewState {
   const scenario = scenarios[0];
   const profile = scenario?.profiles[0];
   if (!scenario || !profile) throw new Error("no scenario shipped");
-  return { scenarioId: scenario.id, profileId: profile.id, split: null, types: [], plans: [], rarities: [], sp: false, sort: DEFAULT_SORT, overrides: {} };
+  return { scenarioId: scenario.id, profileId: profile.id, split: null, share: null, types: [], plans: [], rarities: [], sp: false, sort: DEFAULT_SORT, overrides: {} };
 }
 
 /** The scenario and profile the state names, falling back to the defaults when an id is unknown. */
@@ -76,6 +82,18 @@ function parseSort(raw: string | null): SortSpec {
   return totsu === undefined ? DEFAULT_SORT : { totsu, desc: m[2] === "d" };
 }
 
+const isDefaultShare = (s: AuditionShare): boolean => s.every((n, i) => n === DEFAULT_AUDITION_SHARE[i]);
+
+/** Exactly three plain integers 0–10 joined by dots: no sign, exponent, whitespace or empty part (`Number("")` is 0). */
+const SHARE_TEXT = /^(?:10|\d)\.(?:10|\d)\.(?:10|\d)$/;
+
+/** `a=2.7.1` → null (the default), `a=3.6.1` → [3, 6, 1]; anything that is not three tenths summing to 10 → null. */
+function parseShare(raw: string | null): AuditionShare | null {
+  if (raw === null || !SHARE_TEXT.test(raw)) return null;
+  const parts = raw.split(".").map(Number);
+  return isAuditionShare(parts) && !isDefaultShare(parts) ? parts : null;
+}
+
 function parseOverrides(params: URLSearchParams, adjustable: ReadonlySet<string>): Record<string, number> {
   const out: Record<string, number> = {};
   for (const [name, raw] of params) {
@@ -97,6 +115,7 @@ export function parseViewState(params: URLSearchParams, scenarios: readonly Scen
     scenarioId: scenario.id,
     profileId: profile.id,
     split,
+    share: parseShare(params.get("a")),
     types: parseList(params.get("type"), CARD_TYPES),
     plans: parseList(params.get("plan"), PLANS),
     rarities: parseList(params.get("rarity"), RARITIES),
@@ -113,6 +132,7 @@ export function serializeViewState(state: ViewState, scenarios: readonly Scenari
   if (state.scenarioId !== base.scenarioId) out.set("s", state.scenarioId);
   if (state.profileId !== base.profileId || state.scenarioId !== base.scenarioId) out.set("p", state.profileId);
   if (state.split !== null) out.set("ls", String(state.split));
+  if (state.share !== null && !isDefaultShare(state.share)) out.set("a", state.share.join("."));
   if (state.types.length > 0) out.set("type", state.types.join(","));
   if (state.plans.length > 0) out.set("plan", state.plans.join(","));
   if (state.rarities.length > 0) out.set("rarity", state.rarities.join(","));

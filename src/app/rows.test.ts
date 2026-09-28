@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import type { Card, ParsedTrigger, RouteProfile } from "../engine/types.ts";
+import { DEFAULT_AUDITION_SHARE, type Card, type ParsedTrigger, type RouteProfile } from "../engine/types.ts";
 import { buildRows, filterRows, formatPoints, sortRows, withoutHeld } from "./rows.ts";
 
 const SHOP: ParsedTrigger = { occasion: "StartShop" };
@@ -16,7 +16,7 @@ const profile: RouteProfile = {
   parameterBonusBase: () => 0,
 };
 const limits = { r: [20, 25, 30, 35, 40], sr: [30, 35, 40, 45, 50], ssr: [40, 45, 50, 55, 60] } as const;
-const ctx = { scenarioId: "s", profile, limits };
+const ctx = { scenarioId: "s", profile, limits, share: DEFAULT_AUDITION_SHARE };
 
 function card(id: string, effects: Card["breakpoints"][number]["effects"], type: Card["type"] = "vocal", rarity: Card["rarity"] = "ssr", plan: Card["plan"] = "common"): Card {
   return { id, name: id, assetId: id, type, rarity, plan, breakpoints: [{ minLevel: 1, effects, eventBonusPermil: 0 }] };

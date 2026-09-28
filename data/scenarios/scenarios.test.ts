@@ -9,10 +9,11 @@
 import { describe, expect, test } from "bun:test";
 import { conditionKey, missingNumbers, occasionOfConditionKey } from "../../src/engine/count.ts";
 import { scoreBest } from "../../src/engine/score.ts";
-import type { Card, RouteProfile, Totsu } from "../../src/engine/types.ts";
+import { DEFAULT_AUDITION_SHARE, type Card, type RouteProfile, type Totsu } from "../../src/engine/types.ts";
 import { CARDS } from "../cards.generated.ts";
 import { HELD } from "../held.generated.ts";
 import { LEVEL_LIMITS } from "../levelLimits.generated.ts";
+import { bonusBase as hifBonusBase } from "./hif.ts";
 import { ALL_SCENARIOS, SCENARIOS } from "./index.ts";
 
 const TOTSU: Totsu[] = [0, 1, 2, 3, 4];
@@ -44,12 +45,20 @@ describe("shipped scenarios", () => {
     }
   });
 
+  test("H.I.F. bonus base: 800·n/8 + 340·(8−n)/16 + 200 + 500·share — 1021 / 799 / 420 for main / sub / other under 2:7:1 (decision A3 of docs/plans/EXECPLAN_SCORE_ADJUSTMENTS.md)", () => {
+    expect(hifBonusBase(7, 0.2)).toBe(1021);
+    expect(hifBonusBase(1, 0.7)).toBe(799);
+    expect(hifBonusBase(0, 0.1)).toBe(420);
+    expect(hifBonusBase(7, 1)).toBe(1421); // the whole distributed 500 to the main stat
+    expect(hifBonusBase(7, 7 / 8)).toBe(1359); // the former lesson-share proxy, for the record
+  });
+
   test("lowering one condition moves only the cards whose effects carry it (decision C2 of docs/plans/EXECPLAN_COUNTING_MODEL.md)", () => {
     const [s] = SCENARIOS;
     const [p] = s?.profiles ?? [];
     if (!s || !p) throw new Error("no default scenario profile");
     const key = "EndLesson.produce_card_count.ge20";
-    const ctx = { profile: p, limits: LEVEL_LIMITS, scenarioId: s.id };
+    const ctx = { profile: p, limits: LEVEL_LIMITS, scenarioId: s.id, share: DEFAULT_AUDITION_SHARE };
     const lowered = { ...ctx, profile: { ...p, conditions: { ...p.conditions, [key]: 0 } } };
     const moved = CARDS.filter((c) => scoreBest(c, 4, ctx).total !== scoreBest(c, 4, lowered).total);
     expect(moved.length).toBeGreaterThan(0);
@@ -91,14 +100,14 @@ describe("shipped scenarios", () => {
         const [total] = totals;
         let prev = -1;
         for (let n = 0; n <= (total ?? 0); n++) {
-          const b = p.parameterBonusBase(n);
+          const b = p.parameterBonusBase(n, 0.2);
           expect(b).toBeGreaterThan(prev);
           prev = b;
         }
       });
 
       test(`${s.id}/${p.id}: every card scores to a finite, non-negative total at every 凸, non-decreasing in 凸`, () => {
-        const ctx = { profile: p, limits: LEVEL_LIMITS, scenarioId: s.id };
+        const ctx = { profile: p, limits: LEVEL_LIMITS, scenarioId: s.id, share: DEFAULT_AUDITION_SHARE };
         for (const card of CARDS) {
           let prev = -1;
           for (const t of TOTSU) {

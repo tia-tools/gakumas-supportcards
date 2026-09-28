@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import type { Snapshot } from "./score-snapshot.ts";
 import { diffSnapshots, isEmpty, renderHeldIssue, renderPullRequest, updateTitle } from "./update-report.ts";
 
-const entry = (name: string, data: string, score = 100) => ({ name, data, scores: { "hif/sashiire": [score, 1, 2, 3, score + 50] } });
+const entry = (name: string, data: string, score = 100, bonus = 0) => ({ name, data, flat: { "hif/sashiire": { "7/1/0": [score, 1, 2, 3, score + 50], "1/7/0": [score - 1, 0, 0, 0, 0] } }, bonus: [bonus, bonus, bonus, bonus, bonus] });
 const base: Snapshot = { "s-1": entry("旧カード", "h1"), "s-2": entry("調整されるカード", "h2"), "s-3": entry("消えるカード", "h3") };
 const current: Snapshot = { "s-1": entry("旧カード", "h1"), "s-2": entry("調整されるカード", "h2-new"), "s-4": entry("新カード", "h4", 300) };
 
@@ -32,6 +32,8 @@ describe("renderPullRequest", () => {
     const body = renderPullRequest(diffSnapshots(base, current), [], current, "https://example.test/run/1");
     expect(body).toContain("### New cards (1)");
     expect(body).toContain("- `s-4` 新カード — hif/sashiire 凸0 300 / 凸4 350");
+    const withBonus = renderPullRequest({ added: [{ id: "s-b", name: "ボーナス持ち" }], removed: [], changed: [] }, [], { "s-b": entry("ボーナス持ち", "hb", 300, 85) });
+    expect(withBonus).toContain("- `s-b` ボーナス持ち — hif/sashiire 凸0 300 +8.5% / 凸4 350 +8.5%");
     expect(body).toContain("### Cards whose data changed (1)");
     expect(body).toContain("### Cards removed upstream (1)");
     expect(body).not.toContain("Held cards");
