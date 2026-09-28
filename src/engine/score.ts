@@ -71,7 +71,7 @@ export function scoreAtLevel(card: Card, level: number, ctx: ScoreContext): Scor
     else if (l.kind === "item") parts.items += l.points;
     else parts.skills += l.points;
   }
-  return { total: byStat.vocal + byStat.dance + byStat.visual, byStat, parts, lines, lessons: ctx.lessons };
+  return { total: byStat.vocal + byStat.dance + byStat.visual, byStat, parts, lines, lessons: ctx.lessons, share: ctx.share };
 }
 
 export function score(card: Card, totsu: Totsu, ctx: ScoreContext): Score {

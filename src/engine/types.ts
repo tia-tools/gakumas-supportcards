@@ -213,4 +213,6 @@ export interface Score {
   lines: BreakdownLine[];
   /** The lesson split the score was computed under. */
   lessons: LessonSplit;
+  /** The audition share the bonus lines were computed under. */
+  share: AuditionShare;
 }

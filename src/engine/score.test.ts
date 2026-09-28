@@ -53,7 +53,7 @@ describe("levelFor / resolveAtLevel", () => {
 describe("score: skills and occasions", () => {
   test("a card with no parameter effect scores 0 with empty parts and lines (SP発生率-only, Pポイント-only cards)", () => {
     const s = score(card([{ minLevel: 1, effects: [], eventBonusPermil: 500 }]), 4, ctx);
-    expect(s).toEqual({ total: 0, byStat: { vocal: 0, dance: 0, visual: 0 }, parts: { skills: 0, events: 0, items: 0 }, lines: [], lessons: ctx.lessons });
+    expect(s).toEqual({ total: 0, byStat: { vocal: 0, dance: 0, visual: 0 }, parts: { skills: 0, events: 0, items: 0 }, lines: [], lessons: ctx.lessons, share: ctx.share });
   });
 
   test("flat skill: value × occurrences, capped by activationCount (D15)", () => {
