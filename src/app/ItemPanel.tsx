@@ -46,8 +46,8 @@ function CardHint({ row }: { row: ItemRow }) {
 const EXPLANATION = (
   <span class="block space-y-1">
     <span class="block">表示中のカードが持つPアイテムです。</span>
-    <span class="block">発動回数は上限として下げられます。既定は選択中のレッスン配分での発動回数（「カードごとに最適」ではそのアイテムに最も有利な配分）。</span>
-    <span class="block">🥤 を押すとドリンクを配るアイテムがデッキに入り、配るドリンクが「カウントを調整」のPドリンク獲得回数に加算されて、全カードのPドリンク獲得時スキルに効きます。</span>
+    <span class="block">発動回数は上限として下げられます。</span>
+    <span class="block">有効にしたアイテムが配るドリンクは、Pドリンク獲得回数に加算されます。</span>
   </span>
 );
 
@@ -74,14 +74,15 @@ function CountInput({ row, onCap }: { row: ItemRow; onCap: (row: ItemRow, raw: s
 
 function DeckToggle({ row, onDeck }: { row: ItemRow; onDeck: (row: ItemRow, inDeck: boolean) => void }) {
   const drinks = row.drinks;
-  if (!drinks) return <span class="h-7 w-7" aria-hidden="true" />;
+  if (!drinks) return <span class="h-6 w-14" aria-hidden="true" />;
   const on = drinks.inDeck;
   const total = drinks.perFire * drinks.fires;
   return (
-    <Hint hint={`デッキに入れる — ${drinks.perFire}本 × ${drinks.fires}回 = ${total}本${on ? "（加算中）" : ""}`} trigger="wrap">
+    <Hint hint={`有効にするとドリンクを加算 — ${drinks.perFire}本 × ${drinks.fires}回 = ${total}本`} trigger="wrap">
       {(describedBy) => (
-        <button type="button" aria-pressed={on} aria-label={`デッキに入れる（${total}本）`} aria-describedby={describedBy} onClick={() => onDeck(row, !on)} class={`h-7 w-7 rounded border text-sm leading-none transition ${on ? "border-sky-600 bg-sky-600 text-white" : "border-slate-300 bg-white text-slate-400 hover:border-slate-500"}`}>
-          🥤
+        <button type="button" role="switch" aria-checked={on} aria-label={`ドリンクを加算（${total}本）`} aria-describedby={describedBy} onClick={() => onDeck(row, !on)} class={`flex h-6 items-center gap-1 rounded-full border px-1 text-[10px] leading-none transition ${on ? "border-sky-600 bg-sky-600 text-white" : "border-slate-300 bg-white text-slate-500 hover:border-slate-500"}`}>
+          <span class={`h-3.5 w-3.5 rounded-full ${on ? "order-last bg-white" : "bg-slate-300"}`} aria-hidden="true" />
+          有効
         </button>
       )}
     </Hint>

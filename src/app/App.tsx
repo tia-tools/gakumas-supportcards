@@ -7,6 +7,7 @@ import { DEFAULT_AUDITION_SHARE, type Totsu } from "../engine/types.ts";
 import { Controls } from "./Controls.tsx";
 import { CustomizePanel } from "./CustomizePanel.tsx";
 import { FeedbackForm, FeedbackLink } from "./FeedbackForm.tsx";
+import { Hint } from "./Hint.tsx";
 import { ItemPanel } from "./ItemPanel.tsx";
 import { ScoreTable } from "./ScoreTable.tsx";
 import { deckDrinks, itemCapsOf, itemRows } from "./item-panel.ts";
@@ -43,12 +44,14 @@ export function App() {
     <div class="mx-auto max-w-6xl p-3 sm:p-6 flex flex-col gap-4">
       <header class="flex flex-col gap-1">
         <div class="flex items-baseline justify-between gap-2">
-          <h1 class="text-xl font-bold">サポカ凸別点数一覧</h1>
+          <span class="flex items-center gap-2">
+            <h1 class="text-xl font-bold">サポカ凸別点数一覧</h1>
+            <Hint hint="点数 = 1回のプロデュースで得られる Vo+Da+Vi 上昇量の期待値" label="点数の説明">
+              <span class="inline-flex h-4 w-4 items-center justify-center rounded-full border border-slate-400 text-[10px] font-semibold text-slate-500">i</span>
+            </Hint>
+          </span>
           <FeedbackLink />
         </div>
-        <p class="text-xs text-slate-500">
-          点数 = 1回のプロデュースで得られる Vo+Da+Vi 上昇量の期待値。全レッスンをSPレッスン、条件付き効果は常に成立とみなします。パラメータボーナス+ は選抜試験のスコア配分（既定はメイン2：サブ7：その他1）に従います。SP発生率+ は点数に含めず、「SP」バッジで示します。数字にカーソルを合わせると内訳、サムネイルに合わせるとカード名が表示されます。
-        </p>
       </header>
       <section class="rounded-lg border border-slate-200 bg-white p-3">
         <Controls scenarios={SCENARIOS} scenario={scenario} profile={profile} state={state} update={update} />
