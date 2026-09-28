@@ -24,7 +24,9 @@ export function App() {
 
   // The profile with the player's counts; the drinks ticked P-items add come on top (they are counted from this profile, so not from themselves).
   const applied = useMemo(() => applyOverrides(profile, state.overrides), [profile, state.overrides]);
-  const drinks = useMemo(() => deckDrinks(SHOWN_CARDS, { scenarioId: scenario.id, profile: applied }, state.overrides), [scenario, applied, state.overrides]);
+  // The lesson split in force for the P-items: the selected preset, or null under 「カードごとに最適」 (A25).
+  const itemCtx = useMemo(() => ({ scenarioId: scenario.id, profile: applied, lessons: state.split === null ? null : (profile.lessonSplits[state.split] ?? null) }), [scenario, applied, profile, state.split]);
+  const drinks = useMemo(() => deckDrinks(SHOWN_CARDS, itemCtx, state.overrides), [itemCtx, state.overrides]);
   const scored = useMemo(
     () => buildRows(SHOWN_CARDS, { scenarioId: scenario.id, profile: applyOverrides(profile, state.overrides, drinks), limits: LEVEL_LIMITS, share: state.share ?? DEFAULT_AUDITION_SHARE, itemCaps: itemCapsOf(state.overrides) }, state.split),
     [scenario, profile, state.overrides, state.split, state.share, drinks],
@@ -33,7 +35,7 @@ export function App() {
 
   // Which inputs the panel folds away depends on the cards in view, not on their order.
   const sections = useMemo(() => buildPanel(profile, state.overrides, ALL_TRIGGERS, triggersOf(rows.map((r) => r.card)), drinks), [profile, state.overrides, rows, drinks]);
-  const items = useMemo(() => itemRows(rows.map((r) => r.card), { scenarioId: scenario.id, profile: applied }, state.overrides), [scenario, applied, rows, state.overrides]);
+  const items = useMemo(() => itemRows(rows.map((r) => r.card), itemCtx, state.overrides), [itemCtx, rows, state.overrides]);
 
   const onSort = (totsu: Totsu): void => update({ sort: { totsu, desc: state.sort.totsu === totsu ? !state.sort.desc : true } });
 

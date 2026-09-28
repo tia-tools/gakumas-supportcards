@@ -84,7 +84,7 @@ export function ItemPanel({ items, overrides, onChange }: Props) {
       </summary>
       <div class="border-t border-slate-200 px-3 py-2 text-sm">
         <p class="mb-2 text-xs text-slate-500">
-          表示中のカードが持つPアイテム。発動回数は上限として下げられます（既定はこのルートでの最大発動回数）。ドリンクを配るPアイテムは「デッキに入れる」にすると、配るドリンクが「カウントを調整」のPドリンク獲得回数に加算され、全カードのPドリンク獲得時スキルに効きます。
+          表示中のカードが持つPアイテム。発動回数は上限として下げられます。既定は選択中のレッスン配分でのこのルートの発動回数（「カードごとに最適」ではそのアイテムに最も有利な配分）です。ドリンクを配るPアイテムは「デッキに入れる」にすると、配るドリンクが「カウントを調整」のPドリンク獲得回数に加算され、全カードのPドリンク獲得時スキルに効きます。
           {changed > 0 && (
             <button type="button" onClick={reset} class="ml-2 underline text-slate-700">
               既定に戻す
