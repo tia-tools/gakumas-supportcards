@@ -7,6 +7,7 @@ import { DEFAULT_AUDITION_SHARE, type Totsu } from "../engine/types.ts";
 import { Controls } from "./Controls.tsx";
 import { CustomizePanel } from "./CustomizePanel.tsx";
 import { FeedbackForm, FeedbackLink } from "./FeedbackForm.tsx";
+import { ItemPanel } from "./ItemPanel.tsx";
 import { ScoreTable } from "./ScoreTable.tsx";
 import { deckDrinks, itemCapsOf, itemRows } from "./item-panel.ts";
 import { applyOverrides, buildPanel, triggersOf } from "./panel.ts";
@@ -50,7 +51,8 @@ export function App() {
       <section class="rounded-lg border border-slate-200 bg-white p-3">
         <Controls scenarios={SCENARIOS} scenario={scenario} profile={profile} state={state} update={update} />
       </section>
-      <CustomizePanel profileName={profile.name} sections={sections} items={items} overrides={state.overrides} onChange={(overrides) => update({ overrides })} />
+      <CustomizePanel profileName={profile.name} sections={sections} overrides={state.overrides} onChange={(overrides) => update({ overrides })} />
+      <ItemPanel items={items} overrides={state.overrides} onChange={(overrides) => update({ overrides })} />
       <section class="rounded-lg border border-slate-200 bg-white overflow-visible">
         <ScoreTable rows={rows} sort={state.sort} onSort={onSort} />
       </section>

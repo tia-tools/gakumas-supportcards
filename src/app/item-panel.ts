@@ -6,9 +6,9 @@
  * (`d.<itemId>=1`) that adds fires × drinks per fire to the run's Pドリンク獲得
  * count for every card. A row's ceiling is the item's fires under maximum
  * performance: its trigger counted under the lesson-split preset that favours
- * it, capped by the item's own `fireLimit`. Pure; CustomizePanel.tsx renders the
- * rows, App.tsx feeds `deckDrinks` into `applyOverrides` and `itemCapsOf` into
- * the scoring context.
+ * it, capped by the item's own `fireLimit`. Pure; ItemPanel.tsx (its own panel
+ * below 「カウントを調整」, A24) renders the rows, App.tsx feeds `deckDrinks` into
+ * `applyOverrides` and `itemCapsOf` into the scoring context.
  */
 
 import { occurrences } from "../engine/count.ts";
@@ -17,6 +17,8 @@ import type { Overrides } from "./panel.ts";
 
 export const itemCapKey = (itemId: string): string => `i.${itemId}`;
 export const deckKey = (itemId: string): string => `d.${itemId}`;
+/** The keys this panel owns among the overrides; the counts panel owns the rest, and each panel's 既定に戻す clears only its own (A24). */
+export const isItemKey = (key: string): boolean => key.startsWith("i.") || key.startsWith("d.");
 
 /** The scenario and the profile as the player overrode it (without the deck's drinks, which these rows produce). */
 export interface ItemContext {
