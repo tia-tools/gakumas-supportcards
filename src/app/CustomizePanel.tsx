@@ -127,10 +127,9 @@ export function CustomizePanel({ profileName, sections, overrides, onChange }: P
           <Hint
             hint={
               <span class="block space-y-1">
-                <span class="block">「{profileName}」で1回のプロデュース中に何が何回起きるか。</span>
-                <span class="block">字下げされた項目は上の項目のうち何回が当てはまるかで、上の回数を超えられません。</span>
-                <span class="block">条件（○○以上の場合 など）は既定では毎回成立とみなします。スキル自体に回数上限があればそこまで発動します。</span>
-                <span class="block">Pアイテムの発動回数とデッキのドリンクは下の「Pアイテム」で調整します。</span>
+                <span class="block">「{profileName}」で1回のプロデュース中に各イベントが何回起きるかです。</span>
+                <span class="block">字下げの項目は上の項目の内数で、上の回数を超えられません。</span>
+                <span class="block">条件付きの効果は、既定では毎回成立するものとして数えます。</span>
               </span>
             }
             label="カウントの説明"
