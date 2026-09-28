@@ -6,14 +6,17 @@
 import { useCallback, useEffect, useState } from "preact/hooks";
 import { SCENARIOS } from "../../data/scenarios/index.ts";
 import { CARDS } from "../../data/cards.generated.ts";
+import { itemKeys } from "./item-panel.ts";
 import { adjustableKeys, triggersOf } from "./panel.ts";
 import { parseViewState, serializeViewState, type ViewState } from "./url-state.ts";
 
 /** Every distinct trigger on the shipped cards: decides which count inputs exist. */
 export const ALL_TRIGGERS = triggersOf(CARDS);
+/** Every P-item key the shipped cards can write: a cap per item, a tick per drink item. */
+export const ALL_ITEM_KEYS = itemKeys(CARDS);
 
 function readState(): ViewState {
-  return parseViewState(new URLSearchParams(window.location.search), SCENARIOS, (profile) => adjustableKeys(profile, ALL_TRIGGERS));
+  return parseViewState(new URLSearchParams(window.location.search), SCENARIOS, (profile) => new Set([...adjustableKeys(profile, ALL_TRIGGERS), ...ALL_ITEM_KEYS]));
 }
 
 export type UpdateViewState = (patch: Partial<ViewState>) => void;

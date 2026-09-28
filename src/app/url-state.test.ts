@@ -4,7 +4,7 @@ import type { Scenario } from "../engine/types.ts";
 import { defaultViewState, parseViewState, serializeViewState, type ViewState } from "./url-state.ts";
 
 /** Stands in for `adjustableKeys` of ./panel.ts: profile a2 has one input fewer. */
-const adjustable = (p: { id: string }): ReadonlySet<string> => new Set(p.id === "a2" ? ["o.StartShop"] : ["o.StartShop", "f.GetProduceCard.effectGroup.review", "w.EndLesson.produce_card_count.ge20"]);
+const adjustable = (p: { id: string }): ReadonlySet<string> => new Set(p.id === "a2" ? ["o.StartShop"] : ["o.StartShop", "f.GetProduceCard.effectGroup.review", "w.EndLesson.produce_card_count.ge20", "i.pitem-a", "d.pitem-a"]);
 const profile = (id: string) => ({ id, name: id, occasions: {}, filters: {}, lessonSplits: [{ vocal: 1, dance: 0, visual: 0 }, { vocal: 0, dance: 1, visual: 0 }], parameterBonusBase: () => 0 });
 const scenarios: Scenario[] = [
   { id: "a", name: "A", parameterCap: 0, profiles: [profile("a1"), profile("a2")] },
@@ -59,6 +59,12 @@ describe("parseViewState", () => {
     const s = parse("o.StartShop=7&f.GetProduceCard.effectGroup.review=0&w.EndLesson.produce_card_count.ge20=3");
     expect(s.overrides).toEqual({ "o.StartShop": 7, "f.GetProduceCard.effectGroup.review": 0, "w.EndLesson.produce_card_count.ge20": 3 });
     expect(parse("o.StartShop=-1&o.StartShop=1.5&f.GetProduceCard.effectGroup.review=").overrides).toEqual({});
+  });
+
+  test("a P-item cap is any non-negative integer; a deck tick is 1 or nothing (A9, A11)", () => {
+    expect(parse("i.pitem-a=2&d.pitem-a=1").overrides).toEqual({ "i.pitem-a": 2, "d.pitem-a": 1 });
+    expect(parse("i.pitem-a=0").overrides).toEqual({ "i.pitem-a": 0 });
+    expect(parse("d.pitem-a=2&d.pitem-a=0&i.pitem-b=1").overrides).toEqual({});
   });
 
   test("a key the chosen profile does not let the player adjust is ignored, as are the c. keys of the former model", () => {

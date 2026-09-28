@@ -34,6 +34,27 @@ function find(sections: readonly PanelSection[], key: string): PanelInput {
   return hit;
 }
 
+describe("deck drinks (Milestone 3 of docs/plans/EXECPLAN_SCORE_ADJUSTMENTS.md, A8)", () => {
+  const withDrinks: RouteProfile = { ...PROFILE, occasions: { ...PROFILE.occasions, GetProduceDrink: 16 } };
+
+  test("applyOverrides adds the deck's drinks to Pドリンク獲得 on top of the overrides, and nothing when there are none", () => {
+    expect(applyOverrides(withDrinks, {}, 14).occasions["GetProduceDrink"]).toBe(30);
+    expect(applyOverrides(withDrinks, { "o.GetProduceDrink": 10 }, 14).occasions["GetProduceDrink"]).toBe(24);
+    expect(applyOverrides(withDrinks, {}, 0)).toBe(withDrinks);
+    expect(applyOverrides(PROFILE, {}, 3).occasions["GetProduceDrink"]).toBe(3);
+  });
+
+  test("the panel shows the addition as a read-only, used child of Pドリンク獲得, only when there is one", () => {
+    const drink: ParsedTrigger = { occasion: "GetProduceDrink" };
+    const withAddition = buildPanel(withDrinks, {}, [...ALL, drink], [drink], 14);
+    const parent = find(withAddition, "o.GetProduceDrink");
+    expect(parent.value).toBe(30);
+    expect(parent.children.map((c) => c.key)).toEqual(["x.GetProduceDrink.items"]);
+    expect(parent.children[0]).toMatchObject({ label: "Pアイテムによる追加", value: 14, readOnly: true, used: true });
+    expect(find(buildPanel(withDrinks, {}, [...ALL, drink], [drink]), "o.GetProduceDrink").children).toEqual([]);
+  });
+});
+
 describe("buildPanel", () => {
   const panel = buildPanel(PROFILE, {}, ALL, ALL);
 
