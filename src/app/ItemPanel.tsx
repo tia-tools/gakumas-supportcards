@@ -133,15 +133,14 @@ export function ItemPanel({ items, overrides, onChange }: Props) {
         {changed > 0 && <span class="ml-2 rounded-full bg-amber-100 px-2 py-0.5 text-xs text-amber-800">{changed}件変更中</span>}
       </summary>
       <div class="border-t border-slate-200 px-3 py-2 text-sm">
-        <div class="mb-1 flex items-center gap-2 text-xs text-slate-500">
+        <div class="mb-1 flex items-center gap-3 text-xs text-slate-500">
           <Hint hint={EXPLANATION} label="Pアイテムの説明">
             <span class="inline-flex h-4 w-4 items-center justify-center rounded-full border border-slate-400 text-[10px] font-semibold text-slate-500">i</span>
           </Hint>
-          {changed > 0 && (
-            <button type="button" onClick={reset} class="underline text-slate-700">
-              既定に戻す
-            </button>
-          )}
+          {/* Always present, greyed when there is nothing to reset, so it cannot go missing (user report, 2026-09-29). */}
+          <button type="button" onClick={reset} disabled={changed === 0} class="underline text-slate-700 disabled:no-underline disabled:text-slate-300">
+            既定に戻す
+          </button>
         </div>
         {items.length === 0 ? (
           <p class="text-xs text-slate-500">表示中のカードにPアイテムはありません。</p>
