@@ -76,6 +76,7 @@ export interface RawProduceItemSkill {
 export interface RawProduceItem {
   id: string;
   name: string;
+  assetId: string;
   fireLimit: number;
   produceTriggerId: string;
   skills: RawProduceItemSkill[];
@@ -149,7 +150,7 @@ export async function loadTables(opts: LoadOptions = {}): Promise<Tables> {
       loadTable<RawLevelLimit>("SupportCardLevelLimit", ["id", "rank", "levelLimit"], opts),
       loadTable<RawEventSupportCard>("ProduceEventSupportCard", ["supportCardId", "number", "supportCardLevel", "produceStepEventDetailId"], opts),
       loadTable<RawEventDetail>("ProduceStepEventDetail", ["id", "produceEffectIds"], opts),
-      loadTable<RawProduceItem>("ProduceItem", ["id", "name", "fireLimit", "produceTriggerId", "skills"], opts),
+      loadTable<RawProduceItem>("ProduceItem", ["id", "name", "assetId", "fireLimit", "produceTriggerId", "skills"], opts),
       loadTable<RawProduceItemEffect>("ProduceItemEffect", ["id", "effectType", "produceEffectId"], opts),
     ]);
   return {

@@ -101,6 +101,24 @@ export interface Breakpoint {
   eventBonusPermil: number;
 }
 
+/**
+ * A P-item one of the card's events grants, listed when the item has a countable
+ * stat effect (those effects sit in the breakpoints with `itemId`) or grants
+ * P-drinks (Milestone 3 of docs/plans/EXECPLAN_SCORE_ADJUSTMENTS.md, decisions
+ * A8–A11). Level-independent: the deck tick assumes the card is at a level where
+ * the item is granted (A17).
+ */
+export interface ItemGrant {
+  itemId: string;
+  itemName: string;
+  /** The game's icon asset, e.g. `img_general_pitem_2-004` (Milestone 4 serves it). */
+  assetId: string;
+  /** `ProduceItem.fireLimit`; absent = unlimited. */
+  cap?: number;
+  /** Set when a fire grants P-drinks: how many, and on which trigger; the drinks raise the run's Pドリンク獲得 count for every card when the item is in the deck. */
+  drinks?: { perFire: number; trigger: ParsedTrigger };
+}
+
 export interface Card {
   id: string;
   name: string;
@@ -110,6 +128,8 @@ export interface Card {
   plan: Plan;
   /** Sorted by minLevel ascending; the first entry is the card at level 1. */
   breakpoints: Breakpoint[];
+  /** P-items the card grants that count for something, sorted by item id; absent when none. */
+  items?: readonly ItemGrant[];
   /**
    * The card has an SP発生率+ skill from level 1. It scores 0 (docs/adr/0001) and is
    * not among the effects; the page marks the card and can filter by it

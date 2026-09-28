@@ -8,11 +8,13 @@
 
 import { describe, expect, test } from "bun:test";
 import { conditionKey, missingNumbers, occasionOfConditionKey } from "../../src/engine/count.ts";
-import { scoreBest } from "../../src/engine/score.ts";
+import { scoreBest, type ScoreContext } from "../../src/engine/score.ts";
 import { DEFAULT_AUDITION_SHARE, type Card, type RouteProfile, type Totsu } from "../../src/engine/types.ts";
 import { CARDS } from "../cards.generated.ts";
 import { HELD } from "../held.generated.ts";
 import { LEVEL_LIMITS } from "../levelLimits.generated.ts";
+import { deckDrinks, deckKey } from "../../src/app/item-panel.ts";
+import { applyOverrides } from "../../src/app/panel.ts";
 import { bonusBase as hifBonusBase } from "./hif.ts";
 import { ALL_SCENARIOS, SCENARIOS } from "./index.ts";
 
@@ -51,6 +53,31 @@ describe("shipped scenarios", () => {
     expect(hifBonusBase(0, 0.1)).toBe(420);
     expect(hifBonusBase(7, 1)).toBe(1421); // the whole distributed 500 to the main stat
     expect(hifBonusBase(7, 7 / 8)).toBe(1359); // the former lesson-share proxy, for the record
+  });
+
+  test("P-items (Milestone 3 of docs/plans/EXECPLAN_SCORE_ADJUSTMENTS.md): ふわふわでもこもこ in the deck adds 14 drinks and 70 points to おい、来てやったぞ！ and none to its own card; capping びっくり仮装グッズ at 1 costs はっぴぃはろうぃ～～ん！ 20", () => {
+    const [s] = SCENARIOS;
+    const [p] = s?.profiles ?? [];
+    if (!s || !p) throw new Error("no default scenario profile");
+    const byName = (name: string): Card => {
+      const c = CARDS.find((x) => x.name === name);
+      if (!c) throw new Error(`${name} is not in the generated data`);
+      return c;
+    };
+    const fluffy = byName("ふわふわでワクワク");
+    const fluffyItem = fluffy.items?.find((i) => i.drinks);
+    if (!fluffyItem) throw new Error("ふわふわでワクワク grants no drink item");
+    const drinks = deckDrinks(CARDS, { scenarioId: s.id, profile: p }, { [deckKey(fluffyItem.itemId)]: 1 });
+    expect(drinks).toBe(14); // 7 dance SP lessons × 2 drinks
+    const base = { scenarioId: s.id, profile: p, limits: LEVEL_LIMITS, share: DEFAULT_AUDITION_SHARE };
+    const withDeck = { ...base, profile: applyOverrides(p, {}, drinks) };
+    const total = (card: Card, ctx: Omit<ScoreContext, "lessons">): number => scoreBest(card, 4, ctx).total;
+    expect(total(byName("おい、来てやったぞ！"), withDeck) - total(byName("おい、来てやったぞ！"), base)).toBe(70);
+    expect(total(fluffy, withDeck) - total(fluffy, base)).toBe(0);
+    const halloween = byName("はっぴぃはろうぃ～～ん！");
+    const costume = halloween.items?.find((i) => i.itemName === "びっくり仮装グッズ");
+    if (!costume) throw new Error("はっぴぃはろうぃ～～ん！ grants no びっくり仮装グッズ");
+    expect(total(halloween, base) - total(halloween, { ...base, itemCaps: { [costume.itemId]: 1 } })).toBe(20);
   });
 
   test("lowering one condition moves only the cards whose effects carry it (decision C2 of docs/plans/EXECPLAN_COUNTING_MODEL.md)", () => {

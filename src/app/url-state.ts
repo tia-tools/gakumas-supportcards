@@ -15,6 +15,8 @@
  *   o.<Occasion>=<n>  f.<Occasion>.<family>.<member>=<n>  w.<condition key>=<n>
  *                     count overrides (D2), keyed as in src/app/panel.ts. The `c.<category>`
  *                     keys of the former counting model are ignored.
+ *   i.<item id>=<n>   a P-item's cap on its fires;  d.<item id>=1  the item is in the deck
+ *                     (src/app/item-panel.ts; docs/plans/EXECPLAN_SCORE_ADJUSTMENTS.md A9, A11)
  */
 
 import { isAuditionShare } from "../engine/share.ts";
@@ -38,7 +40,7 @@ export interface ViewState {
   /** Only cards flagged `spRate` (an SP発生率+ skill). */
   sp: boolean;
   sort: SortSpec;
-  /** Count key (`o.…`, `f.…`, `w.…`; see src/app/panel.ts) → the player's number in place of the profile's. */
+  /** Count key (`o.…`, `f.…`, `w.…`, and the P-item keys `i.…`, `d.…`; see src/app/panel.ts) → the player's number in place of the profile's. */
   overrides: Readonly<Record<string, number>>;
 }
 
@@ -51,7 +53,7 @@ export const DEFAULT_SORT: SortSpec = { totsu: 4, desc: true };
 /** The count keys a player may override under a profile (`adjustableKeys` of src/app/panel.ts, with the shipped cards bound). */
 export type AdjustableKeys = (profile: RouteProfile) => ReadonlySet<string>;
 
-const OVERRIDE_KEY = /^[ofw]\./;
+const OVERRIDE_KEY = /^[ofwid]\./;
 
 export function defaultViewState(scenarios: readonly Scenario[]): ViewState {
   const scenario = scenarios[0];
@@ -98,7 +100,9 @@ function parseOverrides(params: URLSearchParams, adjustable: ReadonlySet<string>
   const out: Record<string, number> = {};
   for (const [name, raw] of params) {
     const n = Number(raw);
-    if (OVERRIDE_KEY.test(name) && adjustable.has(name) && raw !== "" && Number.isInteger(n) && n >= 0) out[name] = n;
+    if (!OVERRIDE_KEY.test(name) || !adjustable.has(name) || raw === "" || !Number.isInteger(n) || n < 0) continue;
+    if (name.startsWith("d.") && n !== 1) continue; // a deck tick is 1 or absent
+    out[name] = n;
   }
   return out;
 }

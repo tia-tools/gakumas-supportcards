@@ -8,6 +8,7 @@
  *   o.<Occasion>                       how often the occasion happens
  *   f.<Occasion>.<family>.<member>     how many of those a filter selects
  *   w.<condition key>                  how many of those meet a condition (absent = all)
+ *   i.<item id>  d.<item id>           a P-item's cap on fires, and its tick into the deck (src/app/item-panel.ts)
  * Inputs form a tree — occasion, its filters, conditions under the filter every
  * trigger using them shares, else under the occasion — and a child can never
  * exceed its parent. Sections are fixed; which inputs are folded away depends on
@@ -112,17 +113,25 @@ function deriveNormalLessons(draft: ProfileDraft, overrides: Overrides): void {
   }
 }
 
+/** The occasion the deck's P-item drinks add to (decision A8 of docs/plans/EXECPLAN_SCORE_ADJUSTMENTS.md). */
+export const DRINK_OCCASION = "GetProduceDrink";
+/** The read-only child of Pドリンク獲得 that shows what ticked P-items add. */
+export const DECK_DRINKS_KEY = `x.${DRINK_OCCASION}.items`;
+
 /**
  * The profile with the player's numbers in it. An SP-lesson override moves 通常レッスン
  * with it (a lesson is one or the other) unless 通常レッスン is overridden itself (C18).
- * Bounds are not enforced here: the engine takes the minimum along the tree anyway.
+ * `deckDrinks` (the drinks ticked P-items add, src/app/item-panel.ts) are added to
+ * Pドリンク獲得 after the overrides. Bounds are not enforced here: the engine takes
+ * the minimum along the tree anyway.
  */
-export function applyOverrides(profile: RouteProfile, overrides: Overrides): RouteProfile {
-  if (Object.keys(overrides).length === 0) return profile;
+export function applyOverrides(profile: RouteProfile, overrides: Overrides, deckDrinks = 0): RouteProfile {
+  if (Object.keys(overrides).length === 0 && deckDrinks === 0) return profile;
   const draft: ProfileDraft = { occasions: { ...profile.occasions }, filters: {}, conditions: { ...profile.conditions } };
   for (const [occasion, families] of Object.entries(profile.filters)) draft.filters[occasion] = { ...families };
   for (const [key, n] of Object.entries(overrides)) setOverride(draft, key, n);
   deriveNormalLessons(draft, overrides);
+  if (deckDrinks > 0) draft.occasions[DRINK_OCCASION] = (draft.occasions[DRINK_OCCASION] ?? 0) + deckDrinks;
   return { ...profile, ...draft };
 }
 
@@ -158,6 +167,8 @@ interface PanelContext {
   filters: Map<string, Map<string, FilterRef>>;
   /** condition input key → its use */
   conditions: Map<string, ConditionUse>;
+  /** Drinks ticked P-items add to Pドリンク獲得 (src/app/item-panel.ts). */
+  deckDrinks: number;
 }
 
 /** The filters that exist per occasion: those the profile names, then those the cards use. */
@@ -214,17 +225,20 @@ function occasionDraft(ctx: PanelContext, occasion: string, readOnly: boolean): 
   const root: Draft = { key: occasionKey(occasion), label: occasionLabel(occasion), base: ctx.profile.occasions[occasion] ?? 0, own, readOnly, children: [] };
   for (const [key, f] of ctx.filters.get(occasion) ?? []) root.children.push(filterDraft(ctx, occasion, key, f));
   placeConditions(ctx, root, occasion);
+  if (occasion === DRINK_OCCASION && ctx.deckDrinks > 0) root.children.push({ key: DECK_DRINKS_KEY, label: "Pアイテムによる追加", base: ctx.deckDrinks, own: ctx.deckDrinks, readOnly: true, note: "「Pアイテム」で「デッキに入れる」にしたアイテムが配るドリンク", children: [] });
   return root;
 }
 
 /**
  * The panel for a profile: `all` are the triggers of every shipped card (they
  * decide which inputs exist), `visible` those of the cards in view (they decide
- * what is folded away).
+ * what is folded away); `deckDrinks` are the drinks ticked P-items add to
+ * Pドリンク獲得, shown as a read-only child of it.
  */
-export function buildPanel(profile: RouteProfile, overrides: Overrides, all: readonly ParsedTrigger[], visible: readonly ParsedTrigger[]): PanelSection[] {
-  const ctx: PanelContext = { profile, applied: applyOverrides(profile, overrides), filters: filtersOf(profile, all), conditions: conditionsOf(all) };
+export function buildPanel(profile: RouteProfile, overrides: Overrides, all: readonly ParsedTrigger[], visible: readonly ParsedTrigger[], deckDrinks = 0): PanelSection[] {
+  const ctx: PanelContext = { profile, applied: applyOverrides(profile, overrides, deckDrinks), filters: filtersOf(profile, all), conditions: conditionsOf(all), deckDrinks };
   const used = keysUsedBy(visible);
+  if (deckDrinks > 0) used.add(DECK_DRINKS_KEY);
   const known = new Set(SECTIONS.flatMap((s) => s.occasions));
   const named = new Set([...Object.keys(profile.occasions), ...all.map((t) => t.occasion), ...[...ctx.conditions.values()].map((c) => c.occasion), ...Object.keys(profile.conditions ?? {}).map(occasionOfConditionKey)]);
   const sections = SECTIONS.map((s) => ({ id: s.id, title: s.title, inputs: s.occasions.filter((o) => named.has(o)).map((o) => finish(occasionDraft(ctx, o, s.readOnly), null, overrides, used)) }));

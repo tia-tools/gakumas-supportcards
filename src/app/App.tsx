@@ -8,6 +8,7 @@ import { Controls } from "./Controls.tsx";
 import { CustomizePanel } from "./CustomizePanel.tsx";
 import { FeedbackForm, FeedbackLink } from "./FeedbackForm.tsx";
 import { ScoreTable } from "./ScoreTable.tsx";
+import { deckDrinks, itemCapsOf, itemRows } from "./item-panel.ts";
 import { applyOverrides, buildPanel, triggersOf } from "./panel.ts";
 import { buildRows, filterRows, sortRows, withoutHeld } from "./rows.ts";
 import { resolveSelection } from "./url-state.ts";
@@ -20,14 +21,18 @@ export function App() {
   const [state, update] = useUrlState();
   const { scenario, profile } = resolveSelection(state, SCENARIOS);
 
+  // The profile with the player's counts; the drinks ticked P-items add come on top (they are counted from this profile, so not from themselves).
+  const applied = useMemo(() => applyOverrides(profile, state.overrides), [profile, state.overrides]);
+  const drinks = useMemo(() => deckDrinks(SHOWN_CARDS, { scenarioId: scenario.id, profile: applied }, state.overrides), [scenario, applied, state.overrides]);
   const scored = useMemo(
-    () => buildRows(SHOWN_CARDS, { scenarioId: scenario.id, profile: applyOverrides(profile, state.overrides), limits: LEVEL_LIMITS, share: state.share ?? DEFAULT_AUDITION_SHARE }, state.split),
-    [scenario, profile, state.overrides, state.split, state.share],
+    () => buildRows(SHOWN_CARDS, { scenarioId: scenario.id, profile: applyOverrides(profile, state.overrides, drinks), limits: LEVEL_LIMITS, share: state.share ?? DEFAULT_AUDITION_SHARE, itemCaps: itemCapsOf(state.overrides) }, state.split),
+    [scenario, profile, state.overrides, state.split, state.share, drinks],
   );
   const rows = useMemo(() => sortRows(filterRows(scored, state), state.sort), [scored, state.types, state.plans, state.rarities, state.sp, state.sort]);
 
   // Which inputs the panel folds away depends on the cards in view, not on their order.
-  const sections = useMemo(() => buildPanel(profile, state.overrides, ALL_TRIGGERS, triggersOf(rows.map((r) => r.card))), [profile, state.overrides, rows]);
+  const sections = useMemo(() => buildPanel(profile, state.overrides, ALL_TRIGGERS, triggersOf(rows.map((r) => r.card)), drinks), [profile, state.overrides, rows, drinks]);
+  const items = useMemo(() => itemRows(rows.map((r) => r.card), { scenarioId: scenario.id, profile: applied }, state.overrides), [scenario, applied, rows, state.overrides]);
 
   const onSort = (totsu: Totsu): void => update({ sort: { totsu, desc: state.sort.totsu === totsu ? !state.sort.desc : true } });
 
@@ -45,7 +50,7 @@ export function App() {
       <section class="rounded-lg border border-slate-200 bg-white p-3">
         <Controls scenarios={SCENARIOS} scenario={scenario} profile={profile} state={state} update={update} />
       </section>
-      <CustomizePanel profileName={profile.name} sections={sections} overrides={state.overrides} onChange={(overrides) => update({ overrides })} />
+      <CustomizePanel profileName={profile.name} sections={sections} items={items} overrides={state.overrides} onChange={(overrides) => update({ overrides })} />
       <section class="rounded-lg border border-slate-200 bg-white overflow-visible">
         <ScoreTable rows={rows} sort={state.sort} onSort={onSort} />
       </section>

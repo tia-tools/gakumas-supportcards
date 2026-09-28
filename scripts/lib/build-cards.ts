@@ -13,10 +13,10 @@
  * (docs/adr/0005).
  */
 
-import { type Breakpoint, type Card, type CardType, type ClassifiedEffect, type HeldCard, type LevelLimits, type ParsedTrigger, type Plan, type Rarity, type Stat } from "../../src/engine/types.ts";
+import { type Breakpoint, type Card, type CardType, type ClassifiedEffect, type HeldCard, type ItemGrant, type LevelLimits, type ParsedTrigger, type Plan, type Rarity, type Stat } from "../../src/engine/types.ts";
 import { EVENT_BONUS_EFFECT_TYPE, NON_PARAMETER_EFFECT_TYPES, PARAM_ADDITION_TYPES, PARAM_BONUS_TYPES, SP_RATE_EFFECT_TYPES, parameterStatOf } from "./effect-types.ts";
 import { parseTrigger, type ParseResult } from "./parse-trigger.ts";
-import type { RawEventSupportCard, RawProduceEffect, RawProduceItem, RawProduceSkill, RawSkillLevel, RawSupportCard, Tables } from "./tables.ts";
+import type { RawEventSupportCard, RawProduceEffect, RawProduceItem, RawProduceItemSkill, RawProduceSkill, RawSkillLevel, RawSupportCard, Tables } from "./tables.ts";
 
 const CARD_TYPE: Readonly<Record<string, CardType>> = {
   SupportCardType_Vocal: "vocal",
@@ -39,8 +39,21 @@ const PLAN: Readonly<Record<string, Plan>> = {
   ProducePlanType_Anomaly: "anomaly",
 };
 const ITEM_RESOURCE_TYPE = "ProduceResourceType_ProduceItem";
+const DRINK_RESOURCE_TYPE = "ProduceResourceType_ProduceDrink";
 /** Reward resources a card event may grant that add no parameter by themselves (a skill card). Anything else fails the build. */
 const NON_PARAMETER_RESOURCE_TYPES: ReadonlySet<string> = new Set(["ProduceResourceType_ProduceCard"]);
+/** Quantity in a direct reward's effect id (`p_effect-produce_reward-0001_0001-produce_drink-…`) and in a reward set's (`…-drink_set-all-random-02_02`). */
+const DIRECT_REWARD_QUANTITY = /^p_effect-produce_reward-(\d{4})_(\d{4})-/;
+const REWARD_SET_QUANTITY = /-(\d{2})_(\d{2})$/;
+
+/** The one quantity a reward id names; a range (min ≠ max) or no quantity at all stops the run (decision A16). */
+function quantityOf(id: string, pattern: RegExp, where: string): number {
+  const m = pattern.exec(id);
+  if (!m || m[1] === undefined || m[2] === undefined) throw new Error(`${where}: no quantity in reward id ${id}`);
+  const [min, max] = [Number(m[1]), Number(m[2])];
+  if (min !== max) throw new Error(`${where}: reward id ${id} names a range ${min}..${max}; the engine assumes a fixed quantity`);
+  return min;
+}
 const TOTSU_RANKS = [
   "SupportCardLevelLimitRank_Unknown",
   "SupportCardLevelLimitRank__1",
@@ -87,6 +100,24 @@ function effectSortKey(e: ClassifiedEffect): string {
   return `${e.kind}|${e.bonus ? 0 : 1}|${JSON.stringify(e.trigger ?? null)}|${e.stat}|${e.itemId ?? ""}|${e.value}`;
 }
 
+/** What one P-item contributes: its countable stat effects, the reasons its card is held, and the grant record when it counts for anything. */
+interface ItemResult {
+  effects: ClassifiedEffect[];
+  held: string[];
+  grant?: ItemGrant;
+}
+
+/** What one skill of a P-item is: a countable stat effect, a drink grant, a reason to hold the card, or nothing that counts. */
+type ItemSkillResult = { effect: ClassifiedEffect } | { drinks: NonNullable<ItemGrant["drinks"]> } | { held: string } | null;
+
+/** The `spRate` flag after reading `level`: set at level 1; a later-only appearance is for a person to decide (decision A15). */
+function spRateAfter(cardId: string, level: number, spHere: boolean, spRate: boolean): boolean {
+  if (!spHere) return spRate;
+  if (level === 1) return true;
+  if (!spRate) throw new Error(`${cardId}: SP発生率+ appears at level ${level} but not at level 1; the SP badge would be wrong at 凸0`);
+  return spRate;
+}
+
 class CardBuilder {
   private readonly skillByIdLevel: Map<string, RawProduceSkill>;
   private readonly effectById: Map<string, RawProduceEffect>;
@@ -97,8 +128,10 @@ class CardBuilder {
   private readonly itemEffectById: Map<string, { id: string; effectType: string; produceEffectId: string }>;
   private readonly skillLevelsByCard: Map<string, RawSkillLevel[]>;
   private readonly eventsByCard: Map<string, RawEventSupportCard[]>;
-  private readonly itemEffectsCache = new Map<string, { effects: ClassifiedEffect[]; held: string[] }>();
+  private readonly itemEffectsCache = new Map<string, ItemResult>();
   private readonly heldReasons = new Map<string, Set<string>>();
+  /** Card id → item id → the grant, collected while the card's events are read. */
+  private readonly grantsByCard = new Map<string, Map<string, ItemGrant>>();
   readonly report: BuildReport = { held: [], skippedByType: new Map(), occasionsUsed: new Set() };
 
   constructor(tables: Tables) {
@@ -138,14 +171,35 @@ class CardBuilder {
       this.skip(effect.produceEffectType);
       return null;
     }
+    const parsed = this.parsed(triggerId, phaseType, where);
+    if ("held" in parsed) return parsed;
+    this.report.occasionsUsed.add(parsed.trigger.occasion);
+    return { stat, trigger: parsed.trigger, bonus: PARAM_BONUS_TYPES.has(effect.produceEffectType) };
+  }
+
+  /** The trigger id read as occasion, filters and conditions, cached; a piece of unknown kind is a reason to hold the card. */
+  private parsed(triggerId: string, phaseType: string, where: string): { trigger: ParsedTrigger } | { held: string } {
     let parsed = this.parsedTriggers.get(triggerId);
     if (!parsed) {
       parsed = parseTrigger(triggerId, phaseType);
       this.parsedTriggers.set(triggerId, parsed);
     }
     if (parsed.kind === "unknown-piece") return { held: `${where}: trigger ${triggerId} has a piece of unknown kind: ${parsed.piece}` };
-    this.report.occasionsUsed.add(parsed.trigger.occasion);
-    return { stat, trigger: parsed.trigger, bonus: PARAM_BONUS_TYPES.has(effect.produceEffectType) };
+    return { trigger: parsed.trigger };
+  }
+
+  /**
+   * Drinks per fire when the effect grants P-drinks; null when it grants nothing
+   * countable here — a skill-card set or card is ignored (decision A10). A reward
+   * set naming neither drink nor card, or an unreadable quantity, stops the run (A16).
+   */
+  private drinksOf(effect: RawProduceEffect, where: string): number | null {
+    if (effect.produceEffectType === "ProduceEffectType_ProduceReward") {
+      return effect.produceRewards.some((r) => r.resourceType === DRINK_RESOURCE_TYPE) ? quantityOf(effect.id, DIRECT_REWARD_QUANTITY, where) : null;
+    }
+    if (effect.produceEffectType !== "ProduceEffectType_ProduceRewardSet" || effect.id.includes("card")) return null;
+    if (!effect.id.includes("drink")) throw new Error(`${where}: reward set ${effect.id} names neither drink nor card`);
+    return quantityOf(effect.id, REWARD_SET_QUANTITY, where);
   }
 
   private hold(cardId: string, reason: string): void {
@@ -205,39 +259,66 @@ class CardBuilder {
     return { effects, eventBonusPermil, spRate };
   }
 
-  private itemEffects(itemId: string): { effects: ClassifiedEffect[]; held: string[] } {
+  private itemEffects(itemId: string): ItemResult {
     const cached = this.itemEffectsCache.get(itemId);
     if (cached) return cached;
     const item = this.itemById.get(itemId);
     if (!item) throw new Error(`missing ProduceItem ${itemId}`);
     const out: ClassifiedEffect[] = [];
     const held: string[] = [];
+    let drinks: ItemGrant["drinks"];
     for (const sk of item.skills) {
-      const ie = this.itemEffectById.get(sk.produceItemEffectId);
-      if (!ie) throw new Error(`item ${itemId}: missing ProduceItemEffect ${sk.produceItemEffectId}`);
-      if (ie.effectType === "ProduceItemEffectType_ExamStatusEnchant") continue; // exam-time enchants score 0
-      if (ie.effectType !== "ProduceItemEffectType_ProduceEffect") throw new Error(`item ${itemId} ${item.name}: unknown ProduceItemEffect type "${ie.effectType}"`);
-      const where = `item ${itemId} ${item.name}`;
-      const effect = this.effect(ie.produceEffectId, where);
-      const triggerId = sk.produceTriggerId || item.produceTriggerId;
-      const r = this.resolve(effect, triggerId, where);
-      if (!r) continue;
-      if ("held" in r) {
-        held.push(r.held);
-        continue;
-      }
-      const e: ClassifiedEffect = { stat: r.stat, value: effect.effectValueMin, kind: "item", itemId, itemName: item.name };
-      if (item.fireLimit > 0) e.cap = item.fireLimit;
-      e.trigger = r.trigger;
-      if (r.bonus) e.bonus = true;
-      out.push(e);
+      const r = this.itemSkill(item, sk);
+      if (r === null) continue;
+      if ("held" in r) held.push(r.held);
+      else if ("drinks" in r) drinks = r.drinks;
+      else out.push(r.effect);
     }
-    const result = { effects: out, held };
+    const result: ItemResult = { effects: out, held };
+    if (out.length > 0 || drinks) {
+      const grant: ItemGrant = { itemId, itemName: item.name, assetId: item.assetId };
+      if (item.fireLimit > 0) grant.cap = item.fireLimit;
+      if (drinks) grant.drinks = drinks;
+      result.grant = grant;
+    }
     this.itemEffectsCache.set(itemId, result);
     return result;
   }
 
-  /** Effects of an event's rewards: a granted P-item's effects (its held reasons go to the card); nothing for the audited resource types. */
+  private itemSkill(item: RawProduceItem, sk: RawProduceItemSkill): ItemSkillResult {
+    const ie = this.itemEffectById.get(sk.produceItemEffectId);
+    if (!ie) throw new Error(`item ${item.id}: missing ProduceItemEffect ${sk.produceItemEffectId}`);
+    if (ie.effectType === "ProduceItemEffectType_ExamStatusEnchant") return null; // exam-time enchants score 0
+    if (ie.effectType !== "ProduceItemEffectType_ProduceEffect") throw new Error(`item ${item.id} ${item.name}: unknown ProduceItemEffect type "${ie.effectType}"`);
+    const where = `item ${item.id} ${item.name}`;
+    const effect = this.effect(ie.produceEffectId, where);
+    const triggerId = sk.produceTriggerId || item.produceTriggerId;
+    const perFire = this.drinksOf(effect, where);
+    if (perFire !== null) {
+      const t = this.drinkTrigger(triggerId, where, effect.produceEffectType);
+      return "held" in t ? t : { drinks: { perFire, trigger: t.trigger } };
+    }
+    const r = this.resolve(effect, triggerId, where);
+    if (!r) return null;
+    if ("held" in r) return r;
+    const e: ClassifiedEffect = { stat: r.stat, value: effect.effectValueMin, kind: "item", itemId: item.id, itemName: item.name };
+    if (item.fireLimit > 0) e.cap = item.fireLimit;
+    e.trigger = r.trigger;
+    if (r.bonus) e.bonus = true;
+    return { effect: e };
+  }
+
+  /** The trigger of a drink-granting item effect, counted like a stat effect's and reported as skipped like every non-parameter type. */
+  private drinkTrigger(triggerId: string, where: string, effectType: string): { trigger: ParsedTrigger } | { held: string } {
+    const phaseType = this.phaseByTrigger.get(triggerId);
+    if (phaseType === undefined) throw new Error(`${where}: missing ProduceTrigger ${triggerId}`);
+    this.skip(effectType);
+    const parsed = this.parsed(triggerId, phaseType, where);
+    if ("trigger" in parsed) this.report.occasionsUsed.add(parsed.trigger.occasion);
+    return parsed;
+  }
+
+  /** Effects of an event's rewards: a granted P-item's effects (its held reasons and its grant go to the card); nothing for the audited resource types. */
   private rewardEffects(cardId: string, rewards: readonly { resourceType: string; resourceId: string }[], where: string): ClassifiedEffect[] {
     const out: ClassifiedEffect[] = [];
     for (const rw of rewards) {
@@ -245,6 +326,7 @@ class CardBuilder {
         const item = this.itemEffects(rw.resourceId);
         out.push(...item.effects);
         for (const reason of item.held) this.hold(cardId, reason);
+        if (item.grant) (this.grantsByCard.get(cardId) ?? this.grantsByCard.set(cardId, new Map()).get(cardId))?.set(item.grant.itemId, item.grant);
       } else if (!NON_PARAMETER_RESOURCE_TYPES.has(rw.resourceType)) throw new Error(`${where}: unsupported reward "${rw.resourceType}" (${rw.resourceId})`);
     }
     return out;
@@ -283,9 +365,7 @@ class CardBuilder {
     let spRate = false;
     for (const level of [...levels].sort((a, b) => a - b)) {
       const { effects, eventBonusPermil, spRate: spHere } = this.skillEffects(raw.id, level);
-      // The badge covers every 凸 column, so the flag must hold from level 1; a later-only case is for a person to decide.
-      if (spHere && level === 1) spRate = true;
-      else if (spHere && !spRate) throw new Error(`${raw.id}: SP発生率+ appears at level ${level} but not at level 1; the SP badge would be wrong at 凸0`);
+      spRate = spRateAfter(raw.id, level, spHere, spRate); // the badge covers every 凸 column, so the flag must hold from level 1
       const all = [...effects, ...this.eventEffects(raw.id, level)].sort((a, b) => byCodeUnit(effectSortKey(a), effectSortKey(b)));
       const bp: Breakpoint = { minLevel: level, effects: all, eventBonusPermil };
       const prev = breakpoints.at(-1);
@@ -304,6 +384,8 @@ class CardBuilder {
       breakpoints,
     };
     if (spRate) card.spRate = true;
+    const grants = [...(this.grantsByCard.get(raw.id)?.values() ?? [])].sort((a, b) => byCodeUnit(a.itemId, b.itemId));
+    if (grants.length > 0) card.items = grants;
     return card;
   }
 }

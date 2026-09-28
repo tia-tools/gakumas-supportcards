@@ -64,7 +64,7 @@ function fixture(): Tables {
       { id: "ev-3", produceEffectIds: ["e-card-upgrade"] },
       { id: "ev-r1", produceEffectIds: ["e-card-upgrade"] },
     ],
-    items: [{ id: "pitem-x", name: "テストアイテム", fireLimit: 2, produceTriggerId: "", skills: [{ produceTriggerId: "p_trigger-start_shop-vocal-0400_0000", produceItemEffectId: "ie-x" }] }],
+    items: [{ id: "pitem-x", name: "テストアイテム", assetId: "img_general_pitem_9-999", fireLimit: 2, produceTriggerId: "", skills: [{ produceTriggerId: "p_trigger-start_shop-vocal-0400_0000", produceItemEffectId: "ie-x" }] }],
     itemEffects: [{ id: "ie-x", effectType: "ProduceItemEffectType_ProduceEffect", produceEffectId: "e-item-vo30" }],
   };
 }
@@ -120,6 +120,11 @@ describe("buildCards", () => {
 
   test("a card with no parameter effect keeps one empty breakpoint (D10)", () => {
     expect(rCard?.breakpoints).toEqual([{ minLevel: 1, effects: [], eventBonusPermil: 0 }]);
+  });
+
+  test("a granted P-item with a stat effect is listed on the card with its cap and asset; a card granting none has no list (A9)", () => {
+    expect(card?.items).toEqual([{ itemId: "pitem-x", itemName: "テストアイテム", assetId: "img_general_pitem_9-999", cap: 2 }]);
+    expect(rCard).not.toHaveProperty("items");
   });
 
   test("report: nothing held, the occasions in use, card-upgrade skipped", () => {
@@ -247,6 +252,56 @@ describe("buildCards: what holds a card, and what stops the run", () => {
     t.skills.push(skill("sk-sp", 1, "e-sp", "p_trigger-produce_start-no_description", 1));
     t.skillLevels.push({ supportCardId: "s_card-3-9999", produceSkillId: "sk-sp", produceSkillLevel: 1, supportCardLevel: 20 });
     expect(() => buildCards(t)).toThrow("s_card-3-9999: SP発生率+ appears at level 20 but not at level 1");
+  });
+});
+
+describe("buildCards: granted P-items that count (Milestone 3 of docs/plans/EXECPLAN_SCORE_ADJUSTMENTS.md)", () => {
+  /** The fixture with a second item `pitem-d` granted by event #2, whose one skill is `effectType` with id `effectId` on 相談選択時. */
+  function withRewardItem(effectId: string, effectType: string, rewards: { resourceType: string; resourceId: string }[] = []): Tables {
+    const t = fixture();
+    t.effects.push({ ...effect(effectId, effectType, 0), produceRewards: rewards });
+    t.itemEffects.push({ id: "ie-d", effectType: "ProduceItemEffectType_ProduceEffect", produceEffectId: effectId });
+    t.items.push({ id: "pitem-d", name: "ドリンク係", assetId: "img_general_pitem_9-998", fireLimit: 0, produceTriggerId: "p_trigger-start_shop", skills: [{ produceTriggerId: "", produceItemEffectId: "ie-d" }] });
+    t.effects.push({ ...effect("e-grant-d", "ProduceEffectType_ProduceReward", 1), produceRewards: [{ resourceType: "ProduceResourceType_ProduceItem", resourceId: "pitem-d" }] });
+    must(t.eventDetails[1], "event #2").produceEffectIds = ["e-event-vo20", "e-grant-d"];
+    return t;
+  }
+  const itemsOf = (t: Tables) => buildCards(t).cards.find((c) => c.id === "s_card-3-9999")?.items;
+
+  test("a drink-set item is listed with drinks per fire from its id and its trigger; the set is still counted as skipped (A9, A16)", () => {
+    const t = withRewardItem("p_effect-produce_reward_set-p_rd-drink_set-all-random-02_02", "ProduceEffectType_ProduceRewardSet");
+    const r = buildCards(t);
+    expect(itemsOf(t)).toEqual([
+      { itemId: "pitem-d", itemName: "ドリンク係", assetId: "img_general_pitem_9-998", drinks: { perFire: 2, trigger: { occasion: "StartShop" } } },
+      { itemId: "pitem-x", itemName: "テストアイテム", assetId: "img_general_pitem_9-999", cap: 2 },
+    ]);
+    expect(r.report.held).toEqual([]);
+    expect(r.report.skippedByType.get("ProduceEffectType_ProduceRewardSet")).toBe(1); // an item is read once and cached, whatever levels grant it
+  });
+
+  test("a direct drink reward reads its quantity from the effect id", () => {
+    const t = withRewardItem("p_effect-produce_reward-0001_0001-produce_drink-pdrink_00-3-001", "ProduceEffectType_ProduceReward", [{ resourceType: "ProduceResourceType_ProduceDrink", resourceId: "pdrink_00-3-001" }]);
+    expect(itemsOf(t)?.[0]?.drinks).toEqual({ perFire: 1, trigger: { occasion: "StartShop" } });
+  });
+
+  test("a skill-card set or card reward is ignored (A10): no drinks, and no grant when the item has no stat effect either", () => {
+    expect(itemsOf(withRewardItem("p_effect-produce_reward_set-p_rd-card_set-r-upgrade_0-random-01_01", "ProduceEffectType_ProduceRewardSet"))).toHaveLength(1);
+    expect(itemsOf(withRewardItem("p_effect-produce_reward-0001_0001-produce_card-p_card-03-men-1_039-0", "ProduceEffectType_ProduceReward", [{ resourceType: "ProduceResourceType_ProduceCard", resourceId: "p_card-03-men-1_039" }]))).toHaveLength(1);
+  });
+
+  test("a reward set naming neither drink nor card, a ranged quantity, or a quantity-less drink id stops the run (A16)", () => {
+    expect(() => buildCards(withRewardItem("p_effect-produce_reward_set-p_rd-mystery-01_01", "ProduceEffectType_ProduceRewardSet"))).toThrow("item pitem-d ドリンク係: reward set p_effect-produce_reward_set-p_rd-mystery-01_01 names neither drink nor card");
+    expect(() => buildCards(withRewardItem("p_effect-produce_reward_set-p_rd-drink_set-all-random-01_03", "ProduceEffectType_ProduceRewardSet"))).toThrow("names a range 1..3");
+    expect(() => buildCards(withRewardItem("p_effect-produce_reward_set-p_rd-drink_set-all-random", "ProduceEffectType_ProduceRewardSet"))).toThrow("no quantity in reward id");
+  });
+
+  test("a drink item on a trigger of unknown kind holds the card and grants no drinks", () => {
+    const t = withRewardItem("p_effect-produce_reward_set-p_rd-drink_set-all-random-01_01", "ProduceEffectType_ProduceRewardSet");
+    t.triggers.push({ id: "p_trigger-start_shop-mystery", phaseType: "ProducePhaseType_StartShop" });
+    must(t.items[1], "pitem-d").produceTriggerId = "p_trigger-start_shop-mystery";
+    const r = buildCards(t);
+    expect(r.report.held.map((h) => h.id)).toEqual(["s_card-3-9999"]);
+    expect(r.cards.find((c) => c.id === "s_card-3-9999")?.items?.some((i) => i.itemId === "pitem-d")).toBe(false);
   });
 });
 
