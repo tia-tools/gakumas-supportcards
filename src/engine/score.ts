@@ -27,6 +27,8 @@ export interface ScoreContext {
   lessons: LessonSplit;
   /** Main / sub / other tenths of the exam's distributed rewards (decisions A3–A5 of docs/plans/EXECPLAN_SCORE_ADJUSTMENTS.md). */
   share: AuditionShare;
+  /** Item id → the player's ceiling on that item's fires (decision A11 of the same plan). */
+  itemCaps?: Readonly<Record<string, number>>;
 }
 
 export function levelFor(limits: LevelLimits, rarity: Rarity, totsu: Totsu): number {

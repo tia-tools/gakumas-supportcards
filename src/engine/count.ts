@@ -6,6 +6,7 @@
  *   occurrences = min( profile.occasions[occasion],
  *                      each filter's count   (lesson stat: the lesson split; else the member's count or its family default),
  *                      each condition's count where the profile states one (unstated = met every time),
+ *                      the player's cap on the item, for an item effect (decision A11 of docs/plans/EXECPLAN_SCORE_ADJUSTMENTS.md),
  *                      the effect's own cap )
  * and 0 when the trigger is restricted to another scenario.
  */
@@ -16,6 +17,8 @@ export interface CountContext {
   scenarioId: string;
   profile: RouteProfile;
   lessons: LessonSplit;
+  /** Item id → the player's ceiling on that item's fires; an extra cap, never a raise (A11). */
+  itemCaps?: Readonly<Record<string, number>>;
 }
 
 function boundOf(c: ConditionRef): string {
@@ -67,18 +70,37 @@ export function missingNumbers(trigger: ParsedTrigger, profile: RouteProfile): s
   return missing;
 }
 
+/** `n` narrowed by each filter: the lesson split for the lesson stat, the profile's count for the rest. */
+function narrowedByFilters(n: number, t: ParsedTrigger, ctx: CountContext): number {
+  let out = n;
+  for (const f of t.filters ?? []) {
+    if (f.family === "lessonStat") out = Math.min(out, isStat(f.member) ? ctx.lessons[f.member] : 0);
+    else out = Math.min(out, filterCount(ctx.profile, t.occasion, f) ?? 0);
+  }
+  return out;
+}
+
+/** `n` narrowed by each condition the profile states a count for (unstated = met every time). */
+function narrowedByConditions(n: number, t: ParsedTrigger, ctx: CountContext): number {
+  let out = n;
+  for (const c of t.conditions ?? []) {
+    const stated = ctx.profile.conditions?.[conditionKey(t.occasion, c)];
+    if (stated !== undefined) out = Math.min(out, stated);
+  }
+  return out;
+}
+
+/** `n` under the player's cap on the item, if any, and the effect's own cap, if any. */
+function capped(n: number, effect: ClassifiedEffect, ctx: CountContext): number {
+  const itemCap = effect.itemId === undefined ? undefined : ctx.itemCaps?.[effect.itemId];
+  const withItemCap = itemCap === undefined ? n : Math.min(n, itemCap);
+  return effect.cap ? Math.min(effect.cap, withItemCap) : withItemCap;
+}
+
 export function occurrences(effect: ClassifiedEffect, ctx: CountContext): number {
   const t = effect.trigger;
   if (!t) return 0;
   if (t.scenario !== undefined && t.scenario !== ctx.scenarioId) return 0;
-  let n = ctx.profile.occasions[t.occasion] ?? 0;
-  for (const f of t.filters ?? []) {
-    if (f.family === "lessonStat") n = Math.min(n, isStat(f.member) ? ctx.lessons[f.member] : 0);
-    else n = Math.min(n, filterCount(ctx.profile, t.occasion, f) ?? 0);
-  }
-  for (const c of t.conditions ?? []) {
-    const stated = ctx.profile.conditions?.[conditionKey(t.occasion, c)];
-    if (stated !== undefined) n = Math.min(n, stated);
-  }
-  return effect.cap ? Math.min(effect.cap, n) : n;
+  const n = narrowedByConditions(narrowedByFilters(ctx.profile.occasions[t.occasion] ?? 0, t, ctx), t, ctx);
+  return capped(n, effect, ctx);
 }
