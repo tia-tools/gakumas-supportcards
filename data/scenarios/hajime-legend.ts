@@ -39,7 +39,9 @@ export const LESSON_SPLITS: readonly LessonSplit[] = [
  * Parameter a stat gains from lessons when `n` of the five select it: the
  * selected gain of the n largest lessons (guess: the main stat takes the late,
  * big lessons) plus the non-selected gain of the others. 中間試験 rewards are not
- * included (guess). 5 → 1520, 4 → 1435, 1 → 845, 0 → 390.
+ * included (guess). 5 → 1520, 4 → 1435, 1 → 845, 0 → 390. The audition share
+ * the engine passes as a second argument (decision A3 of
+ * docs/plans/EXECPLAN_SCORE_ADJUSTMENTS.md) has no term here and is ignored.
  */
 export function bonusBase(n: number): number {
   const sel = SELECTED.slice(SELECTED.length - n).reduce((a, b) => a + b, 0);

@@ -3,7 +3,7 @@ import { CARDS } from "../../data/cards.generated.ts";
 import { HELD } from "../../data/held.generated.ts";
 import { LEVEL_LIMITS } from "../../data/levelLimits.generated.ts";
 import { SCENARIOS } from "../../data/scenarios/index.ts";
-import type { Totsu } from "../engine/types.ts";
+import { DEFAULT_AUDITION_SHARE, type Totsu } from "../engine/types.ts";
 import { Controls } from "./Controls.tsx";
 import { CustomizePanel } from "./CustomizePanel.tsx";
 import { FeedbackForm, FeedbackLink } from "./FeedbackForm.tsx";
@@ -20,7 +20,7 @@ export function App() {
   const [state, update] = useUrlState();
   const { scenario, profile } = resolveSelection(state, SCENARIOS);
 
-  const scored = useMemo(() => buildRows(SHOWN_CARDS, { scenarioId: scenario.id, profile: applyOverrides(profile, state.overrides), limits: LEVEL_LIMITS }, state.split), [scenario, profile, state.overrides, state.split]);
+  const scored = useMemo(() => buildRows(SHOWN_CARDS, { scenarioId: scenario.id, profile: applyOverrides(profile, state.overrides), limits: LEVEL_LIMITS, share: DEFAULT_AUDITION_SHARE }, state.split), [scenario, profile, state.overrides, state.split]);
   const rows = useMemo(() => sortRows(filterRows(scored, state), state.sort), [scored, state.types, state.plans, state.rarities, state.sp, state.sort]);
 
   // Which inputs the panel folds away depends on the cards in view, not on their order.

@@ -125,6 +125,16 @@ export type LevelLimits = Record<Rarity, readonly [number, number, number, numbe
 export type LessonSplit = Readonly<Record<Stat, number>>;
 
 /**
+ * How the 選抜試験's distributed parameter rewards are shared by the main, sub and
+ * remaining stat of a lesson split, in tenths summing to 10 — a player input, in
+ * role terms so it applies under whichever preset scores a card (decisions A3–A5
+ * of docs/plans/EXECPLAN_SCORE_ADJUSTMENTS.md). `src/engine/share.ts` maps a stat
+ * to its role.
+ */
+export type AuditionShare = readonly [number, number, number];
+export const DEFAULT_AUDITION_SHARE: AuditionShare = [2, 7, 1];
+
+/**
  * One way of playing a scenario (decision D2): how often each occasion happens
  * in a run and how many of those each filter and condition selects, which lesson
  * splits a player may choose, and how much parameter パラメータボーナス+ multiplies
@@ -155,10 +165,13 @@ export interface RouteProfile {
   /**
    * Parameter a stat gains over one run from the sources パラメータボーナス+
    * multiplies (lessons, and audition rewards where the scenario applies the
-   * bonus), given how many of the run's lessons train that stat. A bonus
-   * effect converts as value / 1000 × this (decision D4).
+   * bonus), given how many of the run's lessons train that stat and the stat's
+   * fraction (0–1) of the exam's distributed rewards (`shareOf` in
+   * src/engine/share.ts). A bonus effect converts as value / 1000 × this
+   * (decision D4; the share: decision A3 of docs/plans/EXECPLAN_SCORE_ADJUSTMENTS.md).
+   * A scenario whose formula has no exam term ignores the second argument.
    */
-  parameterBonusBase(lessonsOfStat: number): number;
+  parameterBonusBase(lessonsOfStat: number, auditionShare: number): number;
 }
 
 export interface Scenario {
