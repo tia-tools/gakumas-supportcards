@@ -67,8 +67,12 @@ describe("shipped scenarios", () => {
     const fluffy = byName("ふわふわでワクワク");
     const fluffyItem = fluffy.items?.find((i) => i.drinks);
     if (!fluffyItem) throw new Error("ふわふわでワクワク grants no drink item");
-    const drinks = deckDrinks(CARDS, { scenarioId: s.id, profile: p }, { [deckKey(fluffyItem.itemId)]: 1 });
-    expect(drinks).toBe(14); // 7 dance SP lessons × 2 drinks
+    const drinks = deckDrinks(CARDS, { scenarioId: s.id, profile: p, lessons: null }, { [deckKey(fluffyItem.itemId)]: 1 });
+    expect(drinks).toBe(14); // 7 dance SP lessons × 2 drinks under the preset that favours it
+    const [vo7da1, vo7vi1] = p.lessonSplits;
+    if (!vo7da1 || !vo7vi1) throw new Error("H.I.F. presets missing");
+    expect(deckDrinks(CARDS, { scenarioId: s.id, profile: p, lessons: vo7da1 }, { [deckKey(fluffyItem.itemId)]: 1 })).toBe(2); // Vo7/Da1/Vi0: one dance lesson
+    expect(deckDrinks(CARDS, { scenarioId: s.id, profile: p, lessons: vo7vi1 }, { [deckKey(fluffyItem.itemId)]: 1 })).toBe(0); // Vo7/Da0/Vi1: none (A25)
     const base = { scenarioId: s.id, profile: p, limits: LEVEL_LIMITS, share: DEFAULT_AUDITION_SHARE };
     const withDeck = { ...base, profile: applyOverrides(p, {}, drinks) };
     const total = (card: Card, ctx: Omit<ScoreContext, "lessons">): number => scoreBest(card, 4, ctx).total;

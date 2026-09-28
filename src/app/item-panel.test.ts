@@ -13,7 +13,7 @@ const PROFILE: RouteProfile = {
   ],
   parameterBonusBase: () => 0,
 };
-const ctx = { scenarioId: "hif", profile: PROFILE };
+const ctx = { scenarioId: "hif", profile: PROFILE, lessons: null };
 
 const DANCE_SP: ParsedTrigger = { occasion: "EndLesson", filters: [{ family: "lessonStat", member: "dance" }, { family: "lessonKind", member: "sp" }] };
 const GET_BUFF: ParsedTrigger = { occasion: "GetProduceCard", filters: [{ family: "effectGroup", member: "parameter_buff" }], conditions: [{ kind: "dance", min: 700, max: 0 }] };
@@ -41,6 +41,14 @@ describe("itemFires", () => {
   test("the ceiling follows the shared counts the player lowered", () => {
     const fewer = { ...ctx, profile: { ...PROFILE, occasions: { ...PROFILE.occasions, StartShop: 0 } } };
     expect(itemFires(towelCard, towel, fewer)).toBe(0);
+  });
+
+  test("under a selected lesson split the ceiling follows that split, not the preset that favours the item (A25)", () => {
+    expect(itemFires(fluffyCard, fluffy, { ...ctx, lessons: { vocal: 7, dance: 1, visual: 0 } })).toBe(1);
+    expect(itemFires(fluffyCard, fluffy, { ...ctx, lessons: { vocal: 7, dance: 0, visual: 1 } })).toBe(0);
+    expect(itemFires(towelCard, towel, { ...ctx, lessons: { vocal: 7, dance: 0, visual: 1 } })).toBe(1); // 相談 does not depend on the split
+    expect(deckDrinks([fluffyCard], { ...ctx, lessons: { vocal: 7, dance: 0, visual: 1 } }, { "d.pitem-fluffy": 1 })).toBe(0);
+    expect(deckDrinks([fluffyCard], { ...ctx, lessons: { vocal: 7, dance: 1, visual: 0 } }, { "d.pitem-fluffy": 1 })).toBe(2);
   });
 });
 
