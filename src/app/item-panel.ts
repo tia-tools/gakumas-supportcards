@@ -4,15 +4,16 @@
  * with a cap on its fires (URL `i.<itemId>=<n>`, an extra minimum the engine
  * applies to that item's effects), and for a drink-granting item a tick
  * (`d.<itemId>=1`) that adds fires × drinks per fire to the run's Pドリンク獲得
- * count for every card. A row's ceiling is the item's fires under maximum
- * performance: its trigger counted under the lesson-split preset that favours
- * it, capped by the item's own `fireLimit`. Pure; ItemPanel.tsx (its own panel
+ * count for every card. A row's ceiling is the item's fires under the lesson
+ * split in force — the selected 「レッスン配分」, or under 「カードごとに最適」 the
+ * preset that favours the item (maximum performance) — capped by the item's own
+ * `fireLimit` (decisions A9, A25). Pure; ItemPanel.tsx (its own panel
  * below 「カウントを調整」, A24) renders the rows, App.tsx feeds `deckDrinks` into
  * `applyOverrides` and `itemCapsOf` into the scoring context.
  */
 
 import { occurrences } from "../engine/count.ts";
-import type { Card, ClassifiedEffect, ItemGrant, ParsedTrigger, RouteProfile } from "../engine/types.ts";
+import type { Card, ClassifiedEffect, ItemGrant, LessonSplit, ParsedTrigger, RouteProfile } from "../engine/types.ts";
 import type { Overrides } from "./panel.ts";
 
 export const itemCapKey = (itemId: string): string => `i.${itemId}`;
@@ -20,10 +21,11 @@ export const deckKey = (itemId: string): string => `d.${itemId}`;
 /** The keys this panel owns among the overrides; the counts panel owns the rest, and each panel's 既定に戻す clears only its own (A24). */
 export const isItemKey = (key: string): boolean => key.startsWith("i.") || key.startsWith("d.");
 
-/** The scenario and the profile as the player overrode it (without the deck's drinks, which these rows produce). */
+/** The scenario, the profile as the player overrode it (without the deck's drinks, which these rows produce), and the lesson split in force: the selected preset, or null under 「カードごとに最適」. */
 export interface ItemContext {
   scenarioId: string;
   profile: RouteProfile;
+  lessons: LessonSplit | null;
 }
 
 export interface ItemRow {
@@ -45,11 +47,12 @@ export interface ItemRow {
   drinks?: { perFire: number; inDeck: boolean; fires: number; added: number };
 }
 
-/** Fires of `trigger` under the preset that favours it, capped by `cap`. */
+/** Fires of `trigger` under the split in force — the selected one, else the preset that favours it — capped by `cap` (A25). */
 function maxFires(trigger: ParsedTrigger, cap: number | undefined, ctx: ItemContext): number {
   const effect: ClassifiedEffect = { stat: "vocal", value: 0, kind: "item", trigger };
   if (cap !== undefined) effect.cap = cap;
-  return ctx.profile.lessonSplits.reduce((best, lessons) => Math.max(best, occurrences(effect, { scenarioId: ctx.scenarioId, profile: ctx.profile, lessons })), 0);
+  const splits = ctx.lessons === null ? ctx.profile.lessonSplits : [ctx.lessons];
+  return splits.reduce((best, lessons) => Math.max(best, occurrences(effect, { scenarioId: ctx.scenarioId, profile: ctx.profile, lessons })), 0);
 }
 
 /** The distinct triggers the item fires on for this card: its drink trigger first, then its stat effects' at any level. */
@@ -60,7 +63,7 @@ function triggersOf(card: Card, grant: ItemGrant): ParsedTrigger[] {
   return [...seen.values()];
 }
 
-/** The item's fires under maximum performance (A9): the most frequent of its triggers under the preset that favours it. */
+/** The item's fires under the split in force (A9, A25): the most frequent of its triggers — a Da-SP-lesson item fires 0 times under a split with no Da lessons. */
 export function itemFires(card: Card, grant: ItemGrant, ctx: ItemContext): number {
   return triggersOf(card, grant).reduce((best, t) => Math.max(best, maxFires(t, grant.cap, ctx)), 0);
 }
