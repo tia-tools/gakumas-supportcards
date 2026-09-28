@@ -52,15 +52,29 @@ describe("itemRows", () => {
       ["pitem-fluffy", "card c-fluffy", 7, 7, false],
     ]);
     expect(rows[0]?.drinks).toBeUndefined();
-    expect(rows[1]?.drinks).toEqual({ perFire: 2, inDeck: false, added: 0 });
+    expect(rows[1]?.drinks).toEqual({ perFire: 2, inDeck: false, fires: 7, added: 0 });
     const capped = itemRows([fluffyCard], ctx, { "i.pitem-fluffy": 3, "d.pitem-fluffy": 1 });
-    expect(capped[0]).toMatchObject({ computed: 7, value: 3, overridden: true, drinks: { perFire: 2, inDeck: true, added: 6 } });
-    expect(itemRows([fluffyCard], ctx, { "i.pitem-fluffy": 42 })[0]?.value).toBe(7); // never a raise
+    expect(capped[0]).toMatchObject({ computed: 7, value: 3, overridden: true, drinks: { perFire: 2, inDeck: true, fires: 3, added: 6 } });
+    expect(itemRows([fluffyCard], ctx, { "i.pitem-fluffy": 42 })[0]).toMatchObject({ value: 7, overridden: false }); // never a raise, and not flagged
   });
 
-  test("a mixed item's one count drives both its stat effect's cap and its drinks", () => {
+  test("a cap a lowered shared count made ineffective is kept but not flagged; it bites again when the count rises", () => {
+    const fewer = { ...ctx, profile: { ...PROFILE, occasions: { ...PROFILE.occasions, EndLesson: 2 }, filters: { ...PROFILE.filters, EndLesson: { lessonKind: { members: { sp: 2, normal: 0 } } } } } };
+    expect(itemRows([fluffyCard], fewer, { "i.pitem-fluffy": 3 })[0]).toMatchObject({ computed: 2, value: 2, overridden: false });
+    expect(itemRows([fluffyCard], ctx, { "i.pitem-fluffy": 3 })[0]).toMatchObject({ computed: 7, value: 3, overridden: true });
+  });
+
+  test("a mixed item's one count drives both its stat effect's cap and its drinks when they share a trigger", () => {
     const rows = itemRows([costumeCard], ctx, { "i.pitem-costume": 1, "d.pitem-costume": 1 });
-    expect(rows[0]).toMatchObject({ value: 1, cap: 2, drinks: { perFire: 1, inDeck: true, added: 1 } });
+    expect(rows[0]).toMatchObject({ value: 1, cap: 2, drinks: { perFire: 1, inDeck: true, fires: 1, added: 1 } });
+  });
+
+  test("drinks are counted on the drink trigger's own fires: a more frequent stat trigger raises the ceiling, not the drinks", () => {
+    const split: ItemGrant = { itemId: "pitem-split", itemName: "split", assetId: "img_general_pitem_9-001", drinks: { perFire: 1, trigger: SHOP } };
+    const splitCard = card("c-split", [split], [{ stat: "dance", value: 5, kind: "item", itemId: "pitem-split", itemName: "split", trigger: DANCE_SP }]);
+    expect(itemRows([splitCard], ctx, { "d.pitem-split": 1 })[0]).toMatchObject({ computed: 7, value: 7, drinks: { fires: 3, added: 3 } });
+    expect(itemRows([splitCard], ctx, { "d.pitem-split": 1, "i.pitem-split": 2 })[0]).toMatchObject({ value: 2, drinks: { fires: 2, added: 2 } });
+    expect(deckDrinks([splitCard], ctx, { "d.pitem-split": 1 })).toBe(3);
   });
 
   test("an item two cards grant is listed once, under the first card in view", () => {

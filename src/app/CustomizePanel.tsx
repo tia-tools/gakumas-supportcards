@@ -126,7 +126,7 @@ function ItemRowView({ row, onCap, onDeck }: { row: ItemRow; onCap: (row: ItemRo
             <input type="checkbox" checked={row.drinks.inDeck} onChange={(e) => onDeck(row, e.currentTarget.checked)} />
             デッキに入れる
             <span class={row.drinks.inDeck ? "text-sky-700" : "text-slate-400"}>
-              {row.drinks.perFire}本 × {row.value} = {row.drinks.perFire * row.value}本
+              {row.drinks.perFire}本 × {row.drinks.fires} = {row.drinks.perFire * row.drinks.fires}本
             </span>
           </label>
         )}

@@ -33,12 +33,14 @@ export interface ItemRow {
   trigger: ParsedTrigger | undefined;
   /** `fireLimit`, when the item has one. */
   cap: number | undefined;
-  /** Fires under maximum performance: the input's ceiling. */
+  /** Fires under maximum performance, the most frequent of the item's triggers: the input's ceiling. */
   computed: number;
   /** min(the player's cap, computed). */
   value: number;
+  /** The cap is below the computed count, so it changes something; a cap at or above it stays in the URL (it bites again when counts rise) but is not flagged. */
   overridden: boolean;
-  drinks?: { perFire: number; inDeck: boolean; added: number };
+  /** `fires`: the drink trigger's own fires under the cap — an item whose stat effect fires more often does not pour more drinks (Codex finding, 2026-09-28). */
+  drinks?: { perFire: number; inDeck: boolean; fires: number; added: number };
 }
 
 /** Fires of `trigger` under the preset that favours it, capped by `cap`. */
@@ -65,10 +67,11 @@ function rowOf(card: Card, grant: ItemGrant, ctx: ItemContext, overrides: Overri
   const computed = itemFires(card, grant, ctx);
   const override = overrides[itemCapKey(grant.itemId)];
   const value = override === undefined ? computed : Math.min(override, computed);
-  const row: ItemRow = { itemId: grant.itemId, itemName: grant.itemName, assetId: grant.assetId, cardName: card.name, trigger: triggersOf(card, grant)[0], cap: grant.cap, computed, value, overridden: override !== undefined };
+  const row: ItemRow = { itemId: grant.itemId, itemName: grant.itemName, assetId: grant.assetId, cardName: card.name, trigger: triggersOf(card, grant)[0], cap: grant.cap, computed, value, overridden: override !== undefined && override < computed };
   if (grant.drinks) {
     const inDeck = overrides[deckKey(grant.itemId)] === 1;
-    row.drinks = { perFire: grant.drinks.perFire, inDeck, added: inDeck ? value * grant.drinks.perFire : 0 };
+    const fires = Math.min(override ?? Number.POSITIVE_INFINITY, maxFires(grant.drinks.trigger, grant.cap, ctx));
+    row.drinks = { perFire: grant.drinks.perFire, inDeck, fires, added: inDeck ? fires * grant.drinks.perFire : 0 };
   }
   return row;
 }
