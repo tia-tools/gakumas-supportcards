@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import type { Card, ParsedTrigger, RouteProfile } from "../engine/types.ts";
+import { DEFAULT_AUDITION_SHARE, type Card, type ParsedTrigger, type RouteProfile } from "../engine/types.ts";
 import { buildRows, filterRows, formatPoints, sortRows, withoutHeld } from "./rows.ts";
 
 const SHOP: ParsedTrigger = { occasion: "StartShop" };
@@ -16,7 +16,7 @@ const profile: RouteProfile = {
   parameterBonusBase: () => 0,
 };
 const limits = { r: [20, 25, 30, 35, 40], sr: [30, 35, 40, 45, 50], ssr: [40, 45, 50, 55, 60] } as const;
-const ctx = { scenarioId: "s", profile, limits };
+const ctx = { scenarioId: "s", profile, limits, share: DEFAULT_AUDITION_SHARE };
 
 function card(id: string, effects: Card["breakpoints"][number]["effects"], type: Card["type"] = "vocal", rarity: Card["rarity"] = "ssr", plan: Card["plan"] = "common"): Card {
   return { id, name: id, assetId: id, type, rarity, plan, breakpoints: [{ minLevel: 1, effects, eventBonusPermil: 0 }] };
@@ -61,11 +61,20 @@ describe("withoutHeld", () => {
 
 describe("filterRows", () => {
   const rows = buildRows([shopVo, lessonVi, empty], ctx, null);
+  const none = { types: [], plans: [], rarities: [], sp: false };
   test("empty facets keep everything; facets combine with AND", () => {
-    expect(filterRows(rows, { types: [], plans: [], rarities: [] })).toHaveLength(3);
-    expect(filterRows(rows, { types: ["visual", "assist"], plans: [], rarities: [] }).map((r) => r.card.id)).toEqual(["s-lesson", "s-empty"]);
-    expect(filterRows(rows, { types: ["visual", "assist"], plans: ["logic"], rarities: [] }).map((r) => r.card.id)).toEqual(["s-empty"]);
-    expect(filterRows(rows, { types: [], plans: [], rarities: ["ssr"] }).map((r) => r.card.id)).toEqual(["s-shop"]);
+    expect(filterRows(rows, none)).toHaveLength(3);
+    expect(filterRows(rows, { ...none, types: ["visual", "assist"] }).map((r) => r.card.id)).toEqual(["s-lesson", "s-empty"]);
+    expect(filterRows(rows, { ...none, types: ["visual", "assist"], plans: ["logic"] }).map((r) => r.card.id)).toEqual(["s-empty"]);
+    expect(filterRows(rows, { ...none, rarities: ["ssr"] }).map((r) => r.card.id)).toEqual(["s-shop"]);
+  });
+
+  test("sp keeps only cards flagged spRate, combined with the other facets", () => {
+    const spCard: Card = { ...lessonVi, id: "s-sp", spRate: true };
+    const withSp = buildRows([shopVo, spCard, empty], ctx, null);
+    expect(filterRows(withSp, { ...none, sp: true }).map((r) => r.card.id)).toEqual(["s-sp"]);
+    expect(filterRows(withSp, { ...none, sp: true, types: ["vocal"] })).toHaveLength(0);
+    expect(filterRows(withSp, none)).toHaveLength(3);
   });
 });
 

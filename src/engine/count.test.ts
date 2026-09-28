@@ -24,6 +24,15 @@ function effect(trigger: ParsedTrigger, cap?: number): ClassifiedEffect {
 const DECK_20 = { kind: "produce_card_count", min: 20, max: 0 };
 
 describe("occurrences", () => {
+  test("a player's cap on an item is one more minimum for that item's effects, never a raise, and never touches a skill (A11)", () => {
+    const item: ClassifiedEffect = { stat: "vocal", value: 10, kind: "item", itemId: "pitem-a", itemName: "a", cap: 3, trigger: { occasion: "StartShop" } };
+    expect(occurrences(item, ctx)).toBe(3);
+    expect(occurrences(item, { ...ctx, itemCaps: { "pitem-a": 1 } })).toBe(1);
+    expect(occurrences(item, { ...ctx, itemCaps: { "pitem-a": 9 } })).toBe(3);
+    expect(occurrences(item, { ...ctx, itemCaps: { "pitem-b": 0 } })).toBe(3);
+    expect(occurrences(effect({ occasion: "StartShop" }), { ...ctx, itemCaps: { "pitem-a": 0 } })).toBe(3);
+  });
+
   test("an occasion alone counts as the profile says, and one the profile does not name counts 0", () => {
     expect(occurrences(effect({ occasion: "StartShop" }), ctx)).toBe(3);
     expect(occurrences(effect({ occasion: "StartRefresh" }), ctx)).toBe(0);

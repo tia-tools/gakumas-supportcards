@@ -40,12 +40,21 @@ export function updateTitle(diff: UpdateDiff, held: readonly HeldCard[], date: s
   return `chore: data update ${date} — ${parts.join(", ")}`;
 }
 
-/** 凸0 and 凸4 under the first published profile, so a reader sees at a glance what a new card is worth. */
+/**
+ * 凸0 and 凸4 under the first published profile, so a reader sees at a glance what a
+ * new card is worth: the highest flat points over the profile's lesson-split
+ * presets, and the パラメータボーナス+ percentage beside them when the card has one
+ * (the snapshot pins parts per preset, not totals; decisions A7 and A19 of
+ * docs/plans/EXECPLAN_SCORE_ADJUSTMENTS.md).
+ */
 function scoreNote(current: Snapshot, id: string): string {
-  const scores = Object.entries(current[id]?.scores ?? {})[0];
-  if (!scores) return "";
-  const [profile, values] = scores;
-  return ` — ${profile} 凸0 ${values[0] ?? "?"} / 凸4 ${values[4] ?? "?"}`;
+  const entry = current[id];
+  const flat = Object.entries(entry?.flat ?? {})[0];
+  if (!entry || !flat) return "";
+  const [profile, byPreset] = flat;
+  const best = (k: 0 | 4): number | undefined => Object.values(byPreset).map((v) => v[k]).reduce<number | undefined>((m, v) => (v !== undefined && (m === undefined || v > m) ? v : m), undefined);
+  const at = (k: 0 | 4): string => `${best(k) ?? "?"}${(entry.bonus[k] ?? 0) > 0 ? ` +${(entry.bonus[k] ?? 0) / 10}%` : ""}`;
+  return ` — ${profile} 凸0 ${at(0)} / 凸4 ${at(4)}`;
 }
 
 function section(heading: string, cards: readonly CardRef[], note: (c: CardRef) => string = () => ""): string[] {

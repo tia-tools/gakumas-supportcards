@@ -7,8 +7,10 @@
  * Counts: user's route answers of 2026-09-19 through route-profiles.html (D21–D24); the
  * "choices" and "params" comments record the inputs the counts were derived from
  * (revised answer of 2026-09-19: 相談 削除 totals 2/2/5, 元気効果 12, third profile named).
- * パラメータボーナス base is a function of how many lessons train the stat (see
- * `bonusBase`; 7 of 8 → 1359, 1 of 8 → 511, 0 → 370), decisions D24–D26.
+ * パラメータボーナス base is a function of how many lessons train the stat and of
+ * the stat's share of the 選抜試験's distributed rewards (see `bonusBase`; under the
+ * default share 2:7:1, 7 of 8 lessons → 1021, 1 of 8 → 799, 0 → 420), decisions
+ * D24–D26 and A3 of docs/plans/EXECPLAN_SCORE_ADJUSTMENTS.md.
  */
 
 import type { LessonSplit, Scenario } from "../../src/engine/types.ts";
@@ -30,14 +32,19 @@ export const LESSON_SPLITS: readonly LessonSplit[] = [
 ];
 
 /**
- * Parameter a stat gains over the run from sources パラメータボーナス+ multiplies,
- * for a stat trained by `n` of the 8 lessons: all-SP lesson gain 800 × n/8,
- * the sub-parameter share 340 × (8 − n)/16 (each non-selected lesson lands its
- * sub-parameter on one of the two other stats), the 選抜試験 base 200, and the
- * 選抜試験 distributed 500 × n/8 (lesson share as a proxy for score share).
+ * Parameter a stat gains over the run from the sources パラメータボーナス+ multiplies,
+ * for a stat trained by `n` of the 8 lessons that takes `share` (0–1) of the
+ * 選抜試験's distributed rewards:
+ *   800 × n/8         SP公開レッスン gains to the selected stat (60+80+80+100+100+120 in 選抜試験, 120+140 in 本戦)
+ *   340 × (8 − n)/16  the sub-parameter each other lesson gives a non-selected stat, half to each of the two
+ *   200               選抜試験 base rewards every stat gets (20 + 80 + 100 on days 7, 13, 20)
+ *   500 × share       選抜試験 distributed rewards (80 + 200 + 220), shared by exam score — the player's
+ *                     audition share (default 2:7:1 for main / sub / other; decision A3), which replaced
+ *                     the lesson share n/8 that stood in for it until 2026-09-28
+ * 本戦 rounds give no parameter and 授業 gains are not multiplied by the bonus, so neither appears.
  */
-export function bonusBase(n: number): number {
-  return Math.round((800 * n) / LESSONS + (340 * (LESSONS - n)) / (2 * LESSONS) + 200 + (500 * n) / LESSONS);
+export function bonusBase(n: number, share: number): number {
+  return Math.round((800 * n) / LESSONS + (340 * (LESSONS - n)) / (2 * LESSONS) + 200 + 500 * share);
 }
 
 export const HIF: Scenario = {

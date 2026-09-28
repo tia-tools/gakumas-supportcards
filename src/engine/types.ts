@@ -101,6 +101,24 @@ export interface Breakpoint {
   eventBonusPermil: number;
 }
 
+/**
+ * A P-item one of the card's events grants, listed when the item has a countable
+ * stat effect (those effects sit in the breakpoints with `itemId`) or grants
+ * P-drinks (Milestone 3 of docs/plans/EXECPLAN_SCORE_ADJUSTMENTS.md, decisions
+ * A8–A11). Level-independent: the deck tick assumes the card is at a level where
+ * the item is granted (A17).
+ */
+export interface ItemGrant {
+  itemId: string;
+  itemName: string;
+  /** The game's icon asset, e.g. `img_general_pitem_2-004` (Milestone 4 serves it). */
+  assetId: string;
+  /** `ProduceItem.fireLimit`; absent = unlimited. */
+  cap?: number;
+  /** Set when a fire grants P-drinks: how many, and on which trigger; the drinks raise the run's Pドリンク獲得 count for every card when the item is in the deck. */
+  drinks?: { perFire: number; trigger: ParsedTrigger };
+}
+
 export interface Card {
   id: string;
   name: string;
@@ -110,6 +128,14 @@ export interface Card {
   plan: Plan;
   /** Sorted by minLevel ascending; the first entry is the card at level 1. */
   breakpoints: Breakpoint[];
+  /** P-items the card grants that count for something, sorted by item id; absent when none. */
+  items?: readonly ItemGrant[];
+  /**
+   * The card has an SP発生率+ skill from level 1. It scores 0 (docs/adr/0001) and is
+   * not among the effects; the page marks the card and can filter by it
+   * (docs/plans/EXECPLAN_SCORE_ADJUSTMENTS.md, Milestone 1).
+   */
+  spRate?: true;
 }
 
 /** Card level at 凸0..凸4, per rarity. */
@@ -117,6 +143,16 @@ export type LevelLimits = Record<Rarity, readonly [number, number, number, numbe
 
 /** How many of a run's lessons train each stat; the three sum to the run's lesson count. */
 export type LessonSplit = Readonly<Record<Stat, number>>;
+
+/**
+ * How the 選抜試験's distributed parameter rewards are shared by the main, sub and
+ * remaining stat of a lesson split, in tenths summing to 10 — a player input, in
+ * role terms so it applies under whichever preset scores a card (decisions A3–A5
+ * of docs/plans/EXECPLAN_SCORE_ADJUSTMENTS.md). `src/engine/share.ts` maps a stat
+ * to its role.
+ */
+export type AuditionShare = readonly [number, number, number];
+export const DEFAULT_AUDITION_SHARE: AuditionShare = [2, 7, 1];
 
 /**
  * One way of playing a scenario (decision D2): how often each occasion happens
@@ -149,10 +185,13 @@ export interface RouteProfile {
   /**
    * Parameter a stat gains over one run from the sources パラメータボーナス+
    * multiplies (lessons, and audition rewards where the scenario applies the
-   * bonus), given how many of the run's lessons train that stat. A bonus
-   * effect converts as value / 1000 × this (decision D4).
+   * bonus), given how many of the run's lessons train that stat and the stat's
+   * fraction (0–1) of the exam's distributed rewards (`shareOf` in
+   * src/engine/share.ts). A bonus effect converts as value / 1000 × this
+   * (decision D4; the share: decision A3 of docs/plans/EXECPLAN_SCORE_ADJUSTMENTS.md).
+   * A scenario whose formula has no exam term ignores the second argument.
    */
-  parameterBonusBase(lessonsOfStat: number): number;
+  parameterBonusBase(lessonsOfStat: number, auditionShare: number): number;
 }
 
 export interface Scenario {
@@ -194,4 +233,6 @@ export interface Score {
   lines: BreakdownLine[];
   /** The lesson split the score was computed under. */
   lessons: LessonSplit;
+  /** The audition share the bonus lines were computed under. */
+  share: AuditionShare;
 }

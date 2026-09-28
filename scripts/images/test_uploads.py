@@ -1,4 +1,4 @@
-from uploads import cache_control_for, card_keys, missing_file_names, plan_uploads, publishable, select_renditions, upload_order
+from uploads import cache_control_for, card_keys, item_keys, library_keys, missing_file_names, plan_uploads, publishable, select_renditions, upload_order
 
 
 def test_only_missing_keys_are_planned_sorted_and_deduplicated():
@@ -30,6 +30,14 @@ def test_card_keys_come_from_the_generated_card_data():
     assert card_keys("no cards here") == set()
 
 
+def test_item_keys_come_from_the_cards_granted_items_and_join_the_library_keys():
+    src = '{"id":"s_card-2-0007","assetId":"csprt-2-0007","items":[{"itemId":"pitem_00-2-004-0","itemName":"ふわふわでもこもこ","assetId":"img_general_pitem_2-004"}]}'
+    assert item_keys(src) == {"img_general_pitem_2-004.webp"}
+    assert card_keys(src) == {"img_general_csprt-2-0007_full.webp"}  # an item's asset id never reads as card art
+    assert library_keys(src) == {"img_general_csprt-2-0007_full.webp", "img_general_pitem_2-004.webp"}
+    assert item_keys('{"assetId":"img_general_pitem_2-04"}') == set()
+
+
 def test_art_without_a_card_is_held_back():
     allowed = {"img_general_csprt-3-0016_full.webp"}
     keep, held = publishable(["img_general_csprt-3-0109_full.webp", "img_general_csprt-3-0016_full.webp"], allowed)
@@ -37,15 +45,22 @@ def test_art_without_a_card_is_held_back():
     assert held == ["img_general_csprt-3-0109_full.webp"]
 
 
-def test_the_master_is_written_before_the_thumbnail():
+def test_the_master_is_written_before_the_served_rendition():
     assert upload_order("x.webp", "master/", "w192/") == ["master/x.webp", "w192/x.webp"]
+    assert upload_order("img_general_pitem_2-004.webp", "master/", "w48/") == ["master/img_general_pitem_2-004.webp", "w48/img_general_pitem_2-004.webp"]
 
 
 def test_a_single_rendition_can_be_selected_without_changing_the_order():
-    keys = ["master/a.webp", "w192/a.webp", "master/b.webp", "w192/b.webp"]
-    assert select_renditions(keys, "all", "master/", "w192/") == keys
-    assert select_renditions(keys, "master", "master/", "w192/") == ["master/a.webp", "master/b.webp"]
-    assert select_renditions(keys, "w192", "master/", "w192/") == ["w192/a.webp", "w192/b.webp"]
+    keys = ["master/a.webp", "w192/a.webp", "master/b.webp", "w48/b.webp"]
+    assert select_renditions(keys, "all", "master/", "w192/", "w48/") == keys
+    assert select_renditions(keys, "master", "master/", "w192/", "w48/") == ["master/a.webp", "master/b.webp"]
+
+
+def test_a_public_rendition_is_never_sent_without_its_master():
+    keys = ["master/a.webp", "w192/a.webp", "master/b.webp", "w48/b.webp"]
+    assert select_renditions(keys, "w192", "master/", "w192/", "w48/") == ["master/a.webp", "w192/a.webp"]
+    assert select_renditions(keys, "w48", "master/", "w192/", "w48/") == ["master/b.webp", "w48/b.webp"]
+    assert select_renditions(["master/c.webp"], "w48", "master/", "w192/", "w48/") == []  # a master alone is not that rendition
 
 
 def test_masters_must_revalidate_and_thumbnails_are_immutable():

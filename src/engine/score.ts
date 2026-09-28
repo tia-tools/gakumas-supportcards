@@ -6,15 +6,18 @@
  * A card's 点数 at 凸k under a lesson split is the sum over the effects active
  * at level `levelFor(rarity, k)` of:
  *   skill or item, flat   value × occurrences(effect)            (src/engine/count.ts)
- *   bonus (%)             value / 1000 × profile.parameterBonusBase(split[stat])
+ *   bonus (%)             value / 1000 × profile.parameterBonusBase(split[stat], share of stat)
  *   event                 value × (1 + eventBonusPermil / 1000)
  * where `occurrences` counts the effect's occasion narrowed by its filters and
- * stated conditions and capped by the effect's own per-run cap. `scoreBest`
- * takes the profile's preset split that gives the card the highest total.
+ * stated conditions and capped by the effect's own per-run cap, and the share is
+ * the stat's part of the exam's distributed rewards under the player's audition
+ * share (src/engine/share.ts). `scoreBest` takes the profile's preset split that
+ * gives the card the highest total.
  */
 
 import { occurrences } from "./count.ts";
-import type { BreakdownLine, Breakpoint, Card, ClassifiedEffect, LessonSplit, LevelLimits, Rarity, RouteProfile, Score, Stat, Totsu } from "./types.ts";
+import { shareOf } from "./share.ts";
+import type { AuditionShare, BreakdownLine, Breakpoint, Card, ClassifiedEffect, LessonSplit, LevelLimits, Rarity, RouteProfile, Score, Stat, Totsu } from "./types.ts";
 
 export interface ScoreContext {
   /** The scenario being scored: a trigger restricted to another scenario counts 0. */
@@ -22,6 +25,10 @@ export interface ScoreContext {
   profile: RouteProfile;
   limits: LevelLimits;
   lessons: LessonSplit;
+  /** Main / sub / other tenths of the exam's distributed rewards (decisions A3–A5 of docs/plans/EXECPLAN_SCORE_ADJUSTMENTS.md). */
+  share: AuditionShare;
+  /** Item id → the player's ceiling on that item's fires (decision A11 of the same plan). */
+  itemCaps?: Readonly<Record<string, number>>;
 }
 
 export function levelFor(limits: LevelLimits, rarity: Rarity, totsu: Totsu): number {
@@ -48,7 +55,7 @@ function lineFor(effect: ClassifiedEffect, bp: Breakpoint, ctx: ScoreContext): B
   if (effect.trigger) line.trigger = effect.trigger;
   if (effect.itemName !== undefined) line.itemName = effect.itemName;
   if (effect.bonus) {
-    const gain = ctx.profile.parameterBonusBase(ctx.lessons[effect.stat]);
+    const gain = ctx.profile.parameterBonusBase(ctx.lessons[effect.stat], shareOf(ctx.lessons, effect.stat, ctx.share));
     return { ...line, kind: "bonus", count: gain, points: (effect.value * gain) / 1000 };
   }
   const n = occurrences(effect, ctx);
@@ -66,7 +73,7 @@ export function scoreAtLevel(card: Card, level: number, ctx: ScoreContext): Scor
     else if (l.kind === "item") parts.items += l.points;
     else parts.skills += l.points;
   }
-  return { total: byStat.vocal + byStat.dance + byStat.visual, byStat, parts, lines, lessons: ctx.lessons };
+  return { total: byStat.vocal + byStat.dance + byStat.visual, byStat, parts, lines, lessons: ctx.lessons, share: ctx.share };
 }
 
 export function score(card: Card, totsu: Totsu, ctx: ScoreContext): Score {

@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { levelFor, resolveAtLevel, score, scoreAtLevel, scoreBest, type ScoreContext } from "./score.ts";
-import type { Card, LevelLimits, ParsedTrigger, RouteProfile, Stat } from "./types.ts";
+import { DEFAULT_AUDITION_SHARE, type Card, type LevelLimits, type ParsedTrigger, type RouteProfile, type Stat } from "./types.ts";
 
 const SHOP: ParsedTrigger = { occasion: "StartShop" };
 const REST: ParsedTrigger = { occasion: "StartRefresh" };
@@ -20,7 +20,7 @@ const PROFILE: RouteProfile = {
   ],
   parameterBonusBase: (n) => 500 * n, // 4 lessons → 2000, 2 → 1000, 1 → 500
 };
-const ctx: ScoreContext = { scenarioId: "s", profile: PROFILE, limits: LIMITS, lessons: { vocal: 4, dance: 3, visual: 2 } };
+const ctx: ScoreContext = { scenarioId: "s", profile: PROFILE, limits: LIMITS, lessons: { vocal: 4, dance: 3, visual: 2 }, share: DEFAULT_AUDITION_SHARE };
 
 function card(breakpoints: Card["breakpoints"], rarity: Card["rarity"] = "ssr"): Card {
   return { id: "c", name: "c", assetId: "a", type: "vocal", rarity, plan: "common", breakpoints };
@@ -53,7 +53,7 @@ describe("levelFor / resolveAtLevel", () => {
 describe("score: skills and occasions", () => {
   test("a card with no parameter effect scores 0 with empty parts and lines (SP発生率-only, Pポイント-only cards)", () => {
     const s = score(card([{ minLevel: 1, effects: [], eventBonusPermil: 500 }]), 4, ctx);
-    expect(s).toEqual({ total: 0, byStat: { vocal: 0, dance: 0, visual: 0 }, parts: { skills: 0, events: 0, items: 0 }, lines: [], lessons: ctx.lessons });
+    expect(s).toEqual({ total: 0, byStat: { vocal: 0, dance: 0, visual: 0 }, parts: { skills: 0, events: 0, items: 0 }, lines: [], lessons: ctx.lessons, share: ctx.share });
   });
 
   test("flat skill: value × occurrences, capped by activationCount (D15)", () => {
@@ -120,6 +120,14 @@ describe("score: パラメータボーナス, events and items", () => {
     const s = score(c, 0, ctx);
     expect(s.total).toBe(170);
     expect(s.lines[0]).toMatchObject({ kind: "bonus", value: 85, count: 2000, points: 170 });
+  });
+
+  test("the bonus base receives the stat's audition share by its role in the split: main 0.2 by default, 1.0 when the player gives main everything (A3–A5)", () => {
+    const byShare: RouteProfile = { ...PROFILE, parameterBonusBase: (_n, share) => 1000 * share };
+    const c = card([{ minLevel: 1, effects: [{ stat: "vocal", value: 85, kind: "skill", cap: 1, trigger: START, bonus: true }], eventBonusPermil: 0 }]);
+    expect(score(c, 0, { ...ctx, profile: byShare }).lines[0]).toMatchObject({ kind: "bonus", count: 200, points: 17 }); // vocal has the most lessons (4) → main → 2/10
+    expect(score(c, 0, { ...ctx, profile: byShare, share: [10, 0, 0] }).lines[0]).toMatchObject({ count: 1000, points: 85 });
+    expect(score(c, 0, { ...ctx, profile: byShare, lessons: { vocal: 1, dance: 7, visual: 0 } }).lines[0]).toMatchObject({ count: 700, points: 59.5 }); // vocal is now the sub stat → 7/10
   });
 
   test("the same trigger without the bonus flag is points per occurrence", () => {

@@ -38,6 +38,18 @@ export const NON_PARAMETER_EFFECT_TYPES: ReadonlySet<string> = new Set([
   "ProduceEffectType_CustomizeProduceCardProducePointDownMultiple",
 ]);
 
+/**
+ * SP発生率+ for every lesson or for the lessons of one stat: audited as non-parameter
+ * above and skipped like the rest, but a card carrying one is marked `spRate` so the
+ * page can show and filter it (docs/plans/EXECPLAN_SCORE_ADJUSTMENTS.md, Milestone 1).
+ */
+export const SP_RATE_EFFECT_TYPES: ReadonlySet<string> = new Set([
+  "ProduceEffectType_LessonSpChangeRatePermilAddition",
+  "ProduceEffectType_LessonVocalSpChangeRatePermilAddition",
+  "ProduceEffectType_LessonDanceSpChangeRatePermilAddition",
+  "ProduceEffectType_LessonVisualSpChangeRatePermilAddition",
+]);
+
 /** Own-card event parameter multiplier, permil (500 = +50%). Handled as a modifier of the card's events (D17). */
 export const EVENT_BONUS_EFFECT_TYPE = "ProduceEffectType_SupportCardEventParameterAdditionValueUp";
 
