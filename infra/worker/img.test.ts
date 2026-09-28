@@ -20,10 +20,20 @@ function bucket(stored: Record<string, string>): ImageBucket & { calls: string[]
   };
 }
 
+const ICON = "img_general_pitem_2-004.webp";
+const ICON_KEY = `w48/${ICON}`;
+
 describe("imageKey", () => {
   test("accepts only full card art in the game's naming", () => {
     expect(imageKey(`/img/${KEY}`)).toBe(KEY);
     for (const path of ["/img/", "/img/../secret", `/img/${KEY}/x`, `/img/x/${KEY}`, `/img/${FILE}`, `/img/master/${FILE}`, `/img/w384/${FILE}`, "/img/w192/img_general_csprt-3-016_full.webp", "/img/w192/img_general_cidol-hski-3-000_1-full.webp", `/img/${KEY}?x`, `/${KEY}`, "/img/w192/img_general_csprt-3-0016_full.png"]) {
+      expect(imageKey(path)).toBeNull();
+    }
+  });
+
+  test("accepts P-item icons under w48/ only, in their own naming, and never a card there or an icon under w192/", () => {
+    expect(imageKey(`/img/${ICON_KEY}`)).toBe(ICON_KEY);
+    for (const path of [`/img/w192/${ICON}`, `/img/w48/${FILE}`, `/img/master/${ICON}`, "/img/w48/img_general_pitem_2-04.webp", "/img/w48/img_general_pitem_2-004_full.webp", "/img/w48/img_general_pitem_2-004.png"]) {
       expect(imageKey(path)).toBeNull();
     }
   });

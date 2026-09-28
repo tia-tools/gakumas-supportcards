@@ -18,11 +18,13 @@ export interface ImageBucket {
 }
 
 /**
- * Only the public thumbnail rendition is ever looked up: bucket prefix `w192/`, file names the
- * game's own (`img_general_{assetId}_full.webp`). The lossless originals sit in the same bucket
- * under `master/` and are deliberately unreachable from the web (plan decision D35).
+ * Only the public renditions are ever looked up: card thumbnails under `w192/` and P-item icons
+ * under `w48/`, file names the game's own (`img_general_{assetId}_full.webp` for a card,
+ * `img_general_pitem_{r}-{nnn}.webp` for an item; Milestone 4 of
+ * docs/plans/EXECPLAN_SCORE_ADJUSTMENTS.md). The lossless originals sit in the same bucket under
+ * `master/` and are deliberately unreachable from the web (plan decision D35).
  */
-const IMAGE_PATH = /^\/img\/(w192\/img_general_csprt-\d-\d{4}_full\.webp)$/;
+const IMAGE_PATH = /^\/img\/((?:w192\/img_general_csprt-\d-\d{4}_full|w48\/img_general_pitem_\d-\d{3})\.webp)$/;
 
 /** Filenames never change meaning, so a served image is cacheable forever. */
 export const IMMUTABLE = "public, max-age=31536000, immutable";

@@ -6,7 +6,9 @@
  * (plan decision D2). Renders `buildPanel` of ./panel.ts and holds no rule itself.
  */
 
+import { useState } from "preact/hooks";
 import { triggerLabel } from "./count-labels.ts";
+import { itemIconUrl } from "./images.ts";
 import { deckKey, itemCapKey, type ItemRow } from "./item-panel.ts";
 import type { Overrides, PanelInput, PanelSection } from "./panel.ts";
 
@@ -103,12 +105,20 @@ function Section({ section, onCount }: { section: PanelSection; onCount: RowProp
   );
 }
 
-/** One 「Pアイテム」 row: the item, its card and trigger, a cap on its fires bounded by the computed count, and for a drink item its tick (decisions A9, A11). */
+/** The item's icon from the image library, or nothing when the site does not serve it yet (the name beside it stands alone). */
+function ItemIcon({ assetId }: { assetId: string }) {
+  const [failed, setFailed] = useState(false);
+  if (failed) return null;
+  return <img src={itemIconUrl(assetId)} alt="" width={24} height={24} loading="lazy" class="h-6 w-6 shrink-0" onError={() => setFailed(true)} />;
+}
+
+/** One 「Pアイテム」 row: the item with its icon, its card and trigger, a cap on its fires bounded by the computed count, and for a drink item its tick (decisions A9, A11). */
 function ItemRowView({ row, onCap, onDeck }: { row: ItemRow; onCap: (row: ItemRow, raw: string) => void; onDeck: (row: ItemRow, inDeck: boolean) => void }) {
   const labelClass = row.overridden ? "font-semibold text-amber-800" : "text-slate-700";
   return (
     <div class="flex items-center justify-between gap-2 py-0.5">
-      <span class={`min-w-0 text-xs ${labelClass}`}>
+      <ItemIcon assetId={row.assetId} />
+      <span class={`min-w-0 flex-1 text-xs ${labelClass}`}>
         <span class="truncate">
           {row.itemName} <span class="text-slate-400">← {row.cardName}</span>
         </span>
