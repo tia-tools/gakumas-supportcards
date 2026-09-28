@@ -21,7 +21,7 @@ export function App() {
   const { scenario, profile } = resolveSelection(state, SCENARIOS);
 
   const scored = useMemo(() => buildRows(SHOWN_CARDS, { scenarioId: scenario.id, profile: applyOverrides(profile, state.overrides), limits: LEVEL_LIMITS }, state.split), [scenario, profile, state.overrides, state.split]);
-  const rows = useMemo(() => sortRows(filterRows(scored, state), state.sort), [scored, state.types, state.plans, state.rarities, state.sort]);
+  const rows = useMemo(() => sortRows(filterRows(scored, state), state.sort), [scored, state.types, state.plans, state.rarities, state.sp, state.sort]);
 
   // Which inputs the panel folds away depends on the cards in view, not on their order.
   const sections = useMemo(() => buildPanel(profile, state.overrides, ALL_TRIGGERS, triggersOf(rows.map((r) => r.card))), [profile, state.overrides, rows]);
