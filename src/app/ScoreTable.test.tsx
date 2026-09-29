@@ -88,6 +88,13 @@ describe("which breakdown shows", () => {
     expect(open()).toEqual([1]);
   });
 
+  test("the breakdown is titled with its card's name", async () => {
+    await show(ROWS);
+    await tap(1);
+    const sheet = must(cell(1).querySelector(":scope > div"), "the sheet");
+    expect(sheet.firstElementChild?.textContent).toBe("b");
+  });
+
   test("a hovered cell that leaves the table without a leave event does not block the focused one", async () => {
     await show(ROWS);
     await focus(2);
