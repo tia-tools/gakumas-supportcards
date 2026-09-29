@@ -10,12 +10,14 @@
  */
 
 import { useState } from "preact/hooks";
+import { FoldButton } from "./FoldButton.tsx";
 import { Hint } from "./Hint.tsx";
 import { triggerLabel } from "./count-labels.ts";
 import { itemIconUrl, thumbnailUrl } from "./images.ts";
 import { deckKey, isItemKey, itemCapKey, type ItemRow } from "./item-panel.ts";
 import { TYPE_COLOR } from "./labels.ts";
 import type { Overrides } from "./panel.ts";
+import { CLEAR_CONTROLS } from "./sticky.ts";
 
 interface Props {
   /** The rows of the cards in view (src/app/item-panel.ts). */
@@ -128,7 +130,7 @@ export function ItemPanel({ items, overrides, onChange }: Props) {
   };
   const reset = (): void => onChange(Object.fromEntries(Object.entries(overrides).filter(([key]) => !isItemKey(key))));
   return (
-    <details class="rounded-lg border border-slate-200 bg-white">
+    <details class={`${CLEAR_CONTROLS} rounded-lg border border-slate-200 bg-white`}>
       <summary class="cursor-pointer select-none px-3 py-2 text-sm font-medium">
         Pアイテム
         {changed > 0 && <span class="ml-2 rounded-full bg-amber-100 px-2 py-0.5 text-xs text-amber-800">{changed}件変更中</span>}
@@ -152,6 +154,7 @@ export function ItemPanel({ items, overrides, onChange }: Props) {
             ))}
           </div>
         )}
+        <FoldButton />
       </div>
     </details>
   );

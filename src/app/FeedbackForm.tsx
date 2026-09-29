@@ -9,6 +9,7 @@
 import { useState } from "preact/hooks";
 import { FEEDBACK_CATEGORIES, FEEDBACK_MESSAGE_MAX, isFeedbackCategory, type FeedbackCategory } from "../../infra/worker/feedback-contract.ts";
 import { buildPayload, resultText, viewToAttach } from "./feedback.ts";
+import { CLEAR_CONTROLS } from "./sticky.ts";
 
 type Phase = { kind: "editing" } | { kind: "sending" } | { kind: "done"; status: number };
 
@@ -65,7 +66,7 @@ export function FeedbackForm() {
   };
 
   return (
-    <details id={FORM_ID} class="scroll-mt-4 rounded-lg border border-slate-200 bg-white">
+    <details id={FORM_ID} class={`${CLEAR_CONTROLS} rounded-lg border border-slate-200 bg-white`}>
       <summary class="cursor-pointer select-none px-3 py-2 text-sm font-medium">フィードバックを送る</summary>
       <form class="flex flex-col gap-2 border-t border-slate-200 p-3" onSubmit={onSubmit}>
         <fieldset class="flex flex-wrap items-center gap-1">

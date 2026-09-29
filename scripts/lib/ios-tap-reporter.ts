@@ -81,7 +81,11 @@ function start(): void {
     setTimeout(start, 200);
     return;
   }
-  window.scrollTo(0, table.getBoundingClientRect().top + scrollY);
+  // The sticky controls fold on a phone (src/app/Controls.tsx); unfolded they leave no row a tap can use below them and above the sheet.
+  document.querySelector<HTMLElement>("[data-controls-fold][aria-expanded=true]")?.click();
+  // The table's top goes just under the sticky controls (their height is `--controls-h`), so its first rows are not behind them.
+  const below = (): number => Number.parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--controls-h")) || 0;
+  setTimeout(() => window.scrollTo(0, table.getBoundingClientRect().top + scrollY - below()), 100);
   document.addEventListener(
     "pointerdown",
     (e) => {
