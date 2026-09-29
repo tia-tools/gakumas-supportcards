@@ -45,7 +45,17 @@ function CardCell({ row }: { row: Row }) {
  * On a phone it is a sheet along the bottom of the screen (a cell-anchored box ran off the left edge); from `sm` up it hangs
  * under the cell and lets the pointer through, so moving down the column opens the next row's instead of sitting on it.
  */
-function ScoreCell({ score, highlight, open, send }: { score: Score; highlight: boolean; open: boolean; send: (event: KeyedEvent) => void }) {
+/** The card a breakdown belongs to, in the colour of its row's stripe: on a phone the sheet is far from its row. */
+function BreakdownTitle({ card }: { card: Card }) {
+  return (
+    <div class="mb-1 flex items-center gap-1.5 text-left text-xs font-semibold text-slate-800">
+      <span class={`h-3.5 w-1.5 shrink-0 rounded ${TYPE_COLOR[card.type]}`} aria-hidden="true" />
+      <span class="min-w-0 truncate">{card.name}</span>
+    </div>
+  );
+}
+
+function ScoreCell({ card, score, highlight, open, send }: { card: Card; score: Score; highlight: boolean; open: boolean; send: (event: KeyedEvent) => void }) {
   const hover = (on: boolean) => (e: PointerEvent) => e.pointerType === "mouse" && send({ type: "hover", on });
   return (
     <td data-score-cell class={`relative px-1 sm:px-2 py-1 text-right tabular-nums ${highlight ? "font-semibold" : ""}`} onPointerEnter={hover(true)} onPointerLeave={hover(false)}>
@@ -61,6 +71,7 @@ function ScoreCell({ score, highlight, open, send }: { score: Score; highlight: 
       </button>
       {open && (
         <div class="fixed inset-x-2 bottom-2 z-20 max-h-[60vh] overflow-auto sm:absolute sm:inset-x-auto sm:bottom-auto sm:right-0 sm:top-full sm:max-h-none sm:overflow-visible sm:pointer-events-none sm:min-w-[22rem] sm:max-w-[90vw] rounded-lg border border-slate-200 bg-white p-2 shadow-lg">
+          <BreakdownTitle card={card} />
           <Breakdown score={score} />
         </div>
       )}
@@ -88,16 +99,17 @@ function useOpenCell(live: ReadonlySet<string>): { shown: string | null; send: (
   const anyOpen = state.pinned !== null || state.focused !== null || state.hovered !== null;
   useEffect(() => {
     if (!anyOpen) return undefined;
+    // On the lift, not the touch: a touch that becomes a scroll ends in pointercancel, so scrolling from a thumbnail keeps it open.
     const outside = (e: Event): void => {
       if (!(e.target instanceof Element) || !e.target.closest("[data-score-cell]")) dispatch({ type: "outside" });
     };
     const escape = (e: KeyboardEvent): void => {
       if (e.key === "Escape") dispatch({ type: "escape" });
     };
-    document.addEventListener("pointerdown", outside);
+    document.addEventListener("pointerup", outside);
     document.addEventListener("keydown", escape);
     return () => {
-      document.removeEventListener("pointerdown", outside);
+      document.removeEventListener("pointerup", outside);
       document.removeEventListener("keydown", escape);
     };
   }, [anyOpen]);
@@ -129,7 +141,7 @@ export function ScoreTable({ rows, sort, onSort }: { rows: readonly Row[]; sort:
             </td>
             {TOTSUS.map((t) => {
               const key = `${row.card.id}:${t}`;
-              return <ScoreCell key={t} score={row.scores[t]} highlight={t === sort.totsu} open={shown === key} send={send(key)} />;
+              return <ScoreCell key={t} card={row.card} score={row.scores[t]} highlight={t === sort.totsu} open={shown === key} send={send(key)} />;
             })}
           </tr>
         ))}
