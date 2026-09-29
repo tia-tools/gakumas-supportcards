@@ -30,14 +30,14 @@ export function Breakdown({ score }: { score: Score }) {
   const { lessons, byStat, share } = score;
   return (
     <div class="text-xs text-left leading-snug">
-      <div class="flex justify-between gap-4 border-b border-slate-200 pb-1 mb-1">
+      <div class="flex flex-wrap justify-between gap-x-4 border-b border-slate-200 pb-1 mb-1">
         <span>
           レッスン配分 Vo{lessons.vocal} / Da{lessons.dance} / Vi{lessons.visual}
-          <span class="ml-2 text-slate-500">選抜試験 {share.join(":")}</span>
+          <span class="ml-2 whitespace-nowrap text-slate-500">選抜試験 {share.join(":")}</span>
         </span>
         <span class="tabular-nums">
           {(["vocal", "dance", "visual"] as const).map((s) => (
-            <span key={s} class={`ml-2 ${STAT_TEXT[s]}`}>
+            <span key={s} class={`ml-2 whitespace-nowrap ${STAT_TEXT[s]}`}>
               {STAT_SHORT[s]} {formatPoints(byStat[s])}
             </span>
           ))}
