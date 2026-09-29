@@ -278,7 +278,7 @@ function occasionDraft(ctx: PanelContext, occasion: string, readOnly: boolean): 
   placeConditions(ctx, root, occasion);
   // The input shows the player's own count; the deck's drinks are a separate line stating the total, so editing the input never folds them in (A24).
   if (occasion === DRINK_OCCASION) root.children.push(...shopDrinksLine(ctx));
-  if (occasion === DRINK_OCCASION && ctx.deckDrinks > 0) root.children.push({ key: DECK_DRINKS_KEY, label: `Pアイテムによる追加（計 ${own + ctx.deckDrinks}回）`, base: ctx.deckDrinks, own: ctx.deckDrinks, readOnly: true, note: "「Pアイテム」で「デッキに入れる」にしたアイテムが配るドリンク。上の回数に加算して数えます", children: [] });
+  if (occasion === DRINK_OCCASION && ctx.deckDrinks > 0) root.children.push({ key: DECK_DRINKS_KEY, label: `Pアイテムによる追加（計 ${own + ctx.deckDrinks}回）`, base: ctx.deckDrinks, own: ctx.deckDrinks, readOnly: true, note: "「Pアイテム」で「有効」にしたアイテムが配るドリンク。上の回数に加算して数えます", children: [] });
   return root;
 }
 
