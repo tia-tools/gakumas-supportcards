@@ -8,6 +8,7 @@
 
 import { describe, expect, test } from "bun:test";
 import { conditionKey, missingNumbers, occasionOfConditionKey } from "../../src/engine/count.ts";
+import { defaultShareOf, isAuditionShare } from "../../src/engine/share.ts";
 import { scoreBest, type ScoreContext } from "../../src/engine/score.ts";
 import { DEFAULT_AUDITION_SHARE, type Card, type RouteProfile, type Totsu } from "../../src/engine/types.ts";
 import { CARDS } from "../cards.generated.ts";
@@ -127,7 +128,7 @@ describe("shipped scenarios", () => {
         expect(p.lessonSplits.length).toBeGreaterThan(0);
         const totals = new Set(p.lessonSplits.map((l) => l.vocal + l.dance + l.visual));
         expect(totals.size).toBe(1);
-        for (const l of p.lessonSplits) for (const n of Object.values(l)) expect(Number.isInteger(n) && n >= 0).toBe(true);
+        for (const l of p.lessonSplits) for (const n of [l.vocal, l.dance, l.visual]) expect(Number.isInteger(n) && n >= 0).toBe(true);
         const [total] = totals;
         let prev = -1;
         for (let n = 0; n <= (total ?? 0); n++) {
@@ -138,7 +139,7 @@ describe("shipped scenarios", () => {
       });
 
       test(`${s.id}/${p.id}: every card scores to a finite, non-negative total at every 凸, non-decreasing in 凸`, () => {
-        const ctx = { profile: p, limits: LEVEL_LIMITS, scenarioId: s.id, share: DEFAULT_AUDITION_SHARE };
+        const ctx = { profile: p, limits: LEVEL_LIMITS, scenarioId: s.id, share: defaultShareOf(p) };
         for (const card of CARDS) {
           let prev = -1;
           for (const t of TOTSU) {
@@ -148,6 +149,22 @@ describe("shipped scenarios", () => {
             prev = sc.total;
           }
         }
+      });
+    }
+  }
+});
+
+describe("lesson splits and audition shares", () => {
+  for (const s of ALL_SCENARIOS) {
+    for (const p of s.profiles) {
+      test(`${s.id}/${p.id}: a preset names a sub only to break a tie below the main stat, and the default share is three tenths`, () => {
+        for (const l of p.lessonSplits) {
+          const sub = l.sub;
+          if (sub === undefined) continue;
+          const rest = (["vocal", "dance", "visual"] as const).filter((st) => st !== sub).map((st) => l[st]);
+          expect(rest.some((n) => n === l[sub]) && rest.some((n) => n > l[sub]), JSON.stringify(l)).toBe(true);
+        }
+        expect(isAuditionShare(defaultShareOf(p))).toBe(true);
       });
     }
   }

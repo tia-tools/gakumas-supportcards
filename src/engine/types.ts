@@ -141,8 +141,13 @@ export interface Card {
 /** Card level at 凸0..凸4, per rarity. */
 export type LevelLimits = Record<Rarity, readonly [number, number, number, number, number]>;
 
-/** How many of a run's lessons train each stat; the three sum to the run's lesson count. */
-export type LessonSplit = Readonly<Record<Stat, number>>;
+/**
+ * How many of a run's lessons train each stat; the three sum to the run's lesson count.
+ * `sub` names the stat that takes the sub share of the audition (src/engine/share.ts)
+ * where the lesson counts tie — under 8/0/0 the player, not the counts, decides which
+ * untrained stat the 選抜試験's score goes to.
+ */
+export type LessonSplit = Readonly<Record<Stat, number>> & { readonly sub?: Stat };
 
 /**
  * How the 選抜試験's distributed parameter rewards are shared by the main, sub and
@@ -182,6 +187,8 @@ export interface RouteProfile {
    * the preset that scores the card best unless the user fixes one.
    */
   lessonSplits: readonly LessonSplit[];
+  /** The audition share a player starts from under this profile; absent = `DEFAULT_AUDITION_SHARE`. */
+  auditionShare?: AuditionShare;
   /**
    * Parameter a stat gains over one run from the sources パラメータボーナス+
    * multiplies (lessons, and audition rewards where the scenario applies the

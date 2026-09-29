@@ -11,9 +11,13 @@
  * the stat's share of the 選抜試験's distributed rewards (see `bonusBase`; under the
  * default share 2:7:1, 7 of 8 lessons → 1021, 1 of 8 → 799, 0 → 420), decisions
  * D24–D26 and A3 of docs/plans/EXECPLAN_SCORE_ADJUSTMENTS.md.
+ * 極振りコンテ育成 (user, 2026-09-29): all eight lessons on one stat, the 選抜試験's
+ * score sent mostly to one of the two others (default share 1:9:0), and otherwise
+ * the counts of 汎用コンテ育成; under 1:9:0 the bases are 1050 for the trained stat,
+ * 820 for the sub and 370 for the other.
  */
 
-import type { LessonSplit, Scenario } from "../../src/engine/types.ts";
+import type { LessonSplit, RouteProfile, Scenario } from "../../src/engine/types.ts";
 
 const LESSONS = 8;
 
@@ -32,6 +36,20 @@ export const LESSON_SPLITS: readonly LessonSplit[] = [
 ];
 
 /**
+ * 極振り presets: all eight lessons on one stat, and since the two untrained stats
+ * tie, each preset names the one the 選抜試験's sub share goes to (`sub`), so a card
+ * of either untrained stat can be scored as the sub.
+ */
+export const EXTREME_LESSON_SPLITS: readonly LessonSplit[] = [
+  { vocal: 8, dance: 0, visual: 0, sub: "dance" },
+  { vocal: 8, dance: 0, visual: 0, sub: "visual" },
+  { vocal: 0, dance: 8, visual: 0, sub: "vocal" },
+  { vocal: 0, dance: 8, visual: 0, sub: "visual" },
+  { vocal: 0, dance: 0, visual: 8, sub: "vocal" },
+  { vocal: 0, dance: 0, visual: 8, sub: "dance" },
+];
+
+/**
  * Parameter a stat gains over the run from the sources パラメータボーナス+ multiplies,
  * for a stat trained by `n` of the 8 lessons that takes `share` (0–1) of the
  * 選抜試験's distributed rewards:
@@ -46,6 +64,47 @@ export const LESSON_SPLITS: readonly LessonSplit[] = [
 export function bonusBase(n: number, share: number): number {
   return Math.round((800 * n) / LESSONS + (340 * (LESSONS - n)) / (2 * LESSONS) + 200 + 500 * share);
 }
+
+const GENERIC_CONTEST: RouteProfile = {
+  id: "generic-contest",
+  name: "汎用コンテ育成",
+  // choices: s1=差し入れ s5=おでかけ s8=差し入れ s12=相談 s14=差し入れ s16=相談 s19=相談 h3=差し入れ
+  // params: rest=0 shopDrinks=0 shopCards=0 shopUpgrades=0 shopDeletes=5 intervalCards=0 intervalChanges=0 intervalUpgrades=0 intervalDrinks=2 randomUpgrades=0 autoDeletes=4 items=6 bonusLessons=800 bonusAudition=700
+  lessonSplits: LESSON_SPLITS,
+  parameterBonusBase: bonusBase,
+  occasions: {
+    ProduceStart: 1, // プロデュース開始
+    EndLesson: 8, // レッスン終了
+    EndStepEventSchool: 6, // 授業・営業終了
+    EndAudition: 5, // 試験・オーディション終了
+    EndBeforeAuditionRefresh: 4, // 試験・オーディション開始 (試験前の休憩後)
+    StartPresent: 4, // 活動支給・差し入れ選択
+    EndStepEventActivity: 1, // おでかけ終了
+    StartShop: 4, // 相談選択
+    StartRefresh: 0, // 休む選択
+    StartCustomize: 0, // 特別指導開始
+    GetProduceCard: 20, // スキルカード獲得
+    DeleteProduceCard: 9, // スキルカード削除
+    UpgradeProduceCard: 0, // スキルカード強化
+    ChangeProduceCard: 4, // スキルカードチェンジ
+    CustomizeProduceCard: 2, // スキルカードカスタマイズ
+    BuyShopItemProduceCard: 0, // 相談でスキルカード交換
+    GetProduceDrink: 7, // Pドリンク獲得
+    BuyShopItemProduceDrink: 0, // 相談でPドリンク交換
+    GetProduceItem: 6, // Pアイテム獲得
+  },
+  filters: {
+    EndLesson: { lessonKind: { members: { sp: 8, normal: 0 } } }, // every lesson is an SP lesson (docs/adr/0001)
+    UpgradeProduceCard: { cardType: { members: { mental: 0, active: 0 } }, effectGroup: { default: 0 } }, // effectGroup: carried over as every upgrade (C13)
+    DeleteProduceCard: { cardType: { members: { mental: 9, active: 9 } } },
+    ChangeProduceCard: { cardName: { members: { starter: 4 } } }, // 名前に「基本」を含む
+    GetProduceCard: {
+      cardType: { members: { mental: 13, active: 7 } },
+      effectGroup: { default: 10, members: { review: 14, block: 12 } },
+      rarity: { members: { ssr: 7 } },
+    },
+  },
+};
 
 export const HIF: Scenario = {
   id: "hif",
@@ -132,45 +191,7 @@ export const HIF: Scenario = {
         },
       },
     },
-    {
-      id: "generic-contest",
-      name: "汎用コンテ育成",
-      // choices: s1=差し入れ s5=おでかけ s8=差し入れ s12=相談 s14=差し入れ s16=相談 s19=相談 h3=差し入れ
-      // params: rest=0 shopDrinks=0 shopCards=0 shopUpgrades=0 shopDeletes=5 intervalCards=0 intervalChanges=0 intervalUpgrades=0 intervalDrinks=2 randomUpgrades=0 autoDeletes=4 items=6 bonusLessons=800 bonusAudition=700
-      lessonSplits: LESSON_SPLITS,
-      parameterBonusBase: bonusBase,
-      occasions: {
-        ProduceStart: 1, // プロデュース開始
-        EndLesson: 8, // レッスン終了
-        EndStepEventSchool: 6, // 授業・営業終了
-        EndAudition: 5, // 試験・オーディション終了
-        EndBeforeAuditionRefresh: 4, // 試験・オーディション開始 (試験前の休憩後)
-        StartPresent: 4, // 活動支給・差し入れ選択
-        EndStepEventActivity: 1, // おでかけ終了
-        StartShop: 4, // 相談選択
-        StartRefresh: 0, // 休む選択
-        StartCustomize: 0, // 特別指導開始
-        GetProduceCard: 20, // スキルカード獲得
-        DeleteProduceCard: 9, // スキルカード削除
-        UpgradeProduceCard: 0, // スキルカード強化
-        ChangeProduceCard: 4, // スキルカードチェンジ
-        CustomizeProduceCard: 2, // スキルカードカスタマイズ
-        BuyShopItemProduceCard: 0, // 相談でスキルカード交換
-        GetProduceDrink: 7, // Pドリンク獲得
-        BuyShopItemProduceDrink: 0, // 相談でPドリンク交換
-        GetProduceItem: 6, // Pアイテム獲得
-      },
-      filters: {
-        EndLesson: { lessonKind: { members: { sp: 8, normal: 0 } } }, // every lesson is an SP lesson (docs/adr/0001)
-        UpgradeProduceCard: { cardType: { members: { mental: 0, active: 0 } }, effectGroup: { default: 0 } }, // effectGroup: carried over as every upgrade (C13)
-        DeleteProduceCard: { cardType: { members: { mental: 9, active: 9 } } },
-        ChangeProduceCard: { cardName: { members: { starter: 4 } } }, // 名前に「基本」を含む
-        GetProduceCard: {
-          cardType: { members: { mental: 13, active: 7 } },
-          effectGroup: { default: 10, members: { review: 14, block: 12 } },
-          rarity: { members: { ssr: 7 } },
-        },
-      },
-    },
+    GENERIC_CONTEST,
+    { ...GENERIC_CONTEST, id: "extreme-contest", name: "極振りコンテ育成", lessonSplits: EXTREME_LESSON_SPLITS, auditionShare: [1, 9, 0] },
   ],
 };
