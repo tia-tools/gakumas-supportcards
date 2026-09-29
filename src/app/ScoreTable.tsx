@@ -123,7 +123,7 @@ export function ScoreTable({ rows, sort, onSort }: { rows: readonly Row[]; sort:
   const { shown, send } = useOpenCell(live);
   return (
     <table class="w-full border-collapse text-xs sm:text-sm">
-      <thead class="sticky top-0 z-10 bg-white shadow-[0_1px_0_0_theme(colors.slate.200)]">
+      <thead class="sticky top-(--controls-h) z-10 bg-white shadow-[0_1px_0_0_theme(colors.slate.200)]">
         <tr>
           <th scope="col" class="px-1 sm:px-2 py-2 text-left font-medium text-slate-500">
             サポートカード <span class="text-xs">({rows.length})</span>

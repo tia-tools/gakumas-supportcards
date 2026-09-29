@@ -1,1 +1,6 @@
 @import "tailwindcss";
+
+/* The sticky controls' height, measured by src/app/sticky.ts; 0 until it is. */
+:root {
+  --controls-h: 0px;
+}

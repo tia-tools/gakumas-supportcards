@@ -1,5 +1,10 @@
-/** Scenario, route profile and lesson-split selectors plus the type / plan / rarity facet toggles. */
+/**
+ * Scenario, route profile and lesson-split selectors plus the type / plan / rarity facet toggles.
+ * The whole section sticks to the top (./sticky.ts); on a phone that is close to half of the
+ * screen, so a phone-only toggle folds the selector row away, leaving the facets (not in the URL).
+ */
 
+import { useState } from "preact/hooks";
 import type { CardType, Plan, Rarity, Scenario, RouteProfile } from "../engine/types.ts";
 import { PLAN_LABEL, RARITY_LABEL, TYPE_LABEL, splitLabel } from "./labels.ts";
 import { ShareSlider } from "./ShareSlider.tsx";
@@ -22,7 +27,7 @@ function Facet<T extends string>({ label, values, selected, labels, onToggle }: 
   return (
     <fieldset class="flex flex-wrap items-center gap-1">
       <legend class="sr-only">{label}</legend>
-      <span class="text-xs text-slate-500 mr-1">{label}</span>
+      <span class="hidden sm:inline text-xs text-slate-500 mr-1">{label}</span>
       {values.map((v) => {
         const on = selected.includes(v);
         return (
@@ -50,11 +55,15 @@ function Select({ label, value, options, onChange }: { label: string; value: str
   );
 }
 
+/** The selector row's id, for the fold toggle's aria-controls. */
+const SELECTORS_ID = "controls-selectors";
+
 export function Controls({ scenarios, scenario, profile, state, update }: Props) {
   const splitOptions = [{ value: "best", label: "カードごとに最適" }, ...profile.lessonSplits.map((s, i) => ({ value: String(i), label: splitLabel(s) }))];
+  const [folded, setFolded] = useState(false);
   return (
     <div class="flex flex-col gap-2">
-      <div class="flex flex-wrap items-center gap-4">
+      <div id={SELECTORS_ID} class={`${folded ? "hidden sm:flex" : "flex"} flex-wrap items-center gap-4`}>
         {scenarios.length > 1 && <Select label="シナリオ" value={scenario.id} options={scenarios.map((s) => ({ value: s.id, label: s.name }))} onChange={(id) => update({ scenarioId: id, profileId: scenarios.find((s) => s.id === id)?.profiles[0]?.id ?? "", split: null, shares: {}, overrides: {} })} />}
         <Select label="育成ルート" value={profile.id} options={scenario.profiles.map((p) => ({ value: p.id, label: p.name }))} onChange={(id) => update({ profileId: id, split: null })} />
         <Select label="レッスン配分" value={state.split === null ? "best" : String(state.split)} options={splitOptions} onChange={(v) => update({ split: v === "best" ? null : Number(v) })} />
@@ -78,6 +87,9 @@ export function Controls({ scenarios, scenario, profile, state, update }: Props)
           class={`px-2 py-0.5 rounded-full text-xs border transition ${state.sp ? "bg-emerald-700 text-white border-emerald-700" : "bg-white text-slate-700 border-slate-300 hover:border-slate-500"}`}
         >
           SP発生率+
+        </button>
+        <button type="button" aria-expanded={!folded} aria-controls={SELECTORS_ID} data-controls-fold onClick={() => setFolded(!folded)} class="sm:hidden ml-auto px-2 py-0.5 rounded-full text-xs border border-slate-300 bg-slate-50 text-slate-600">
+          {folded ? "ルート・配分 ▼" : "たたむ ▲"}
         </button>
       </div>
     </div>

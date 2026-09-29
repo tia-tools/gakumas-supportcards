@@ -13,6 +13,7 @@ import { ScoreTable } from "./ScoreTable.tsx";
 import { deckDrinks, itemCapsOf, itemRows } from "./item-panel.ts";
 import { applyOverrides, buildPanel, triggersOf } from "./panel.ts";
 import { buildRows, filterRows, sortRows, withoutHeld } from "./rows.ts";
+import { useControlsHeight } from "./sticky.ts";
 import { resolveSelection, shareFor } from "./url-state.ts";
 import { ALL_TRIGGERS, useUrlState } from "./useUrlState.ts";
 
@@ -21,6 +22,7 @@ const SHOWN_CARDS = withoutHeld(CARDS, HELD);
 
 export function App() {
   const [state, update] = useUrlState();
+  const controls = useControlsHeight();
   const { scenario, profile } = resolveSelection(state, SCENARIOS);
 
   // The profile with the player's counts; the drinks ticked P-items add come on top (they are counted from this profile, so not from themselves).
@@ -53,7 +55,8 @@ export function App() {
           <FeedbackLink />
         </div>
       </header>
-      <section class="rounded-lg border border-slate-200 bg-white p-3">
+      {/* Sticks while the table scrolls, below the breakdown sheet and hints (z-20), above the table header (z-10). */}
+      <section ref={controls} class="sticky top-0 z-15 rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
         <Controls scenarios={SCENARIOS} scenario={scenario} profile={profile} state={state} update={update} />
       </section>
       <CustomizePanel profileName={profile.name} sections={sections} overrides={state.overrides} onChange={(overrides) => update({ overrides })} />
