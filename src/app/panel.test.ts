@@ -34,6 +34,46 @@ function find(sections: readonly PanelSection[], key: string): PanelInput {
   return hit;
 }
 
+describe("a 相談 purchase is also an acquisition (OCCASION_PARTS)", () => {
+  const shop: RouteProfile = { ...PROFILE, occasions: { ...PROFILE.occasions, GetProduceDrink: 16, BuyShopItemProduceDrink: 8, BuyShopItemProduceCard: 2 } };
+
+  test("raising or lowering a 相談 purchase moves the acquisition count by the same amount, never below 0", () => {
+    expect(applyOverrides(shop, { "o.BuyShopItemProduceDrink": 11 }).occasions["GetProduceDrink"]).toBe(19);
+    expect(applyOverrides(shop, { "o.BuyShopItemProduceDrink": 0 }).occasions["GetProduceDrink"]).toBe(8);
+    expect(applyOverrides(shop, { "o.BuyShopItemProduceCard": 5 }).occasions["GetProduceCard"]).toBe(23);
+    expect(applyOverrides({ ...shop, occasions: { ...shop.occasions, GetProduceDrink: 3 } }, { "o.BuyShopItemProduceDrink": 0 }).occasions["GetProduceDrink"]).toBe(0);
+  });
+
+  test("an acquisition count the player set stays as set, and the deck's drinks still add on top", () => {
+    expect(applyOverrides(shop, { "o.BuyShopItemProduceDrink": 11, "o.GetProduceDrink": 10 }).occasions["GetProduceDrink"]).toBe(10);
+    expect(applyOverrides(shop, { "o.BuyShopItemProduceDrink": 11 }, 14).occasions["GetProduceDrink"]).toBe(33);
+  });
+
+  test("the panel shows the followed count in the acquisition input, not marked as the player's", () => {
+    const drink = find(buildPanel(shop, { "o.BuyShopItemProduceDrink": 10 }, [...ALL, { occasion: "GetProduceDrink" }], []), "o.GetProduceDrink");
+    expect(drink).toMatchObject({ base: 16, unset: 18, value: 18, overridden: false });
+  });
+
+  test("an acquisition count set to its shipped number after its part moved stays set: `unset` is what it follows to, so only that drops the override", () => {
+    const drinkTrigger: ParsedTrigger[] = [...ALL, { occasion: "GetProduceDrink" }];
+    const pinned = find(buildPanel(shop, { "o.BuyShopItemProduceDrink": 10, "o.GetProduceDrink": 16 }, drinkTrigger, []), "o.GetProduceDrink");
+    expect(pinned).toMatchObject({ base: 16, unset: 18, value: 16, overridden: true });
+    expect(find(buildPanel(shop, {}, drinkTrigger, []), "o.StartShop")).toMatchObject({ base: 3, unset: 3 });
+  });
+
+  test("Pドリンク獲得 carries a read-only, used line stating how many of its drinks are bought at 相談, before the deck's addition, and saying when it no longer follows", () => {
+    const drinkTrigger: ParsedTrigger[] = [...ALL, { occasion: "GetProduceDrink" }];
+    const drink = find(buildPanel(shop, { "o.BuyShopItemProduceDrink": 10 }, drinkTrigger, drinkTrigger, 14), "o.GetProduceDrink");
+    expect(drink.children.map((c) => c.key)).toEqual(["x.GetProduceDrink.shop", "x.GetProduceDrink.items"]);
+    expect(drink.children[0]).toMatchObject({ label: "うち相談でPドリンク交換", value: 10, max: null, readOnly: true, used: true });
+    expect(drink.children[0]?.note).toContain("同じだけ変わります");
+    const set = find(buildPanel(shop, { "o.GetProduceDrink": 5 }, drinkTrigger, drinkTrigger), "o.GetProduceDrink");
+    expect(set.children[0]).toMatchObject({ value: 8, max: null }); // more than the parent it sits in, and not clamped
+    expect(set.children[0]?.note).toContain("動きません");
+    expect(find(buildPanel(shop, {}, drinkTrigger, []), "x.GetProduceDrink.shop").used).toBe(false);
+  });
+});
+
 describe("deck drinks (Milestone 3 of docs/plans/EXECPLAN_SCORE_ADJUSTMENTS.md, A8)", () => {
   const withDrinks: RouteProfile = { ...PROFILE, occasions: { ...PROFILE.occasions, GetProduceDrink: 16 } };
 

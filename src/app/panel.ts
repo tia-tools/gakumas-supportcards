@@ -26,6 +26,8 @@ export interface PanelInput {
   label: string;
   /** The route profile's own number. */
   base: number;
+  /** What the input shows with no override of its own: the base, or for an acquisition count what it follows to (OCCASION_PARTS). Entering it drops the override. */
+  unset: number;
   /** The number in force: the player's override or the base, never above `max`. */
   value: number;
   /** The parent's value; null for an occasion. */
@@ -113,14 +115,37 @@ function deriveNormalLessons(draft: ProfileDraft, overrides: Overrides): void {
   }
 }
 
+/**
+ * Occasions that are a part of another: a Pドリンク bought at 相談 is also a
+ * Pドリンク acquired, a card bought at 相談 also a card acquired. A profile states
+ * both, the whole including its part.
+ */
+export const OCCASION_PARTS: Readonly<Record<string, readonly string[]>> = {
+  GetProduceDrink: ["BuyShopItemProduceDrink"],
+  GetProduceCard: ["BuyShopItemProduceCard"],
+};
+
+/** A whole follows each change of its parts (a 相談 purchase is also an acquisition) unless overridden itself, like 通常レッスン above. */
+function followParts(draft: ProfileDraft, profile: RouteProfile, overrides: Overrides): void {
+  for (const [whole, parts] of Object.entries(OCCASION_PARTS)) {
+    if (occasionKey(whole) in overrides) continue;
+    const moved = parts.reduce((n, part) => n + (draft.occasions[part] ?? 0) - (profile.occasions[part] ?? 0), 0);
+    if (moved !== 0) draft.occasions[whole] = Math.max(0, (draft.occasions[whole] ?? 0) + moved);
+  }
+}
+
 /** The occasion the deck's P-item drinks add to (decision A8 of docs/plans/EXECPLAN_SCORE_ADJUSTMENTS.md). */
 export const DRINK_OCCASION = "GetProduceDrink";
 /** The read-only child of Pドリンク獲得 that shows what ticked P-items add. */
 export const DECK_DRINKS_KEY = `x.${DRINK_OCCASION}.items`;
+/** The read-only child of Pドリンク獲得 that shows how many of them are bought at 相談 and follow that count. */
+export const SHOP_DRINKS_KEY = `x.${DRINK_OCCASION}.shop`;
 
 /**
  * The profile with the player's numbers in it. An SP-lesson override moves 通常レッスン
- * with it (a lesson is one or the other) unless 通常レッスン is overridden itself (C18).
+ * with it (a lesson is one or the other) unless 通常レッスン is overridden itself (C18),
+ * and a 相談 purchase override moves the acquisition count it is part of by the
+ * same amount unless that count is overridden itself (`OCCASION_PARTS`).
  * `deckDrinks` (the drinks ticked P-items add, src/app/item-panel.ts) are added to
  * Pドリンク獲得 after the overrides. Bounds are not enforced here: the engine takes
  * the minimum along the tree anyway.
@@ -131,6 +156,7 @@ export function applyOverrides(profile: RouteProfile, overrides: Overrides, deck
   for (const [occasion, families] of Object.entries(profile.filters)) draft.filters[occasion] = { ...families };
   for (const [key, n] of Object.entries(overrides)) setOverride(draft, key, n);
   deriveNormalLessons(draft, overrides);
+  followParts(draft, profile, overrides);
   if (deckDrinks > 0) draft.occasions[DRINK_OCCASION] = (draft.occasions[DRINK_OCCASION] ?? 0) + deckDrinks;
   return { ...profile, ...draft };
 }
@@ -139,6 +165,8 @@ interface Draft {
   key: string;
   label: string;
   base: number;
+  /** When it differs from `base`: see PanelInput.unset. */
+  unset?: number;
   own: number;
   readOnly: boolean;
   note?: string;
@@ -150,7 +178,7 @@ const isAddition = (key: string): boolean => key.startsWith("x.");
 
 function finish(d: Draft, max: number | null, overrides: Overrides, used: ReadonlySet<string>): PanelInput {
   const value = max === null ? d.own : Math.min(d.own, max);
-  const input: PanelInput = { key: d.key, label: d.label, base: d.base, value, max, overridden: d.key in overrides, readOnly: d.readOnly, used: used.has(d.key), children: d.children.map((c) => finish(c, isAddition(c.key) ? null : value, overrides, used)) };
+  const input: PanelInput = { key: d.key, label: d.label, base: d.base, unset: d.unset ?? d.base, value, max, overridden: d.key in overrides, readOnly: d.readOnly, used: used.has(d.key), children: d.children.map((c) => finish(c, isAddition(c.key) ? null : value, overrides, used)) };
   if (d.note !== undefined) input.note = d.note;
   return input;
 }
@@ -172,6 +200,7 @@ interface PanelContext {
   conditions: Map<string, ConditionUse>;
   /** Drinks ticked P-items add to Pドリンク獲得 (src/app/item-panel.ts); shown as a line of their own, never folded into an input's value (A24). */
   deckDrinks: number;
+  overrides: Overrides;
 }
 
 /** The filters that exist per occasion: those the profile names, then those the cards use. */
@@ -223,12 +252,32 @@ function placeConditions(ctx: PanelContext, root: Draft, occasion: string): void
   }
 }
 
+/** 相談でPドリンク交換 as a line under Pドリンク獲得: part of it, and followed by it unless the player set Pドリンク獲得 (OCCASION_PARTS). */
+function shopDrinksLine(ctx: PanelContext): Draft[] {
+  const [part] = OCCASION_PARTS[DRINK_OCCASION] ?? [];
+  if (part === undefined || ctx.profile.occasions[part] === undefined) return [];
+  const n = ctx.applied.occasions[part] ?? 0;
+  const note = occasionKey(DRINK_OCCASION) in ctx.overrides
+    ? "上の回数を直接変えたので、「相談でPドリンク交換」を変えてもこの回数は動きません"
+    : "上の回数に含まれます。「相談でPドリンク交換」を変えると、上の回数も同じだけ変わります";
+  return [{ key: SHOP_DRINKS_KEY, label: `うち${occasionLabel(part)}`, base: n, own: n, readOnly: true, note, children: [] }];
+}
+
+/** The count an occasion would have if the player had not set it: with parts, the shipped count moved by their changes. */
+function unsetOccasion(ctx: PanelContext, occasion: string): number {
+  const key = occasionKey(occasion);
+  const rest = Object.fromEntries(Object.entries(ctx.overrides).filter(([k]) => k !== key));
+  return applyOverrides(ctx.profile, rest).occasions[occasion] ?? 0;
+}
+
 function occasionDraft(ctx: PanelContext, occasion: string, readOnly: boolean): Draft {
   const own = ctx.applied.occasions[occasion] ?? 0;
   const root: Draft = { key: occasionKey(occasion), label: occasionLabel(occasion), base: ctx.profile.occasions[occasion] ?? 0, own, readOnly, children: [] };
+  if (occasion in OCCASION_PARTS) root.unset = unsetOccasion(ctx, occasion);
   for (const [key, f] of ctx.filters.get(occasion) ?? []) root.children.push(filterDraft(ctx, occasion, key, f));
   placeConditions(ctx, root, occasion);
   // The input shows the player's own count; the deck's drinks are a separate line stating the total, so editing the input never folds them in (A24).
+  if (occasion === DRINK_OCCASION) root.children.push(...shopDrinksLine(ctx));
   if (occasion === DRINK_OCCASION && ctx.deckDrinks > 0) root.children.push({ key: DECK_DRINKS_KEY, label: `Pアイテムによる追加（計 ${own + ctx.deckDrinks}回）`, base: ctx.deckDrinks, own: ctx.deckDrinks, readOnly: true, note: "「Pアイテム」で「デッキに入れる」にしたアイテムが配るドリンク。上の回数に加算して数えます", children: [] });
   return root;
 }
@@ -240,9 +289,10 @@ function occasionDraft(ctx: PanelContext, occasion: string, readOnly: boolean): 
  * Pドリンク獲得, shown as a read-only child of it.
  */
 export function buildPanel(profile: RouteProfile, overrides: Overrides, all: readonly ParsedTrigger[], visible: readonly ParsedTrigger[], deckDrinks = 0): PanelSection[] {
-  const ctx: PanelContext = { profile, applied: applyOverrides(profile, overrides), filters: filtersOf(profile, all), conditions: conditionsOf(all), deckDrinks };
+  const ctx: PanelContext = { profile, applied: applyOverrides(profile, overrides), filters: filtersOf(profile, all), conditions: conditionsOf(all), deckDrinks, overrides };
   const used = keysUsedBy(visible);
   if (deckDrinks > 0) used.add(DECK_DRINKS_KEY);
+  if (used.has(occasionKey(DRINK_OCCASION))) used.add(SHOP_DRINKS_KEY);
   const known = new Set(SECTIONS.flatMap((s) => s.occasions));
   const named = new Set([...Object.keys(profile.occasions), ...all.map((t) => t.occasion), ...[...ctx.conditions.values()].map((c) => c.occasion), ...Object.keys(profile.conditions ?? {}).map(occasionOfConditionKey)]);
   const sections = SECTIONS.map((s) => ({ id: s.id, title: s.title, inputs: s.occasions.filter((o) => named.has(o)).map((o) => finish(occasionDraft(ctx, o, s.readOnly), null, overrides, used)) }));
