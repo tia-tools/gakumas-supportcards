@@ -88,16 +88,17 @@ function useOpenCell(live: ReadonlySet<string>): { shown: string | null; send: (
   const anyOpen = state.pinned !== null || state.focused !== null || state.hovered !== null;
   useEffect(() => {
     if (!anyOpen) return undefined;
+    // On the lift, not the touch: a touch that becomes a scroll ends in pointercancel, so scrolling from a thumbnail keeps it open.
     const outside = (e: Event): void => {
       if (!(e.target instanceof Element) || !e.target.closest("[data-score-cell]")) dispatch({ type: "outside" });
     };
     const escape = (e: KeyboardEvent): void => {
       if (e.key === "Escape") dispatch({ type: "escape" });
     };
-    document.addEventListener("pointerdown", outside);
+    document.addEventListener("pointerup", outside);
     document.addEventListener("keydown", escape);
     return () => {
-      document.removeEventListener("pointerdown", outside);
+      document.removeEventListener("pointerup", outside);
       document.removeEventListener("keydown", escape);
     };
   }, [anyOpen]);

@@ -6,7 +6,7 @@
  */
 
 import { GlobalRegistrator } from "@happy-dom/global-registrator";
-import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { render } from "preact";
 import { act } from "preact/test-utils";
 import { DEFAULT_AUDITION_SHARE, type Card, type RouteProfile } from "../engine/types.ts";
@@ -47,7 +47,8 @@ function open(): number[] {
 
 async function pointer(target: EventTarget, type: string, pointerType: string): Promise<void> {
   await act(() => {
-    target.dispatchEvent(new PointerEvent(type, { bubbles: type === "pointerdown", pointerType }));
+    // pointerenter/leave do not bubble; down, up and cancel do.
+    target.dispatchEvent(new PointerEvent(type, { bubbles: !type.endsWith("enter") && !type.endsWith("leave"), pointerType }));
   });
 }
 const tap = (r: number): Promise<void> => act(() => button(r).click());
@@ -60,11 +61,13 @@ const key = (k: string): Promise<void> =>
 beforeAll(() => GlobalRegistrator.register());
 afterAll(() => GlobalRegistrator.unregister());
 
-describe("ScoreTable breakdown", () => {
-  afterEach(() => act(() => render(null, root)));
+beforeEach(() => {
+  root = document.body.appendChild(document.createElement("div"));
+});
+afterEach(() => act(() => render(null, root)));
 
+describe("which breakdown shows", () => {
   test("a mouse over a cell opens its breakdown and leaving closes it; a touch pointer entering opens nothing", async () => {
-    root = document.body.appendChild(document.createElement("div"));
     await show(ROWS);
     await pointer(cell(0), "pointerenter", "touch");
     expect(open()).toEqual([]);
@@ -76,7 +79,6 @@ describe("ScoreTable breakdown", () => {
   });
 
   test("with one cell focused, hovering another shows only the hovered one, and the focused one returns on leave (the Windows report)", async () => {
-    root = document.body.appendChild(document.createElement("div"));
     await show(ROWS);
     await focus(1);
     expect(open()).toEqual([1]);
@@ -86,34 +88,45 @@ describe("ScoreTable breakdown", () => {
     expect(open()).toEqual([1]);
   });
 
-  test("a tap pins a breakdown; a tap inside it keeps it, a tap outside every score closes it", async () => {
-    root = document.body.appendChild(document.createElement("div"));
-    await show(ROWS);
-    await tap(2);
-    expect(open()).toEqual([2]);
-    await pointer(must(cell(2).querySelector(":scope > div"), "the sheet"), "pointerdown", "touch");
-    expect(open()).toEqual([2]);
-    await pointer(document.body, "pointerdown", "touch");
-    expect(open()).toEqual([]);
-  });
-
-  test("Escape closes a focused, pinned breakdown", async () => {
-    root = document.body.appendChild(document.createElement("div"));
-    await show(ROWS);
-    await focus(0);
-    await tap(0);
-    await key("Escape");
-    expect(open()).toEqual([]);
-    expect(button(0).getAttribute("aria-expanded")).toBe("false");
-  });
-
   test("a hovered cell that leaves the table without a leave event does not block the focused one", async () => {
-    root = document.body.appendChild(document.createElement("div"));
     await show(ROWS);
     await focus(2);
     await pointer(cell(0), "pointerenter", "mouse");
     expect(open()).toEqual([0]);
     await show(ROWS.slice(1));
     expect(open()).toEqual([1]);
+  });
+});
+
+describe("what closes it", () => {
+  test("a tap pins a breakdown; a tap inside it keeps it, a tap outside every score closes it", async () => {
+    await show(ROWS);
+    await tap(2);
+    expect(open()).toEqual([2]);
+    const sheet = must(cell(2).querySelector(":scope > div"), "the sheet");
+    await pointer(sheet, "pointerdown", "touch");
+    await pointer(sheet, "pointerup", "touch");
+    expect(open()).toEqual([2]);
+    await pointer(document.body, "pointerdown", "touch");
+    await pointer(document.body, "pointerup", "touch");
+    expect(open()).toEqual([]);
+  });
+
+  test("a touch outside that becomes a scroll (pointercancel, no pointerup) keeps it open", async () => {
+    await show(ROWS);
+    await tap(2);
+    const cardCell = must(root.querySelector("td:first-child"), "a card cell");
+    await pointer(cardCell, "pointerdown", "touch");
+    await pointer(cardCell, "pointercancel", "touch");
+    expect(open()).toEqual([2]);
+  });
+
+  test("Escape closes a focused, pinned breakdown", async () => {
+    await show(ROWS);
+    await focus(0);
+    await tap(0);
+    await key("Escape");
+    expect(open()).toEqual([]);
+    expect(button(0).getAttribute("aria-expanded")).toBe("false");
   });
 });
