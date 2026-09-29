@@ -6,9 +6,11 @@
  * (plan decision D2). Renders `buildPanel` of ./panel.ts and holds no rule itself.
  */
 
+import { FoldButton } from "./FoldButton.tsx";
 import { Hint } from "./Hint.tsx";
 import { isItemKey } from "./item-panel.ts";
 import type { Overrides, PanelInput, PanelSection } from "./panel.ts";
+import { CLEAR_CONTROLS } from "./sticky.ts";
 
 interface Props {
   profileName: string;
@@ -117,7 +119,7 @@ export function CustomizePanel({ profileName, sections, overrides, onChange }: P
     onChange(next);
   };
   return (
-    <details class="rounded-lg border border-slate-200 bg-white">
+    <details class={`${CLEAR_CONTROLS} rounded-lg border border-slate-200 bg-white`}>
       <summary class="cursor-pointer select-none px-3 py-2 text-sm font-medium">
         カウントを調整
         {changed > 0 && <span class="ml-2 rounded-full bg-amber-100 px-2 py-0.5 text-xs text-amber-800">{changed}件変更中</span>}
@@ -145,6 +147,7 @@ export function CustomizePanel({ profileName, sections, overrides, onChange }: P
             <Section key={s.id} section={s} onCount={onCount} />
           ))}
         </div>
+        <FoldButton />
       </div>
     </details>
   );
