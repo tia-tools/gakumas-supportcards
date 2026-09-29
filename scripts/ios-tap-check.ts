@@ -153,6 +153,7 @@ function steps(first: Report): Step[] {
     { name: "tap a 凸4 score: its sheet opens", plan: () => ({ kind: "tap", target: `score:${a}:4`, expect: [`${a}:4`] }) },
     { name: "tap inside the sheet: it stays", plan: () => ({ kind: "tap", target: "sheet", dy: 24, expect: [`${a}:4`] }) },
     { name: "swipe inside the sheet: it stays", plan: () => ({ kind: "swipe", target: "sheet", dy: 24, expect: [`${a}:4`] }) },
+    { name: "swipe starting on a thumbnail (a scroll, not a tap): it stays", plan: (r) => ({ kind: "swipe", target: `thumb:${later(r, 1)}`, expect: [`${a}:4`] }) },
     { name: "tap a thumbnail (outside): it closes", plan: (r) => ({ kind: "tap", target: `thumb:${later(r, 1)}`, expect: [] }) },
     { name: "tap a 凸2 score: its sheet opens", plan: (r) => ({ kind: "tap", target: `score:${later(r, 0)}:2`, expect: [`${later(r, 0)}:2`] }) },
     { name: "tap a rarity badge (outside, not clickable): it closes", plan: (r) => ({ kind: "tap", target: `badge:${later(r, 2)}`, expect: [] }) },
