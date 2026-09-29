@@ -1,13 +1,13 @@
 import { describe, expect, test } from "bun:test";
 import { SCENARIOS } from "../../data/scenarios/index.ts";
-import type { Scenario } from "../engine/types.ts";
-import { defaultViewState, parseViewState, serializeViewState, type ViewState } from "./url-state.ts";
+import type { RouteProfile, Scenario } from "../engine/types.ts";
+import { defaultViewState, parseViewState, serializeViewState, shareFor, withShare, type ViewState } from "./url-state.ts";
 
 /** Stands in for `adjustableKeys` of ./panel.ts: profile a2 has one input fewer. */
 const adjustable = (p: { id: string }): ReadonlySet<string> => new Set(p.id === "a2" ? ["o.StartShop"] : ["o.StartShop", "f.GetProduceCard.effectGroup.review", "w.EndLesson.produce_card_count.ge20", "i.pitem-a", "d.pitem-a"]);
-const profile = (id: string) => ({ id, name: id, occasions: {}, filters: {}, lessonSplits: [{ vocal: 1, dance: 0, visual: 0 }, { vocal: 0, dance: 1, visual: 0 }], parameterBonusBase: () => 0 });
+const profile = (id: string): RouteProfile => ({ id, name: id, occasions: {}, filters: {}, lessonSplits: [{ vocal: 1, dance: 0, visual: 0 }, { vocal: 0, dance: 1, visual: 0 }], parameterBonusBase: () => 0 });
 const scenarios: Scenario[] = [
-  { id: "a", name: "A", parameterCap: 0, profiles: [profile("a1"), profile("a2")] },
+  { id: "a", name: "A", parameterCap: 0, profiles: [profile("a1"), { ...profile("a2"), auditionShare: [1, 9, 0] }] },
   { id: "b", name: "B", parameterCap: 0, profiles: [profile("b1")] },
 ];
 
@@ -30,19 +30,26 @@ describe("parseViewState", () => {
     expect(s.sp).toBe(false);
   });
 
-  test("a=<main>.<sub>.<other> is the audition share in tenths; the default and anything malformed read as null (A5)", () => {
-    expect(parse("a=3.6.1").share).toEqual([3, 6, 1]);
-    expect(parse("a=10.0.0").share).toEqual([10, 0, 0]);
-    expect(parse("a=2.7.1").share).toBeNull();
-    expect(parse("a=5.5").share).toBeNull();
-    expect(parse("a=4.4.3").share).toBeNull();
-    expect(parse("a=2.5.6.5.1").share).toBeNull();
-    expect(parse("a=x.y.z").share).toBeNull();
-    expect(parse("").share).toBeNull();
+  test("a=<main>.<sub>.<other> is the selected profile's audition share in tenths; the profile's default and anything malformed are left out (A5)", () => {
+    expect(parse("a=3.6.1").shares).toEqual({ a1: [3, 6, 1] });
+    expect(parse("a=10.0.0").shares).toEqual({ a1: [10, 0, 0] });
+    for (const raw of ["a=2.7.1", "a=5.5", "a=4.4.3", "a=2.5.6.5.1", "a=x.y.z", ""]) expect(parse(raw).shares, raw).toEqual({});
+  });
+
+  test("the default a= is measured against is the selected profile's own", () => {
+    expect(parse("p=a2&a=1.9.0").shares).toEqual({});
+    expect(parse("p=a2&a=2.7.1").shares).toEqual({ a2: [2, 7, 1] });
+  });
+
+  test("a.<profile id>= is another profile's share; the selected profile reads only a=, and an unknown profile is ignored", () => {
+    expect(parse("a.a2=3.6.1").shares).toEqual({ a2: [3, 6, 1] });
+    expect(parse("a.a2=1.9.0").shares).toEqual({});
+    expect(parse("a.a1=3.6.1").shares).toEqual({});
+    expect(parse("a.b1=3.6.1&a.zz=3.6.1").shares).toEqual({});
   });
 
   test("the share's text is exactly three plain integers: no empty part, sign, exponent or whitespace, even where Number() would read a valid share", () => {
-    for (const raw of ["a=..10", "a=+3.6.1", "a=1e1.0.0", "a=%203.6.1", "a=3.6.1%20", "a=03.6.1", "a=3.6.1."]) expect(parse(raw).share, raw).toBeNull();
+    for (const raw of ["a=..10", "a=+3.6.1", "a=1e1.0.0", "a=%203.6.1", "a=3.6.1%20", "a=03.6.1", "a=3.6.1."]) expect(parse(raw).shares, raw).toEqual({});
   });
 
   test("sp=1 narrows to SP発生率+ cards; anything else is off", () => {
@@ -95,7 +102,7 @@ describe("serializeViewState", () => {
       scenarioId: "b",
       profileId: "b1",
       split: 1,
-      share: [3, 6, 1],
+      shares: { b1: [3, 6, 1] },
       types: ["dance", "assist"],
       plans: ["logic"],
       rarities: ["sr", "ssr"],
@@ -109,10 +116,37 @@ describe("serializeViewState", () => {
   });
 
   test("the default share, set explicitly, is not written", () => {
-    expect(serialize({ ...defaultViewState(scenarios), share: [2, 7, 1] })).toBe("");
+    expect(serialize({ ...defaultViewState(scenarios), shares: { a1: [2, 7, 1], a2: [1, 9, 0] } })).toBe("");
+  });
+
+  test("each profile keeps its own share: the selected one as a=, the others as a.<id>=", () => {
+    const state: ViewState = { ...defaultViewState(scenarios), profileId: "a2", shares: { a1: [3, 6, 1], a2: [2, 7, 1] } };
+    const q = serialize(state);
+    expect(q).toBe("p=a2&a.a1=3.6.1&a=2.7.1");
+    expect(parse(q)).toEqual(state);
+    const switched: ViewState = { ...state, profileId: "a1" };
+    expect(serialize(switched)).toBe("a=3.6.1&a.a2=2.7.1");
+    expect(parse(serialize(switched))).toEqual(switched);
   });
 
   test("a non-default profile of the default scenario is written", () => {
     expect(serialize({ ...defaultViewState(scenarios), profileId: "a2" })).toBe("p=a2");
+  });
+});
+
+describe("shareFor / withShare", () => {
+  const [a1, a2] = scenarios[0]?.profiles ?? [];
+  if (!a1 || !a2) throw new Error("fixture");
+
+  test("the player's share under a profile, else the profile's default", () => {
+    expect(shareFor({ shares: {} }, a1)).toEqual([2, 7, 1]);
+    expect(shareFor({ shares: {} }, a2)).toEqual([1, 9, 0]);
+    expect(shareFor({ shares: { a1: [3, 6, 1] } }, a2)).toEqual([1, 9, 0]);
+  });
+
+  test("setting one profile's share leaves the others; its default or null drops it", () => {
+    expect(withShare({ a1: [3, 6, 1] }, a2, [2, 7, 1])).toEqual({ a1: [3, 6, 1], a2: [2, 7, 1] });
+    expect(withShare({ a1: [3, 6, 1], a2: [2, 7, 1] }, a2, [1, 9, 0])).toEqual({ a1: [3, 6, 1] });
+    expect(withShare({ a1: [3, 6, 1] }, a1, null)).toEqual({});
   });
 });

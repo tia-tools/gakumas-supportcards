@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { isAuditionShare, roleOf, shareOf } from "./share.ts";
+import { defaultShareOf, isAuditionShare, roleOf, shareOf } from "./share.ts";
 import { DEFAULT_AUDITION_SHARE } from "./types.ts";
 
 describe("roleOf", () => {
@@ -14,6 +14,24 @@ describe("roleOf", () => {
     expect(roleOf({ vocal: 4, dance: 4, visual: 0 }, "vocal")).toBe(0);
     expect(roleOf({ vocal: 4, dance: 4, visual: 0 }, "dance")).toBe(1);
     expect(roleOf({ vocal: 0, dance: 0, visual: 0 }, "visual")).toBe(2);
+  });
+
+  test("a named sub wins a tie, so 8/0/0 can send the audition to either untrained stat", () => {
+    expect(roleOf({ vocal: 8, dance: 0, visual: 0, sub: "visual" }, "visual")).toBe(1);
+    expect(roleOf({ vocal: 8, dance: 0, visual: 0, sub: "visual" }, "dance")).toBe(2);
+    expect(roleOf({ vocal: 0, dance: 0, visual: 8, sub: "dance" }, "dance")).toBe(1);
+    expect(roleOf({ vocal: 0, dance: 0, visual: 8, sub: "dance" }, "vocal")).toBe(2);
+  });
+
+  test("a named sub does not outrank a stat with more lessons", () => {
+    expect(roleOf({ vocal: 7, dance: 1, visual: 0, sub: "visual" }, "dance")).toBe(1);
+  });
+});
+
+describe("defaultShareOf", () => {
+  test("a profile's own share, else 2:7:1", () => {
+    expect(defaultShareOf({ auditionShare: [1, 9, 0] })).toEqual([1, 9, 0]);
+    expect(defaultShareOf({})).toEqual(DEFAULT_AUDITION_SHARE);
   });
 });
 
