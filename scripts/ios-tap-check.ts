@@ -139,8 +139,10 @@ async function calibrateOffset(udid: string, page: Page, first: Report): Promise
 
 function steps(first: Report): Step[] {
   const rows = rowsOf(first);
-  const [a, , c] = rows;
-  if (a === undefined || c === undefined) throw new Error(`need three table rows on screen, found ${rows.length}`);
+  // Two rows: the sticky controls, even folded, leave about two rows above the tallest sheet on a phone,
+  // and one once step 7's swipe has scrolled the page, so the steps after it use the first row in reach.
+  const [a, c] = rows;
+  if (a === undefined || c === undefined) throw new Error(`need two table rows on screen, found ${rows.length}`);
   const later = (r: Report, i: number): number => {
     const row = rowsOf(r)[i];
     if (row === undefined) throw new Error("the table scrolled out of reach");
@@ -154,9 +156,9 @@ function steps(first: Report): Step[] {
     { name: "tap inside the sheet: it stays", plan: () => ({ kind: "tap", target: "sheet", dy: 24, expect: [`${a}:4`] }) },
     { name: "swipe inside the sheet: it stays", plan: () => ({ kind: "swipe", target: "sheet", dy: 24, expect: [`${a}:4`] }) },
     { name: "swipe starting on a thumbnail (a scroll, not a tap): it stays", plan: (r) => ({ kind: "swipe", target: `thumb:${later(r, 1)}`, expect: [`${a}:4`] }) },
-    { name: "tap a thumbnail (outside): it closes", plan: (r) => ({ kind: "tap", target: `thumb:${later(r, 1)}`, expect: [] }) },
+    { name: "tap a thumbnail (outside): it closes", plan: (r) => ({ kind: "tap", target: `thumb:${later(r, 0)}`, expect: [] }) },
     { name: "tap a 凸2 score: its sheet opens", plan: (r) => ({ kind: "tap", target: `score:${later(r, 0)}:2`, expect: [`${later(r, 0)}:2`] }) },
-    { name: "tap a rarity badge (outside, not clickable): it closes", plan: (r) => ({ kind: "tap", target: `badge:${later(r, 2)}`, expect: [] }) },
+    { name: "tap a rarity badge (outside, not clickable): it closes", plan: (r) => ({ kind: "tap", target: `badge:${later(r, 0)}`, expect: [] }) },
   ];
 }
 
