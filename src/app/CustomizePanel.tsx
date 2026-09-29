@@ -111,7 +111,7 @@ export function CustomizePanel({ profileName, sections, overrides, onChange }: P
     if (raw === "" || !Number.isInteger(n) || n < 0) delete next[input.key];
     else {
       const bounded = input.max === null ? n : Math.min(n, input.max);
-      if (bounded === input.base) delete next[input.key];
+      if (bounded === input.unset) delete next[input.key]; // back to what it shows unset: the base, or what an acquisition count follows to
       else next[input.key] = bounded;
     }
     onChange(next);
