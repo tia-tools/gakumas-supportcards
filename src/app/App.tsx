@@ -3,7 +3,7 @@ import { CARDS } from "../../data/cards.generated.ts";
 import { HELD } from "../../data/held.generated.ts";
 import { LEVEL_LIMITS } from "../../data/levelLimits.generated.ts";
 import { SCENARIOS } from "../../data/scenarios/index.ts";
-import { DEFAULT_AUDITION_SHARE, type Totsu } from "../engine/types.ts";
+import type { Totsu } from "../engine/types.ts";
 import { Controls } from "./Controls.tsx";
 import { CustomizePanel } from "./CustomizePanel.tsx";
 import { FeedbackForm, FeedbackLink } from "./FeedbackForm.tsx";
@@ -13,7 +13,7 @@ import { ScoreTable } from "./ScoreTable.tsx";
 import { deckDrinks, itemCapsOf, itemRows } from "./item-panel.ts";
 import { applyOverrides, buildPanel, triggersOf } from "./panel.ts";
 import { buildRows, filterRows, sortRows, withoutHeld } from "./rows.ts";
-import { resolveSelection } from "./url-state.ts";
+import { resolveSelection, shareFor } from "./url-state.ts";
 import { ALL_TRIGGERS, useUrlState } from "./useUrlState.ts";
 
 /** Cards with an effect the pipeline cannot count are not shown at all (docs/adr/0005). */
@@ -29,8 +29,8 @@ export function App() {
   const itemCtx = useMemo(() => ({ scenarioId: scenario.id, profile: applied, lessons: state.split === null ? null : (profile.lessonSplits[state.split] ?? null) }), [scenario, applied, profile, state.split]);
   const drinks = useMemo(() => deckDrinks(SHOWN_CARDS, itemCtx, state.overrides), [itemCtx, state.overrides]);
   const scored = useMemo(
-    () => buildRows(SHOWN_CARDS, { scenarioId: scenario.id, profile: applyOverrides(profile, state.overrides, drinks), limits: LEVEL_LIMITS, share: state.share ?? DEFAULT_AUDITION_SHARE, itemCaps: itemCapsOf(state.overrides) }, state.split),
-    [scenario, profile, state.overrides, state.split, state.share, drinks],
+    () => buildRows(SHOWN_CARDS, { scenarioId: scenario.id, profile: applyOverrides(profile, state.overrides, drinks), limits: LEVEL_LIMITS, share: shareFor(state, profile), itemCaps: itemCapsOf(state.overrides) }, state.split),
+    [scenario, profile, state.overrides, state.split, state.shares, drinks],
   );
   const rows = useMemo(() => sortRows(filterRows(scored, state), state.sort), [scored, state.types, state.plans, state.rarities, state.sp, state.sort]);
 

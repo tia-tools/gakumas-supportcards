@@ -7,8 +7,10 @@
  * Query parameters:
  *   s=<scenario id>  p=<profile id>  ls=<lesson-split preset index; absent = best preset (D26)>
  *   a=<main>.<sub>.<other>  tenths of the 選抜試験's distributed reward for the main, sub and
- *                     other stat of the split (docs/plans/EXECPLAN_SCORE_ADJUSTMENTS.md A4, A5);
- *                     absent = the default 2.7.1
+ *                     other stat of the split (docs/plans/EXECPLAN_SCORE_ADJUSTMENTS.md A4, A5) under
+ *                     the selected profile; absent = the profile's default (2.7.1 unless it states one)
+ *   a.<profile id>=<main>.<sub>.<other>  the same for another profile of the scenario: a share
+ *                     is the player's per profile, kept when they switch away and back
  *   type=vocal,dance  plan=sense,logic  rarity=ssr   (comma-separated; absent = all)
  *   sp=1              (only cards with an SP発生率+ skill; absent = all)
  *   sort=4d           (凸 column 0–4 followed by d or a; default 4d)
@@ -19,8 +21,8 @@
  *                     (src/app/item-panel.ts; docs/plans/EXECPLAN_SCORE_ADJUSTMENTS.md A9, A11)
  */
 
-import { isAuditionShare } from "../engine/share.ts";
-import { DEFAULT_AUDITION_SHARE, type AuditionShare, type CardType, type Plan, type Rarity, type RouteProfile, type Scenario, type Totsu } from "../engine/types.ts";
+import { defaultShareOf, isAuditionShare } from "../engine/share.ts";
+import { type AuditionShare, type CardType, type Plan, type Rarity, type RouteProfile, type Scenario, type Totsu } from "../engine/types.ts";
 
 export interface SortSpec {
   totsu: Totsu;
@@ -32,8 +34,8 @@ export interface ViewState {
   profileId: string;
   /** Index into the profile's `lessonSplits`; null scores each card under its best preset. */
   split: number | null;
-  /** The player's audition share in tenths (main, sub, other); null is the default 2:7:1. */
-  share: AuditionShare | null;
+  /** Profile id → the player's audition share in tenths (main, sub, other) under it; a profile not listed uses its default (`shareFor`). */
+  shares: Readonly<Record<string, AuditionShare>>;
   types: readonly CardType[];
   plans: readonly Plan[];
   rarities: readonly Rarity[];
@@ -59,7 +61,7 @@ export function defaultViewState(scenarios: readonly Scenario[]): ViewState {
   const scenario = scenarios[0];
   const profile = scenario?.profiles[0];
   if (!scenario || !profile) throw new Error("no scenario shipped");
-  return { scenarioId: scenario.id, profileId: profile.id, split: null, share: null, types: [], plans: [], rarities: [], sp: false, sort: DEFAULT_SORT, overrides: {} };
+  return { scenarioId: scenario.id, profileId: profile.id, split: null, shares: {}, types: [], plans: [], rarities: [], sp: false, sort: DEFAULT_SORT, overrides: {} };
 }
 
 /** The scenario and profile the state names, falling back to the defaults when an id is unknown. */
@@ -84,16 +86,34 @@ function parseSort(raw: string | null): SortSpec {
   return totsu === undefined ? DEFAULT_SORT : { totsu, desc: m[2] === "d" };
 }
 
-const isDefaultShare = (s: AuditionShare): boolean => s.every((n, i) => n === DEFAULT_AUDITION_SHARE[i]);
+const sameShare = (a: AuditionShare, b: AuditionShare): boolean => a.every((n, i) => n === b[i]);
+
+/** The audition share in force under `profile`: the player's, else the profile's default. */
+export function shareFor(state: Pick<ViewState, "shares">, profile: RouteProfile): AuditionShare {
+  return state.shares[profile.id] ?? defaultShareOf(profile);
+}
+
+/** `shares` with the player's share under `profile` set to `share`, or dropped when `share` is null or the profile's default. */
+export function withShare(shares: ViewState["shares"], profile: RouteProfile, share: AuditionShare | null): Record<string, AuditionShare> {
+  const out = Object.fromEntries(Object.entries(shares).filter(([id]) => id !== profile.id));
+  return share === null || sameShare(share, defaultShareOf(profile)) ? out : { ...out, [profile.id]: share };
+}
 
 /** Exactly three plain integers 0–10 joined by dots: no sign, exponent, whitespace or empty part (`Number("")` is 0). */
 const SHARE_TEXT = /^(?:10|\d)\.(?:10|\d)\.(?:10|\d)$/;
 
-/** `a=2.7.1` → null (the default), `a=3.6.1` → [3, 6, 1]; anything that is not three tenths summing to 10 → null. */
+/** `3.6.1` → [3, 6, 1]; anything that is not three tenths summing to 10 → null. */
 function parseShare(raw: string | null): AuditionShare | null {
   if (raw === null || !SHARE_TEXT.test(raw)) return null;
   const parts = raw.split(".").map(Number);
-  return isAuditionShare(parts) && !isDefaultShare(parts) ? parts : null;
+  return isAuditionShare(parts) ? parts : null;
+}
+
+/** `a=` for the selected profile, `a.<id>=` for the scenario's others; a profile's default and anything malformed are left out. */
+function parseShares(params: URLSearchParams, scenario: Scenario, selected: RouteProfile): Record<string, AuditionShare> {
+  let out: Record<string, AuditionShare> = {};
+  for (const p of scenario.profiles) out = withShare(out, p, parseShare(params.get(p.id === selected.id ? "a" : `a.${p.id}`)));
+  return out;
 }
 
 function parseOverrides(params: URLSearchParams, adjustable: ReadonlySet<string>): Record<string, number> {
@@ -119,7 +139,7 @@ export function parseViewState(params: URLSearchParams, scenarios: readonly Scen
     scenarioId: scenario.id,
     profileId: profile.id,
     split,
-    share: parseShare(params.get("a")),
+    shares: parseShares(params, scenario, profile),
     types: parseList(params.get("type"), CARD_TYPES),
     plans: parseList(params.get("plan"), PLANS),
     rarities: parseList(params.get("rarity"), RARITIES),
@@ -129,6 +149,15 @@ export function parseViewState(params: URLSearchParams, scenarios: readonly Scen
   };
 }
 
+/** Each of the scenario's profiles whose share is the player's: the selected one as `a=`, the others as `a.<id>=`. */
+function writeShares(out: URLSearchParams, state: ViewState, scenarios: readonly Scenario[]): void {
+  const scenario = scenarios.find((s) => s.id === state.scenarioId);
+  for (const p of scenario?.profiles ?? []) {
+    const share = state.shares[p.id];
+    if (share !== undefined && !sameShare(share, defaultShareOf(p))) out.set(p.id === state.profileId ? "a" : `a.${p.id}`, share.join("."));
+  }
+}
+
 /** Only values that differ from `defaultViewState` are written, so the default view has an empty query string. */
 export function serializeViewState(state: ViewState, scenarios: readonly Scenario[]): URLSearchParams {
   const base = defaultViewState(scenarios);
@@ -136,7 +165,7 @@ export function serializeViewState(state: ViewState, scenarios: readonly Scenari
   if (state.scenarioId !== base.scenarioId) out.set("s", state.scenarioId);
   if (state.profileId !== base.profileId || state.scenarioId !== base.scenarioId) out.set("p", state.profileId);
   if (state.split !== null) out.set("ls", String(state.split));
-  if (state.share !== null && !isDefaultShare(state.share)) out.set("a", state.share.join("."));
+  writeShares(out, state, scenarios);
   if (state.types.length > 0) out.set("type", state.types.join(","));
   if (state.plans.length > 0) out.set("plan", state.plans.join(","));
   if (state.rarities.length > 0) out.set("rarity", state.rarities.join(","));

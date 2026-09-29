@@ -3,7 +3,7 @@
 import type { BreakdownLine, Score } from "../engine/types.ts";
 import { formatPoints } from "./rows.ts";
 import { triggerLabel } from "./count-labels.ts";
-import { STAT_SHORT, STAT_TEXT } from "./labels.ts";
+import { STAT_SHORT, STAT_TEXT, splitLabel } from "./labels.ts";
 
 const KIND_LABEL: Readonly<Record<BreakdownLine["kind"], string>> = { skill: "スキル", event: "イベント", item: "Pアイテム", bonus: "ボーナス" };
 
@@ -32,7 +32,7 @@ export function Breakdown({ score }: { score: Score }) {
     <div class="text-xs text-left leading-snug">
       <div class="flex flex-wrap justify-between gap-x-4 border-b border-slate-200 pb-1 mb-1">
         <span>
-          レッスン配分 Vo{lessons.vocal} / Da{lessons.dance} / Vi{lessons.visual}
+          レッスン配分 {splitLabel(lessons)}
           <span class="ml-2 whitespace-nowrap text-slate-500">選抜試験 {share.join(":")}</span>
         </span>
         <span class="tabular-nums">

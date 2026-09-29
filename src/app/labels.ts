@@ -1,11 +1,13 @@
 /** Display labels and colours for the card facets and stats. */
 
-import type { CardType, Plan, Rarity, Stat } from "../engine/types.ts";
+import type { CardType, LessonSplit, Plan, Rarity, Stat } from "../engine/types.ts";
 
 export const TYPE_LABEL: Readonly<Record<CardType, string>> = { vocal: "ボーカル", dance: "ダンス", visual: "ビジュアル", assist: "アシスト" };
 export const TYPE_SHORT: Readonly<Record<CardType, string>> = { vocal: "Vo", dance: "Da", visual: "Vi", assist: "As" };
 export const TYPE_COLOR: Readonly<Record<CardType, string>> = { vocal: "bg-rose-500", dance: "bg-sky-500", visual: "bg-amber-400", assist: "bg-slate-500" };
 export const STAT_SHORT: Readonly<Record<Stat, string>> = { vocal: "Vo", dance: "Da", visual: "Vi" };
+/** `Vo7 / Da1 / Vi0`, and the stat taking the audition's sub share when the preset names it (8/0/0). */
+export const splitLabel = (s: LessonSplit): string => `Vo${s.vocal} / Da${s.dance} / Vi${s.visual}${s.sub === undefined ? "" : `（試験サブ ${STAT_SHORT[s.sub]}）`}`;
 export const STAT_TEXT: Readonly<Record<Stat, string>> = { vocal: "text-rose-600", dance: "text-sky-600", visual: "text-amber-600" };
 export const PLAN_LABEL: Readonly<Record<Plan, string>> = { common: "共通", sense: "センス", logic: "ロジック", anomaly: "アノマリー" };
 export const PLAN_COLOR: Readonly<Record<Plan, string>> = { common: "bg-slate-200 text-slate-700", sense: "bg-orange-100 text-orange-800", logic: "bg-blue-100 text-blue-800", anomaly: "bg-purple-100 text-purple-800" };
