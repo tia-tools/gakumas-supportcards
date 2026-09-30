@@ -51,4 +51,9 @@ describe("roleLabels", () => {
     expect(roleLabels({ vocal: 1, dance: 7, visual: 0 }).map((l) => l.text)).toEqual(["Da", "Vo", "Vi"]);
     expect(roleLabels({ vocal: 0, dance: 1, visual: 7 }).map((l) => l.text)).toEqual(["Vi", "Da", "Vo"]);
   });
+
+  test("a preset that names its sub puts that stat second, as the badges beside レッスン配分 show it", () => {
+    expect(roleLabels({ vocal: 8, dance: 0, visual: 0, sub: "dance" }).map((l) => l.text)).toEqual(["Vo", "Da", "Vi"]);
+    expect(roleLabels({ vocal: 8, dance: 0, visual: 0, sub: "visual" }).map((l) => l.text)).toEqual(["Vo", "Vi", "Da"]);
+  });
 });
