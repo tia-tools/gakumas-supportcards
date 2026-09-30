@@ -6,6 +6,7 @@
  * (plan decision D2). Renders `buildPanel` of ./panel.ts and holds no rule itself.
  */
 
+import { CountField } from "./CountField.tsx";
 import { FoldButton } from "./FoldButton.tsx";
 import { Hint } from "./Hint.tsx";
 import { isItemKey } from "./item-panel.ts";
@@ -40,15 +41,7 @@ function Row({ input, path, onCount }: RowProps) {
         {input.readOnly ? (
           <span class="w-14 px-1 text-right text-slate-500">{input.value}</span>
         ) : (
-          <input
-            type="number"
-            min={0}
-            max={input.max ?? undefined}
-            step={1}
-            value={input.value}
-            onInput={(e) => onCount(input, e.currentTarget.value)}
-            class={`w-14 rounded border px-1 py-0.5 text-right ${input.overridden ? "border-amber-400 bg-amber-50" : "border-slate-300"}`}
-          />
+          <CountField value={input.value} max={input.max} overridden={input.overridden} onCount={(raw) => onCount(input, raw)} />
         )}
         <span class="w-8 text-[10px] text-slate-400">{input.max === null ? "回" : `/ ${input.max}`}</span>
       </span>
