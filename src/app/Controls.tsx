@@ -5,8 +5,9 @@
  */
 
 import { useState } from "preact/hooks";
-import type { CardType, Plan, Rarity, Scenario, RouteProfile } from "../engine/types.ts";
+import type { CardType, LessonSplit, Plan, Rarity, Scenario, RouteProfile } from "../engine/types.ts";
 import { PLAN_LABEL, RARITY_LABEL, TYPE_LABEL, splitLabel } from "./labels.ts";
+import { roleLabels } from "./share.ts";
 import { ShareSlider } from "./ShareSlider.tsx";
 import { CARD_TYPES, PLANS, RARITIES, shareFor, withShare, type ViewState } from "./url-state.ts";
 import type { UpdateViewState } from "./useUrlState.ts";
@@ -55,21 +56,42 @@ function Select({ label, value, options, onChange }: { label: string; value: str
   );
 }
 
+/** The stats that are メイン and サブ under a fixed preset, in their stat colours, so they need not be read out of the preset's name. */
+function SplitRoles({ split }: { split: LessonSplit }) {
+  const [main, sub] = roleLabels(split);
+  return (
+    <span class="flex items-center gap-1 text-xs">
+      {[
+        { role: "メイン", label: main },
+        { role: "サブ", label: sub },
+      ].map(({ role, label }) => (
+        <span key={role} class={`rounded-full border border-current px-2 py-0.5 font-semibold ${label.ink}`}>
+          {role} {label.text}
+        </span>
+      ))}
+    </span>
+  );
+}
+
 /** The selector row's id, for the fold toggle's aria-controls. */
 const SELECTORS_ID = "controls-selectors";
 
 export function Controls({ scenarios, scenario, profile, state, update }: Props) {
   const splitOptions = [{ value: "best", label: "カードごとに最適" }, ...profile.lessonSplits.map((s, i) => ({ value: String(i), label: splitLabel(s) }))];
+  const split = state.split === null ? null : (profile.lessonSplits[state.split] ?? null);
   const [folded, setFolded] = useState(false);
   return (
     <div class="flex flex-col gap-2">
       <div id={SELECTORS_ID} class={`${folded ? "hidden sm:flex" : "flex"} flex-wrap items-center gap-4`}>
         {scenarios.length > 1 && <Select label="シナリオ" value={scenario.id} options={scenarios.map((s) => ({ value: s.id, label: s.name }))} onChange={(id) => update({ scenarioId: id, profileId: scenarios.find((s) => s.id === id)?.profiles[0]?.id ?? "", split: null, shares: {}, overrides: {} })} />}
         <Select label="育成ルート" value={profile.id} options={scenario.profiles.map((p) => ({ value: p.id, label: p.name }))} onChange={(id) => update({ profileId: id, split: null })} />
-        <Select label="レッスン配分" value={state.split === null ? "best" : String(state.split)} options={splitOptions} onChange={(v) => update({ split: v === "best" ? null : Number(v) })} />
+        <span class="flex flex-wrap items-center gap-2">
+          <Select label="レッスン配分" value={state.split === null ? "best" : String(state.split)} options={splitOptions} onChange={(v) => update({ split: v === "best" ? null : Number(v) })} />
+          {split && <SplitRoles split={split} />}
+        </span>
         <ShareSlider
           share={shareFor(state, profile)}
-          split={state.split === null ? null : (profile.lessonSplits[state.split] ?? null)}
+          split={split}
           isDefault={state.shares[profile.id] === undefined}
           onChange={(share) => update({ shares: withShare(state.shares, profile, share) })}
           onReset={() => update({ shares: withShare(state.shares, profile, null) })}
