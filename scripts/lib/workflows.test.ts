@@ -164,16 +164,21 @@ describe("update-data.yml", () => {
     expect(scripts).not.toMatch(/git push[^\n]*(--force|-f\b)/); // `gh label create --force` is an upsert, not a push
   });
 
-  test("runs daily at 11:30 JST (D46)", () => {
-    expect(wf.on.schedule).toEqual([{ cron: "30 2 * * *" }]);
+  test("runs daily at 11:30 and 20:30 JST (D46)", () => {
+    expect(wf.on.schedule).toEqual([
+      { cron: "30 11 * * *", timezone: "Asia/Tokyo" },
+      { cron: "30 20 * * *", timezone: "Asia/Tokyo" },
+    ]);
   });
 
-  test("tells Discord in a last job, after any update or deploy that did not succeed, a change, a manual run, and on Mondays (D43, D46)", () => {
+  test("tells Discord in a last job, after any update or deploy that did not succeed, a change, a manual run, and on Monday mornings (D43, D46)", () => {
     const notify = wf.jobs.notify;
     expect(notify?.needs).toEqual(["update", "deploy"]);
     expect(notify?.if).toBe("always()");
     const own = stepsOf(wf, "notify");
     expect(own[0]?.id).toBe("when");
+    // Monday in Japan, where the schedule is set, not in UTC.
+    expect(own[0]?.run).toContain("TZ=Asia/Tokyo date +%u");
     const last = own[own.length - 1];
     expect(actionName(last?.uses ?? "")).toBe("Taka499/nudge/actions/notify");
     const condition = last?.if ?? "";
@@ -182,7 +187,8 @@ describe("update-data.yml", () => {
       "needs.deploy.result != 'success' && needs.deploy.result != 'skipped'",
       "needs.update.outputs.changed == 'true'",
       "github.event_name == 'workflow_dispatch'",
-      "steps.when.outputs.weekday == '1'",
+      // Only the morning run says the weekly sign of life, so a Monday says it once.
+      "(github.event.schedule == '30 11 * * *' && steps.when.outputs.weekday == '1')",
     ]) {
       expect(condition).toContain(part);
     }

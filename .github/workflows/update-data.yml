@@ -9,7 +9,7 @@
 # A failure publishes nothing: the site keeps its last good data, GitHub mails the failure, and
 # the last job, notify, posts to the owner's Discord through Nudge (github.com/Taka499/nudge; an
 # OIDC token, no stored secret) whenever the update or the deploy failed or was cancelled, data was
-# published or the run was started by hand, and on Mondays even when nothing changed, so a
+# published or the run was started by hand, and on Monday mornings even when nothing changed, so a
 # schedule that stopped running is noticed (D43, D46). It is a job of its own, after deploy, so a
 # failed deploy is reported too, and so it is the only job that can mint an OIDC token.
 # The gates run here rather than as pull-request checks because a pull request opened with the
@@ -20,9 +20,17 @@ name: Update data
 
 on:
   schedule:
-    # Daily 02:30 UTC (11:30 JST): upstream's first commit of a day usually lands at 11:03 JST, and
-    # off the hour is where scheduled runs are delayed least (first plan, decision D46).
-    - cron: "30 2 * * *"
+    # Daily 11:30 and 20:30 JST. Upstream commits at :03 past the hour it sees a change: 11:03 JST
+    # for most updates (36 of 62 since 2026-03), and when later, mostly between 15:03 and 20:03
+    # (20:03 the most common), so the evening run publishes those the same day; only a 21:03
+    # update (1 of 62) waits for the next morning. Half past leaves room for upstream's push and
+    # the raw-file cache, and off the hour is where scheduled runs are delayed least (first plan,
+    # decision D46). The time zone is stated rather than left to the UTC default: with "30 2" in
+    # UTC the runs of 2026-09-28 and 09-29 started at 17:48–17:50 JST.
+    - cron: "30 11 * * *"
+      timezone: "Asia/Tokyo"
+    - cron: "30 20 * * *"
+      timezone: "Asia/Tokyo"
   workflow_dispatch:
 
 # Nothing by default; each job states what it needs.
@@ -174,8 +182,9 @@ jobs:
     secrets: inherit
 
   # Runs after everything, whatever happened: a failed gate or deploy is the message that matters
-  # most. A scheduled run that found nothing stays quiet except on Mondays, the weekly sign that the
-  # schedule still runs (D46). deploy is "skipped" when nothing changed, which is not a failure.
+  # most. A scheduled run that found nothing stays quiet except the Monday 11:30 one, the weekly
+  # sign that the schedule still runs, said once a week rather than by both Monday runs (D46).
+  # deploy is "skipped" when nothing changed, which is not a failure.
   notify:
     needs: [update, deploy]
     if: always()
@@ -183,12 +192,12 @@ jobs:
     permissions:
       id-token: write
     steps:
-      # 1 is Monday, in UTC and, at 02:30 UTC, in Japan too.
+      # 1 is Monday, in Japan, where the schedule is set.
       - name: Which weekday is it?
         id: when
-        run: echo "weekday=$(date -u +%u)" >> "$GITHUB_OUTPUT"
+        run: echo "weekday=$(TZ=Asia/Tokyo date +%u)" >> "$GITHUB_OUTPUT"
       - name: Tell Discord how it went
-        if: needs.update.result != 'success' || (needs.deploy.result != 'success' && needs.deploy.result != 'skipped') || needs.update.outputs.changed == 'true' || github.event_name == 'workflow_dispatch' || steps.when.outputs.weekday == '1'
+        if: needs.update.result != 'success' || (needs.deploy.result != 'success' && needs.deploy.result != 'skipped') || needs.update.outputs.changed == 'true' || github.event_name == 'workflow_dispatch' || (github.event.schedule == '30 11 * * *' && steps.when.outputs.weekday == '1')
         uses: Taka499/nudge/actions/notify@b706447babea35d3b95dcdbae7ec03f007cb2b2a # v1.0.0
         with:
           endpoint: https://nudge.tia.run
