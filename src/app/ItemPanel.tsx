@@ -10,6 +10,7 @@
  */
 
 import { useState } from "preact/hooks";
+import { CountField } from "./CountField.tsx";
 import { FoldButton } from "./FoldButton.tsx";
 import { Hint } from "./Hint.tsx";
 import { triggerLabel } from "./count-labels.ts";
@@ -68,7 +69,7 @@ function CountInput({ row, onCap }: { row: ItemRow; onCap: (row: ItemRow, raw: s
   return (
     <span class="flex items-center gap-1 tabular-nums">
       {row.overridden && <span class="text-[10px] text-slate-400">既定 {row.computed}</span>}
-      <input type="number" min={0} max={row.computed} step={1} value={row.value} aria-label={`${row.itemName}の発動回数`} onInput={(e) => onCap(row, e.currentTarget.value)} class={`w-14 rounded border px-1 py-0.5 text-right ${row.overridden ? "border-amber-400 bg-amber-50" : "border-slate-300"}`} />
+      <CountField value={row.value} max={row.computed} overridden={row.overridden} label={`${row.itemName}の発動回数`} onCount={(raw) => onCap(row, raw)} />
       <span class="w-8 text-[10px] text-slate-400">/ {row.computed}</span>
     </span>
   );
