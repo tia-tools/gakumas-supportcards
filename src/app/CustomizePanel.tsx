@@ -34,6 +34,7 @@ function Row({ input, path, onCount }: RowProps) {
       <span class={`truncate text-xs ${labelClass}`}>
         {path && <span class="text-slate-400">{path} › </span>}
         {input.label}
+        {input.detail}
         {input.note && <span class="ml-1 text-[10px] text-sky-700">※</span>}
       </span>
       <span class="flex shrink-0 items-center gap-1 text-xs tabular-nums">

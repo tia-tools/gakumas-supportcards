@@ -146,6 +146,17 @@ describe("buildPanel", () => {
     expect(find(buildPanel(PROFILE, { [SP]: 5 }, ALL, ALL), "f.EndLesson.lessonKind.normal")).toMatchObject({ value: 3, base: 0, readOnly: true });
   });
 
+  test("通常レッスン states the subtraction it is beside its label, unless the URL sets it itself", () => {
+    expect(find(buildPanel(PROFILE, { [SP]: 0 }, ALL, ALL), "f.EndLesson.lessonKind.normal")).toMatchObject({ label: "通常レッスン", detail: "（8 − SP 0）", value: 8 });
+    expect(find(buildPanel(PROFILE, { [SP]: 5, "f.EndLesson.lessonKind.normal": 1 }, ALL, ALL), "f.EndLesson.lessonKind.normal").detail).toBeUndefined();
+  });
+
+  test("an SP count above the lessons is stated as its row shows it, capped, so the subtraction stays true", () => {
+    const p = buildPanel(PROFILE, { [SP]: 12 }, ALL, ALL);
+    expect(find(p, SP).value).toBe(8);
+    expect(find(p, "f.EndLesson.lessonKind.normal")).toMatchObject({ detail: "（8 − SP 8）", value: 0 });
+  });
+
   test("an input is used only when a card in view reacts to it", () => {
     const p = buildPanel(PROFILE, {}, ALL, [GET_REVIEW_DANCE700]);
     expect(find(p, "o.GetProduceCard").used).toBe(true);
