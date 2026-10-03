@@ -39,6 +39,8 @@ export interface PanelInput {
   used: boolean;
   /** Set when the route ships this condition below "always met" (C7). */
   note?: string;
+  /** Shown beside the label, not part of it (a folded row's path uses the label alone): how a derived value is computed. */
+  detail?: string;
   children: PanelInput[];
 }
 
@@ -170,6 +172,7 @@ interface Draft {
   own: number;
   readOnly: boolean;
   note?: string;
+  detail?: string;
   children: Draft[];
 }
 
@@ -180,6 +183,7 @@ function finish(d: Draft, max: number | null, overrides: Overrides, used: Readon
   const value = max === null ? d.own : Math.min(d.own, max);
   const input: PanelInput = { key: d.key, label: d.label, base: d.base, unset: d.unset ?? d.base, value, max, overridden: d.key in overrides, readOnly: d.readOnly, used: used.has(d.key), children: d.children.map((c) => finish(c, isAddition(c.key) ? null : value, overrides, used)) };
   if (d.note !== undefined) input.note = d.note;
+  if (d.detail !== undefined) input.detail = d.detail;
   return input;
 }
 
@@ -231,8 +235,16 @@ function conditionsOf(all: readonly ParsedTrigger[]): Map<string, ConditionUse> 
 }
 
 function filterDraft(ctx: PanelContext, occasion: string, key: string, f: FilterRef): Draft {
-  const derived = f.family === "lessonKind" && f.member === "normal" && ctx.applied.filters[occasion]?.lessonKind?.members?.["sp"] !== undefined;
-  return { key, label: memberLabel(f.family, f.member), base: filterBase(ctx.profile, occasion, f), own: filterBase(ctx.applied, occasion, f), readOnly: derived, children: [] };
+  const sp = f.family === "lessonKind" && f.member === "normal" ? ctx.applied.filters[occasion]?.lessonKind?.members?.["sp"] : undefined;
+  const d: Draft = { key, label: memberLabel(f.family, f.member), base: filterBase(ctx.profile, occasion, f), own: filterBase(ctx.applied, occasion, f), readOnly: sp !== undefined, children: [] };
+  // Stated beside the label, not only in the note, because a phone shows no title: a lowered SP count reads as normal lessons otherwise unexplained.
+  // SP as its row shows it, capped by the lessons, so the subtraction is the value shown.
+  if (sp !== undefined && !(key in ctx.overrides)) {
+    const lessons = ctx.applied.occasions[occasion] ?? 0;
+    d.detail = `（${lessons} − SP ${Math.min(sp, lessons)}）`;
+    d.note = "SPレッスンでないレッスンの回数。SPレッスンを減らすと、その分が通常レッスンとして数えられます";
+  }
+  return d;
 }
 
 function conditionDraft(ctx: PanelContext, key: string, c: ConditionRef, parentOwn: number): Draft {
