@@ -50,14 +50,14 @@ const indexOfRun = (steps: Step[], needle: string): number => steps.findIndex((s
  * Dependabot keeps current together with its version comment (first plan, decision D47): a tag can
  * be moved to other code, a commit cannot.
  */
-const ALLOWED_ACTIONS = ["actions/checkout", "oven-sh/setup-bun", "astral-sh/setup-uv", "Taka499/nudge/actions/notify"];
+const ALLOWED_ACTIONS = ["actions/checkout", "oven-sh/setup-bun", "astral-sh/setup-uv", "Taka499/nudge/actions/notify", "Taka499/nudge/actions/cloudflare-token"];
 /** The whole `uses:` value: one name, one `@`, a full commit hash, nothing after it. */
 const PINNED = /^([^@\s]+)@[0-9a-f]{40}$/;
 const actionName = (uses: string): string => uses.split("@")[0] ?? uses;
 const branchesOf = (trigger: unknown): unknown =>
   typeof trigger === "object" && trigger !== null && "branches" in trigger ? trigger.branches : undefined;
 
-for (const name of ["deploy.yml", "update-data.yml", "check.yml"]) {
+for (const name of ["deploy.yml", "update-data.yml", "check.yml", "cloudflare-token.yml"]) {
   describe(name, () => {
     const { text, wf } = read(name);
 
@@ -200,5 +200,24 @@ describe("update-data.yml", () => {
     expect(wf.jobs.deploy?.needs).toBe("update");
     expect(wf.jobs.deploy?.if).toBe("needs.update.outputs.changed == 'true'");
     expect(wf.jobs.deploy?.secrets).toBe("inherit");
+  });
+});
+
+describe("cloudflare-token.yml", () => {
+  const { wf } = read("cloudflare-token.yml");
+  const steps = Object.values(wf.jobs).flatMap((job) => job.steps ?? []);
+
+  test("runs on Monday mornings JST and by hand, and can do nothing but mint an OIDC token", () => {
+    expect(Object.keys(wf.on).sort()).toEqual(["schedule", "workflow_dispatch"]);
+    expect(wf.on.schedule).toEqual([{ cron: "17 9 * * 1", timezone: "Asia/Tokyo" }]);
+    expect(wf.permissions).toEqual({});
+    expect(Object.values(wf.jobs).map((job) => job.permissions)).toEqual([{ "id-token": "write" }]);
+  });
+
+  test("checks the very token deploy.yml deploys with, as an account-owned token, through Nudge", () => {
+    expect(steps.map((s) => actionName(s.uses ?? ""))).toEqual(["Taka499/nudge/actions/cloudflare-token"]);
+    const token = "${{ secrets.CLOUDFLARE_API_TOKEN }}";
+    expect(steps[0]?.with).toEqual({ endpoint: "https://nudge.tia.run", token, "account-id": "${{ secrets.CLOUDFLARE_ACCOUNT_ID }}" });
+    expect(read("deploy.yml").text).toContain(`CLOUDFLARE_API_TOKEN: ${token}`);
   });
 });
