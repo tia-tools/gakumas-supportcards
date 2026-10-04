@@ -65,9 +65,11 @@ The token is an **account-owned** API token (dashboard → Manage Account → Ac
 |---|---|---|
 | Workers, only the Worker `gakumas-supportcards` | **Editor** (the new role; the old "Workers Scripts Edit" is its account-wide legacy equivalent) | `wrangler deploy`: script and static assets |
 | Zone, only `tia.run` | **Workers Routes: Edit** | the custom domain route in `wrangler.toml` |
-| Account | **Workers R2 Storage: Edit** | `upload.py` writing images (R2 has no per-bucket role yet) |
+| Account | **Workers R2 Storage: Edit** | `upload.py` writing images |
 
-No client IP filter (GitHub's runner addresses change constantly) and an expiry of one year. Editor cannot delete the Worker or touch any other Worker; a leaked token can redeploy this site and write to R2, nothing else. If a deploy fails with a permissions error, the message names the missing permission; "Account Settings: Read" is the one older Wrangler versions asked for and is harmless to add. `main` is production; unfinished work belongs on `develop`.
+R2 also offers a per-bucket permission, **Workers R2 Storage Bucket Item: Edit**, but it does not work here. Cloudflare honours it only on R2's S3-compatible API (`<account id>.r2.cloudflarestorage.com`), not on the Cloudflare REST API (per https://developers.cloudflare.com/r2/api/tokens/). `upload.py` calls `wrangler r2 object put --remote`, which goes through the REST API, so a token holding only the bucket-scoped permission is refused with `403: Forbidden … "code":10000,"message":"Authentication error"`, although the dashboard shows Edit on `tia-assets`. This happened on the update of 2026-10-04: the data published and the images did not. Keeping the token to one bucket would mean moving `upload.py` to the S3-compatible API with an S3 access key pair.
+
+No client IP filter (GitHub's runner addresses change constantly) and an expiry of one year. Editor cannot delete the Worker or touch any other Worker. A leaked token can redeploy this site and, through the account-wide R2 permission, read, write and delete objects in every bucket of the account and create, configure or delete buckets; it can touch nothing outside Workers and R2. If a deploy fails with a permissions error, the message names the missing permission; "Account Settings: Read" is the one older Wrangler versions asked for and is harmless to add. `main` is production; unfinished work belongs on `develop`.
 
 By hand, for a first deployment or an emergency, from the repository root and then this directory:
 
