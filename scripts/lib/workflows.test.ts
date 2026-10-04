@@ -24,6 +24,7 @@ interface Job {
   if?: string;
   secrets?: string;
   permissions?: Record<string, string>;
+  outputs?: Record<string, string>;
 }
 interface Workflow {
   on: Record<string, unknown>;
@@ -154,6 +155,17 @@ describe("update-data.yml", () => {
   test("only the image steps are best-effort", () => {
     const soft = steps.filter((s) => s["continue-on-error"] === true).map((s) => (s.uses ? actionName(s.uses) : s.name));
     expect(soft).toEqual(["astral-sh/setup-uv", "Images for cards the site does not show yet"]);
+  });
+
+  test("a failed image step reaches Discord, although the job it sits in still succeeds", () => {
+    // continue-on-error turns the step's failure into a success conclusion; only its outcome keeps it.
+    const images = steps.find((s) => s.name === "Images for cards the site does not show yet");
+    expect(images?.id).toBe("images");
+    expect(wf.jobs.update?.outputs?.images).toBe("${{ steps.images.outcome }}");
+    // The step runs only when data changed, which already makes notify speak.
+    expect(images?.if).toBe("steps.detect.outputs.changed == 'true'");
+    const notify = stepsOf(wf, "notify").find((s) => actionName(s.uses ?? "") === "Taka499/nudge/actions/notify");
+    expect(String(notify?.with?.title)).toContain("needs.update.outputs.images == 'failure' && ', images failure'");
   });
 
   test("merges with a merge commit, never a squash or a rebase, and never pushes to main directly", () => {
