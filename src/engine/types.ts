@@ -178,7 +178,7 @@ export interface RouteProfile {
   /**
    * Condition key (`conditionKey` in src/engine/count.ts) → how many of the occasion's
    * occurrences meet the condition. A condition not named here is met every time
-   * (docs/adr/0001 addendum), which is what every shipped profile starts with.
+   * (docs/adr/0001 addendum of 2026-09-21); the H.I.F. コンテ育成 profiles name one (addendum of 2026-10-05).
    */
   conditions?: Readonly<Record<string, number>>;
   /**
