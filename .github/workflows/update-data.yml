@@ -10,8 +10,10 @@
 # the last job, notify, posts to the owner's Discord through Nudge (github.com/Taka499/nudge; an
 # OIDC token, no stored secret) whenever the update or the deploy failed or was cancelled, data was
 # published or the run was started by hand, and on Monday mornings even when nothing changed, so a
-# schedule that stopped running is noticed (D43, D46). It is a job of its own, after deploy, so a
-# failed deploy is reported too, and so it is the only job that can mint an OIDC token.
+# schedule that stopped running is noticed (D43, D46). Its title also names a failed image step,
+# which by design does not fail the job and so would otherwise read as a success. It is a job of
+# its own, after deploy, so a failed deploy is reported too, and so it is the only job that can
+# mint an OIDC token.
 # The gates run here rather than as pull-request checks because a pull request opened with the
 # built-in token triggers no workflows. Held cards open (or update) one issue labelled
 # `held-cards`; they do not block the other cards. Images for new cards are fetched and uploaded
@@ -49,6 +51,7 @@ jobs:
       issues: write
     outputs:
       changed: ${{ steps.detect.outputs.changed }}
+      images: ${{ steps.images.outcome }}
       title: ${{ steps.report.outputs.title }}
       held: ${{ steps.report.outputs.held }}
     env:
@@ -94,11 +97,13 @@ jobs:
 
       # Best effort from here to the end of the image steps: a game server that refuses the
       # runner, or a decoder that needs a new engine version, leaves a card showing its name
-      # instead of its art, and must not stop the data (D41).
+      # instead of its art, and must not stop the data (D41). Its outcome (failure, while the job's
+      # conclusion stays success) goes out as the job output `images` for notify to report.
       - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
         if: steps.detect.outputs.changed == 'true'
         continue-on-error: true
       - name: Images for cards the site does not show yet
+        id: images
         if: steps.detect.outputs.changed == 'true'
         continue-on-error: true
         working-directory: scripts/images
@@ -201,7 +206,7 @@ jobs:
         uses: Taka499/nudge/actions/notify@d9f7f1ac185050506d526532a0e24861564422cf # v1.1.0
         with:
           endpoint: https://nudge.tia.run
-          title: "Data update: update ${{ needs.update.result }}, deploy ${{ needs.deploy.result }}"
+          title: "Data update: update ${{ needs.update.result }}, deploy ${{ needs.deploy.result }}${{ needs.update.outputs.images == 'failure' && ', images failure' || '' }}"
           body: |
             ${{ needs.update.outputs.title || (needs.update.result == 'success' && 'No changes upstream; nothing published.' || 'Nothing was published.') }}
             Held cards: ${{ needs.update.outputs.held || '0' }}
