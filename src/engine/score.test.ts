@@ -96,7 +96,13 @@ describe("score: skills and occasions", () => {
     const c = card([{ minLevel: 1, effects: [{ stat: "vocal", value: 22, kind: "skill", trigger: REST }], eventBonusPermil: 0 }]);
     const s = score(c, 0, ctx);
     expect(s.total).toBe(0);
-    expect(s.lines[0]).toEqual({ kind: "skill", stat: "vocal", value: 22, count: 0, points: 0, trigger: REST });
+    expect(s.lines[0]).toEqual({ kind: "skill", stat: "vocal", value: 22, count: 0, points: 0, trigger: REST, zeroBy: [{ kind: "occasion", occasion: "StartRefresh" }] });
+  });
+
+  test("a line names the route count that makes it 0, and only then: not a line that fires, nor one the lesson split zeroes", () => {
+    const c = card([{ minLevel: 1, effects: [{ stat: "vocal", value: 10, kind: "skill", trigger: SHOP }, { stat: "visual", value: 10, kind: "skill", trigger: spLessonOf("visual") }], eventBonusPermil: 0 }]);
+    const lines = score(c, 0, { ...ctx, lessons: { vocal: 9, dance: 0, visual: 0 } }).lines;
+    expect(lines.map((l) => [l.count, l.zeroBy])).toEqual([[5, undefined], [0, undefined]]);
   });
 
   test("a trigger restricted to another scenario scores 0; to this one, normally", () => {

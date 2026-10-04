@@ -2,7 +2,8 @@
 
 import { useEffect, useMemo, useReducer, useState } from "preact/hooks";
 import type { Card, Score, Totsu } from "../engine/types.ts";
-import { Breakdown } from "./Breakdown.tsx";
+import { Breakdown, ZERO_FOOTNOTE } from "./Breakdown.tsx";
+import { Hint } from "./Hint.tsx";
 import { thumbnailUrl } from "./images.ts";
 import { PLAN_COLOR, PLAN_LABEL, RARITY_COLOR, RARITY_LABEL, TYPE_COLOR, TYPE_SHORT } from "./labels.ts";
 import { NONE_OPEN, nextOpen, shownCell } from "./open-cell.ts";
@@ -24,6 +25,26 @@ function Thumb({ card }: { card: Card }) {
   );
 }
 
+/** The card has an effect the route leaves at 0回: the badge names the counts, the breakdown shows which lines (user, 2026-10-05). */
+function ZeroBadge({ labels }: { labels: readonly string[] }) {
+  const hint = (
+    <>
+      このルートでは次の回数が0のため、点数に入らない効果があります
+      <ul class="my-1 list-disc pl-4">
+        {labels.map((l) => (
+          <li key={l}>{l}</li>
+        ))}
+      </ul>
+      {ZERO_FOOTNOTE}
+    </>
+  );
+  return (
+    <Hint hint={hint} label="0回の効果の説明">
+      <span class="px-1.5 py-0.5 rounded bg-amber-100 text-amber-800">0回の効果</span>
+    </Hint>
+  );
+}
+
 function CardCell({ row }: { row: Row }) {
   const { card } = row;
   return (
@@ -35,6 +56,7 @@ function CardCell({ row }: { row: Row }) {
         <span class={`px-1.5 py-0.5 rounded ${PLAN_COLOR[card.plan]}`}>{PLAN_LABEL[card.plan]}</span>
         <span class="px-1.5 py-0.5 rounded bg-slate-100 text-slate-700">{TYPE_SHORT[card.type]}</span>
         {row.noParameterEffect && <span class="px-1.5 py-0.5 rounded bg-slate-100 text-slate-500 whitespace-normal">パラメータ効果なし</span>}
+        {row.zeroBy.length > 0 && <ZeroBadge labels={row.zeroBy} />}
       </div>
     </div>
   );

@@ -219,6 +219,12 @@ export interface ScoreParts {
   items: number;
 }
 
+/** A number of a route profile a trigger passes through: its occasion's count, a filter's, or a stated condition's. */
+export type RouteCount =
+  | { kind: "occasion"; occasion: string }
+  | { kind: "filter"; occasion: string; filter: FilterRef }
+  | { kind: "condition"; occasion: string; condition: ConditionRef };
+
 /** One line of the breakdown shown when hovering a number. */
 export interface BreakdownLine {
   kind: EffectKind | "bonus";
@@ -231,6 +237,8 @@ export interface BreakdownLine {
   itemName?: string;
   /** The effect's trigger, from which the page words the line; absent for events. */
   trigger?: ParsedTrigger;
+  /** Set when the line counts 0 because the route counts 0 somewhere along its trigger (`routeZeros` in src/engine/count.ts). */
+  zeroBy?: RouteCount[];
 }
 
 export interface Score {

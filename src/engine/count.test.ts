@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { conditionKey, missingNumbers, occasionOfConditionKey, occurrences, type CountContext } from "./count.ts";
+import { conditionKey, missingNumbers, occasionOfConditionKey, occurrences, routeZeros, type CountContext } from "./count.ts";
 import type { ClassifiedEffect, ParsedTrigger, RouteProfile } from "./types.ts";
 
 const PROFILE: RouteProfile = {
@@ -108,5 +108,26 @@ describe("missingNumbers", () => {
       "filters.GetProduceCard.cardType.trouble",
       "filters.GetProduceCard.rarity.ssr",
     ]);
+  });
+});
+
+describe("routeZeros", () => {
+  const zeroed: RouteProfile = { ...PROFILE, occasions: { ...PROFILE.occasions, StartRefresh: 0 }, filters: { ...PROFILE.filters, EndLesson: { lessonKind: { members: { sp: 8, normal: 0 } } } }, conditions: { "EndLesson.produce_card_count.ge20": 0 } };
+  const z = { scenarioId: "hif", profile: zeroed };
+
+  test("names the occasion, filter or stated condition the route counts 0, in that order", () => {
+    expect(routeZeros({ occasion: "StartRefresh" }, z)).toEqual([{ kind: "occasion", occasion: "StartRefresh" }]);
+    expect(routeZeros({ occasion: "UpgradeProduceCard" }, z)).toEqual([{ kind: "occasion", occasion: "UpgradeProduceCard" }]);
+    const normal = { family: "lessonKind" as const, member: "normal" };
+    expect(routeZeros({ occasion: "EndLesson", filters: [normal] }, z)).toEqual([{ kind: "filter", occasion: "EndLesson", filter: normal }]);
+    expect(routeZeros({ occasion: "EndLesson", conditions: [DECK_20] }, z)).toEqual([{ kind: "condition", occasion: "EndLesson", condition: DECK_20 }]);
+    expect(routeZeros({ occasion: "StartRefresh", conditions: [DECK_20] }, { ...z, profile: { ...zeroed, conditions: { "StartRefresh.produce_card_count.ge20": 0 } } }).map((r) => r.kind)).toEqual(["occasion", "condition"]);
+  });
+
+  test("names nothing for a count above 0, an unstated condition, the lesson split, or another scenario's trigger", () => {
+    expect(routeZeros({ occasion: "EndLesson", filters: [{ family: "lessonKind", member: "sp" }] }, z)).toEqual([]);
+    expect(routeZeros({ occasion: "EndLesson", conditions: [{ kind: "stamina_ratio", min: 500, max: 0 }] }, z)).toEqual([]);
+    expect(routeZeros({ occasion: "EndLesson", filters: [{ family: "lessonStat", member: "visual" }] }, z)).toEqual([]);
+    expect(routeZeros({ occasion: "StartRefresh", scenario: "legend" }, z)).toEqual([]);
   });
 });

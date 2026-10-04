@@ -2,7 +2,7 @@
 
 import type { BreakdownLine, Score } from "../engine/types.ts";
 import { formatPoints } from "./rows.ts";
-import { triggerLabel } from "./count-labels.ts";
+import { routeCountPart, triggerLabel } from "./count-labels.ts";
 import { STAT_SHORT, STAT_TEXT, splitLabel } from "./labels.ts";
 
 const KIND_LABEL: Readonly<Record<BreakdownLine["kind"], string>> = { skill: "スキル", event: "イベント", item: "Pアイテム", bonus: "ボーナス" };
@@ -26,8 +26,17 @@ function factor(line: BreakdownLine): string {
   }
 }
 
+/** Under a line the route leaves at 0回: which part of its trigger the route counts 0 (user, 2026-10-05); the line above words the whole trigger. */
+function ZeroNote({ line }: { line: BreakdownLine }) {
+  if (!line.zeroBy) return null;
+  return <div class="text-amber-700">{line.zeroBy.map((r) => `「${routeCountPart(r)}」`).join("")}がこのルートでは0回</div>;
+}
+
+export const ZERO_FOOTNOTE = "0回の効果は点数に入りません。回数は「カウントを調整」で変えられます";
+
 export function Breakdown({ score }: { score: Score }) {
   const { lessons, byStat, share } = score;
+  const zeroed = score.lines.some((l) => l.zeroBy);
   return (
     <div class="text-xs text-left leading-snug">
       <div class="flex flex-wrap justify-between gap-x-4 border-b border-slate-200 pb-1 mb-1">
@@ -52,6 +61,7 @@ export function Breakdown({ score }: { score: Score }) {
               <td class="pr-2">
                 {title(line)}
                 {line.itemName && <span class="text-slate-500">（{line.itemName}）</span>}
+                <ZeroNote line={line} />
               </td>
               <td class={`pr-2 whitespace-nowrap ${STAT_TEXT[line.stat]}`}>{STAT_SHORT[line.stat]}</td>
               <td class="pr-2 whitespace-nowrap tabular-nums text-slate-600">{factor(line)}</td>
@@ -60,6 +70,7 @@ export function Breakdown({ score }: { score: Score }) {
           ))}
         </tbody>
       </table>
+      {zeroed && <div class="mt-1 border-t border-slate-200 pt-1 text-slate-500">{ZERO_FOOTNOTE}</div>}
     </div>
   );
 }

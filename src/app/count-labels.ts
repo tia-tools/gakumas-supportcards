@@ -5,7 +5,7 @@
  * threshold is still shown, only less prettily, until someone names it here.
  */
 
-import type { ConditionRef, FilterRef, ParsedTrigger } from "../engine/types.ts";
+import type { ConditionRef, FilterRef, ParsedTrigger, RouteCount } from "../engine/types.ts";
 
 /** Occasion → what happens, without the trailing 「時」. */
 export const OCCASION_LABEL: Readonly<Record<string, string>> = {
@@ -99,4 +99,17 @@ export function triggerLabel(t: ParsedTrigger): string {
   const filters = (t.filters ?? []).map(filterLabel);
   const head = `${occasionLabel(t.occasion)}時${filters.length > 0 ? `（${filters.join("・")}）` : ""}`;
   return [head, ...(t.conditions ?? []).map(conditionLabel)].join("／");
+}
+
+/** A route count as the 「カウントを調整」 panel finds it: 「スキルカード強化」「スキルカード強化（メンタル）」「レッスン終了時の所持スキルカード20枚以上」. */
+export function routeCountLabel(r: RouteCount): string {
+  if (r.kind === "occasion") return occasionLabel(r.occasion);
+  if (r.kind === "filter") return `${occasionLabel(r.occasion)}（${filterLabel(r.filter)}）`;
+  return `${occasionLabel(r.occasion)}時の${conditionLabel(r.condition)}`;
+}
+
+/** The same count as a part of the trigger it is worded under (the breakdown line): 「スキルカード強化」「メンタル」「所持スキルカード20枚以上」. */
+export function routeCountPart(r: RouteCount): string {
+  if (r.kind === "occasion") return occasionLabel(r.occasion);
+  return r.kind === "filter" ? filterLabel(r.filter) : conditionLabel(r.condition);
 }
