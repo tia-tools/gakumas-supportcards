@@ -7,6 +7,7 @@
 
 import { score, scoreBest, type ScoreContext } from "../engine/score.ts";
 import type { Card, CardType, HeldCard, Plan, Rarity, Score, Totsu } from "../engine/types.ts";
+import { routeCountLabel } from "./count-labels.ts";
 import type { SortSpec } from "./url-state.ts";
 
 export type ScoresByTotsu = readonly [Score, Score, Score, Score, Score];
@@ -16,6 +17,13 @@ export interface Row {
   scores: ScoresByTotsu;
   /** The card has no parameter effect at any level (D10: listed last, tagged 「パラメータ効果なし」). */
   noParameterEffect: boolean;
+  /** The route counts, as the panel names them, that leave one of the card's effects at 0回 at some 凸 (user, 2026-10-05); empty when none. */
+  zeroBy: string[];
+}
+
+/** The distinct route counts that zero a line in any of the scores, in the order they first appear. */
+function zeroLabels(scores: readonly Score[]): string[] {
+  return [...new Set(scores.flatMap((s) => s.lines.flatMap((l) => (l.zeroBy ?? []).map(routeCountLabel))))];
 }
 
 export interface RowFilter {
@@ -36,11 +44,10 @@ export function withoutHeld(cards: readonly Card[], held: readonly HeldCard[]): 
 export function buildRows(cards: readonly Card[], ctx: Omit<ScoreContext, "lessons">, split: number | null): Row[] {
   const lessons = split === null ? undefined : ctx.profile.lessonSplits[split];
   const scoreAt = (card: Card, totsu: Totsu): Score => (lessons ? score(card, totsu, { ...ctx, lessons }) : scoreBest(card, totsu, ctx));
-  return cards.map((card) => ({
-    card,
-    scores: [scoreAt(card, 0), scoreAt(card, 1), scoreAt(card, 2), scoreAt(card, 3), scoreAt(card, 4)],
-    noParameterEffect: card.breakpoints.every((bp) => bp.effects.length === 0),
-  }));
+  return cards.map((card) => {
+    const scores: ScoresByTotsu = [scoreAt(card, 0), scoreAt(card, 1), scoreAt(card, 2), scoreAt(card, 3), scoreAt(card, 4)];
+    return { card, scores, noParameterEffect: card.breakpoints.every((bp) => bp.effects.length === 0), zeroBy: zeroLabels(scores) };
+  });
 }
 
 /** An empty list for a facet means "no restriction"; `sp` off means the same. */
