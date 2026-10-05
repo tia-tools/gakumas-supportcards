@@ -12,10 +12,11 @@
  * stated conditions and capped by the effect's own per-run cap, and the share is
  * the stat's part of the exam's distributed rewards under the player's audition
  * share (src/engine/share.ts). `scoreBest` takes the profile's preset split that
- * gives the card the highest total.
+ * gives the card the highest total. A line the route counts 0 somewhere along its
+ * trigger names those counts (`zeroBy`), so the page can say why it is 0回.
  */
 
-import { occurrences } from "./count.ts";
+import { occurrences, routeZeros } from "./count.ts";
 import { shareOf } from "./share.ts";
 import type { AuditionShare, BreakdownLine, Breakpoint, Card, ClassifiedEffect, LessonSplit, LevelLimits, Rarity, RouteProfile, Score, Stat, Totsu } from "./types.ts";
 
@@ -59,6 +60,8 @@ function lineFor(effect: ClassifiedEffect, bp: Breakpoint, ctx: ScoreContext): B
     return { ...line, kind: "bonus", count: gain, points: (effect.value * gain) / 1000 };
   }
   const n = occurrences(effect, ctx);
+  const zeros = effect.trigger ? routeZeros(effect.trigger, ctx) : [];
+  if (zeros.length > 0) line.zeroBy = zeros;
   return { ...line, count: n, points: effect.value * n };
 }
 

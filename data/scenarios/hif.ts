@@ -15,6 +15,9 @@
  * score sent mostly to one of the two others (default share 1:9:0), and otherwise
  * the counts of 汎用コンテ育成; under 1:9:0 the bases are 1050 for the trained stat,
  * 820 for the sub and 370 for the other.
+ * Both コンテ育成 profiles ship 所持スキルカード20枚以上 at a lesson's end as met 0 times
+ * (user, 2026-10-05): the first condition a shipped profile lowers (decision C7 of
+ * docs/plans/EXECPLAN_COUNTING_MODEL.md).
  */
 
 import type { LessonSplit, RouteProfile, Scenario } from "../../src/engine/types.ts";
@@ -104,6 +107,8 @@ const GENERIC_CONTEST: RouteProfile = {
       rarity: { members: { ssr: 7 } },
     },
   },
+  // A contest deck is kept thin by deletion, so it never holds 20 skill cards at a lesson's end (user, 2026-10-05; decision C7 of docs/plans/EXECPLAN_COUNTING_MODEL.md).
+  conditions: { "EndLesson.produce_card_count.ge20": 0 },
 };
 
 export const HIF: Scenario = {

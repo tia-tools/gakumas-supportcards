@@ -11,7 +11,7 @@
  * and 0 when the trigger is restricted to another scenario.
  */
 
-import type { ClassifiedEffect, ConditionRef, FilterRef, LessonSplit, ParsedTrigger, RouteProfile, Stat } from "./types.ts";
+import type { ClassifiedEffect, ConditionRef, FilterRef, LessonSplit, ParsedTrigger, RouteCount, RouteProfile, Stat } from "./types.ts";
 
 export interface CountContext {
   scenarioId: string;
@@ -103,4 +103,23 @@ export function occurrences(effect: ClassifiedEffect, ctx: CountContext): number
   if (t.scenario !== undefined && t.scenario !== ctx.scenarioId) return 0;
   const n = narrowedByConditions(narrowedByFilters(ctx.profile.occasions[t.occasion] ?? 0, t, ctx), t, ctx);
   return capped(n, effect, ctx);
+}
+
+/**
+ * The route's counts along the trigger that are 0 — its occasion, a filter, a
+ * condition the profile states — in that order. These, not the lesson split or
+ * another scenario's token, are the zeros a player can change in the panel, so
+ * the page names them where an effect counts 0 (user, 2026-10-05).
+ */
+export function routeZeros(t: ParsedTrigger, ctx: Pick<CountContext, "scenarioId" | "profile">): RouteCount[] {
+  if (t.scenario !== undefined && t.scenario !== ctx.scenarioId) return [];
+  const out: RouteCount[] = [];
+  if ((ctx.profile.occasions[t.occasion] ?? 0) === 0) out.push({ kind: "occasion", occasion: t.occasion });
+  for (const f of t.filters ?? []) {
+    if (f.family !== "lessonStat" && (filterCount(ctx.profile, t.occasion, f) ?? 0) === 0) out.push({ kind: "filter", occasion: t.occasion, filter: f });
+  }
+  for (const c of t.conditions ?? []) {
+    if (ctx.profile.conditions?.[conditionKey(t.occasion, c)] === 0) out.push({ kind: "condition", occasion: t.occasion, condition: c });
+  }
+  return out;
 }

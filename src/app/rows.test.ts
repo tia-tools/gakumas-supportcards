@@ -52,6 +52,25 @@ describe("buildRows", () => {
   });
 });
 
+describe("buildRows zeroBy", () => {
+  const REST: ParsedTrigger = { occasion: "StartRefresh" };
+  const zeroing = { ...ctx, profile: { ...profile, occasions: { ...profile.occasions, StartRefresh: 0 } } };
+
+  test("names each route count that leaves an effect at 0回 once, from any 凸, by the panel's name", () => {
+    const resting: Card = { ...card("s-rest", [{ stat: "vocal", value: 5, kind: "skill", trigger: REST }]), breakpoints: [
+      { minLevel: 1, effects: [{ stat: "vocal", value: 10, kind: "skill", trigger: SHOP }], eventBonusPermil: 0 },
+      { minLevel: 60, effects: [{ stat: "vocal", value: 10, kind: "skill", trigger: REST }, { stat: "vocal", value: 20, kind: "skill", trigger: REST }], eventBonusPermil: 0 },
+    ] };
+    const row = must(buildRows([resting], zeroing, null)[0], "the resting card's row");
+    expect(must(row.scores[0], "凸0").lines.some((l) => l.zeroBy)).toBe(false);
+    expect(row.zeroBy).toEqual(["休む選択"]);
+  });
+
+  test("names nothing for a card whose 0 comes from the lesson split, or that has no effect", () => {
+    expect(buildRows([lessonVi, empty, shopVo], zeroing, 0).map((r) => r.zeroBy)).toEqual([[], [], []]);
+  });
+});
+
 describe("withoutHeld", () => {
   test("drops exactly the held cards and keeps the order of the rest", () => {
     expect(withoutHeld([shopVo, lessonVi, empty], [{ id: "s-lesson", name: "s-lesson", reasons: ["a piece of unknown kind"] }]).map((c) => c.id)).toEqual(["s-shop", "s-empty"]);

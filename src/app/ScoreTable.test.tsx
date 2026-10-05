@@ -137,3 +137,25 @@ describe("what closes it", () => {
     expect(button(0).getAttribute("aria-expanded")).toBe("false");
   });
 });
+
+describe("a route count of 0", () => {
+  const resting: Card = { ...card("r", 10), breakpoints: [{ minLevel: 1, effects: [{ kind: "skill", stat: "vocal", value: 10, trigger: { occasion: "StartRefresh" } }], eventBonusPermil: 0 }] };
+  const rows = buildRows([card("a", 10), resting], { scenarioId: "s", profile: { ...profile, occasions: { StartShop: 3, StartRefresh: 0 } }, limits, share: DEFAULT_AUDITION_SHARE }, 0);
+  const badge = (r: number): Element | undefined => [...must(root.querySelectorAll("tbody tr")[r], `row ${r}`).querySelectorAll("button")].find((b) => b.textContent === "0回の効果");
+
+  test("badges only the card it zeroes, and the badge's hint names the count", async () => {
+    await show(rows);
+    expect(badge(0)).toBeUndefined();
+    const hint = must(badge(1)?.parentElement?.querySelector("[role=tooltip]"), "the badge's hint");
+    expect(hint.textContent).toContain("休む選択");
+  });
+
+  test("the breakdown names the count under the line and adds the footnote, and a card without one has neither", async () => {
+    await show(rows);
+    await tap(1);
+    expect(must(cell(1).querySelector(":scope > div"), "the zeroed card's breakdown").textContent).toContain("「休む選択」がこのルートでは0回");
+    expect(cell(1).textContent).toContain("カウントを調整");
+    await tap(0);
+    expect(must(cell(0).querySelector(":scope > div"), "the other card's breakdown").textContent).not.toContain("0回");
+  });
+});
