@@ -203,7 +203,7 @@ jobs:
         run: echo "weekday=$(TZ=Asia/Tokyo date +%u)" >> "$GITHUB_OUTPUT"
       - name: Tell Discord how it went
         if: needs.update.result != 'success' || (needs.deploy.result != 'success' && needs.deploy.result != 'skipped') || needs.update.outputs.changed == 'true' || github.event_name == 'workflow_dispatch' || (github.event.schedule == '30 11 * * *' && steps.when.outputs.weekday == '1')
-        uses: Taka499/nudge/actions/notify@d9f7f1ac185050506d526532a0e24861564422cf # v1.1.0
+        uses: Taka499/nudge/actions/notify@ae2116bc8fd8229c5d30c495d7c89e5f05617c99 # v1.3.0
         with:
           endpoint: https://nudge.tia.run
           title: "Data update: update ${{ needs.update.result }}, deploy ${{ needs.deploy.result }}${{ needs.update.outputs.images == 'failure' && ', images failure' || '' }}"
