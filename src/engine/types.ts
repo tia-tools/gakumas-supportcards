@@ -8,6 +8,10 @@
  * is counted by occasion, filters and conditions (docs/adr/0004): something that
  * happens in a run, which of its occurrences qualify, and what state of the run
  * must hold at that moment.
+ *
+ * `Card` with the types it carries, `HeldCard` and `LevelLimits` are also published
+ * for another project as /data/cards.v1.json (data/card-data-file.ts): changing
+ * their shape bumps that file's format version (docs/adr/0010).
  */
 
 export type Stat = "vocal" | "dance" | "visual";
