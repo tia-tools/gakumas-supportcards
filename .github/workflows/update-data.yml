@@ -103,7 +103,7 @@ jobs:
       # runner, or a decoder that needs a new engine version, leaves a card showing its name
       # instead of its art, and must not stop the data (D41). Its outcome (failure, while the job's
       # conclusion stays success) goes out as the job output `images` for notify to report.
-      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+      - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
         if: steps.detect.outputs.changed == 'true'
         continue-on-error: true
       - name: Images for cards the site does not show yet
@@ -221,7 +221,7 @@ jobs:
         run: echo "weekday=$(TZ=Asia/Tokyo date +%u)" >> "$GITHUB_OUTPUT"
       - name: Tell Discord how it went
         if: needs.update.result != 'success' || (needs.deploy.result != 'success' && needs.deploy.result != 'skipped') || needs.update.outputs.changed == 'true' || github.event_name == 'workflow_dispatch' || (github.event.schedule == '30 11 * * *' && steps.when.outputs.weekday == '1')
-        uses: Taka499/nudge/actions/notify@d9f7f1ac185050506d526532a0e24861564422cf # v1.1.0
+        uses: Taka499/nudge/actions/notify@ae2116bc8fd8229c5d30c495d7c89e5f05617c99 # v1.3.0
         with:
           endpoint: https://nudge.tia.run
           title: "Data update: update ${{ needs.update.result }}, deploy ${{ needs.deploy.result }}${{ needs.update.outputs.images == 'failure' && ', images failure' || '' }}"
