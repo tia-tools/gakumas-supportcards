@@ -213,10 +213,11 @@ describe("update-data.yml", () => {
     // The built-in token's merge triggers no push deploy, so a deploy skipped here would leave main's data off the site.
     expect(wf.jobs.deploy?.if).toBe("!cancelled() && needs.update.outputs.merged == 'true'");
     expect(wf.jobs.update?.outputs?.merged).toBe("${{ steps.merge.outputs.merged }}");
-    // Set only when gh pr merge succeeded, by the step that merges.
+    // Set by the step that merges, only when gh pr merge succeeded or GitHub says the pull request is merged.
     const merge = steps.find((s) => s.id === "merge");
     expect(merge?.run).toMatch(/if gh pr merge [^\n]*; then echo "merged=true" >> "\$GITHUB_OUTPUT"; exit 0; fi/);
-    expect(merge?.run?.split("merged=true")).toHaveLength(2);
+    expect(merge?.run).toMatch(/if \[ "\$\(gh pr view "\$url" --json state --jq \.state\)" = "MERGED" \]; then\n\s*echo "merged=true" >> "\$GITHUB_OUTPUT"\n/);
+    expect(merge?.run?.split("merged=true")).toHaveLength(3);
     expect(steps.filter((s) => (s.run ?? "").includes("merged=true"))).toEqual(merge ? [merge] : []);
     expect(wf.jobs.deploy?.secrets).toBe("inherit");
   });

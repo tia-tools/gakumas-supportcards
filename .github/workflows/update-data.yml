@@ -139,13 +139,21 @@ jobs:
           git add data
           git commit -m "$TITLE"
           git push origin "$branch"
-          gh pr create --base main --head "$branch" --title "$TITLE" --body-file "$RUNNER_TEMP/pr.md"
+          url=$(gh pr create --base main --head "$branch" --title "$TITLE" --body-file "$RUNNER_TEMP/pr.md")
+          echo "$url"
           # Mergeability is computed a moment after creation; a repository rule that demands a
           # review makes this fail for good, which leaves the pull request open for a person.
           for attempt in 1 2 3 4 5; do
             if gh pr merge "$branch" --merge --delete-branch --subject "Merge branch '$branch' — ${TITLE#chore: }"; then echo "merged=true" >> "$GITHUB_OUTPUT"; exit 0; fi
             sleep 10
           done
+          # gh can report a failure for a merge that went through (a lost response, a branch it
+          # could not delete); the data is then on main and must still be deployed.
+          if [ "$(gh pr view "$url" --json state --jq .state)" = "MERGED" ]; then
+            echo "merged=true" >> "$GITHUB_OUTPUT"
+            echo "::warning::gh reported a failed merge, but $url is merged."
+            exit 0
+          fi
           echo "::error::The pull request could not be merged; it stays open for a person."
           exit 1
 
