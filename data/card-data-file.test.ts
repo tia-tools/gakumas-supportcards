@@ -1,10 +1,13 @@
 /**
  * The published card data (data/card-data-file.ts, docs/adr/0010): what another project parses
  * back must equal what the generator wrote, field for field, held cards and their reasons
- * included, at the path and format version that project fetches.
+ * included, at the path and format version that project fetches, and the real build must write
+ * exactly that text there.
  */
 
 import { describe, expect, test } from "bun:test";
+import { join } from "node:path";
+import { build } from "vite";
 import type { Card, HeldCard } from "../src/engine/types.ts";
 import { CARD_DATA_PATH, cardDataJson } from "./card-data-file.ts";
 import { CARDS } from "./cards.generated.ts";
@@ -22,6 +25,19 @@ const HELD_CARD: Card = {
 };
 const HELD_ENTRY: HeldCard = { id: "s_card-x", name: "保留カード", reasons: ["s_card-x: trigger p_trigger-x has a piece of unknown kind: x"] };
 
+const ROOT = join(import.meta.dirname, "..");
+
+/** The text `bun run build` (vite.config.ts) writes at `path` under dist/, built in memory; null when it writes no such file. */
+async function builtAsset(path: string): Promise<string | null> {
+  const result = await build({ root: ROOT, configFile: join(ROOT, "vite.config.ts"), logLevel: "silent", build: { write: false } });
+  for (const out of Array.isArray(result) ? result : [result]) {
+    if (!("output" in out)) continue;
+    const file = out.output.find((f) => f.fileName === path);
+    if (file?.type === "asset") return typeof file.source === "string" ? file.source : new TextDecoder().decode(file.source);
+  }
+  return null;
+}
+
 describe("published card data", () => {
   test("round-trips the generated data: every card, the held list and the level limits", () => {
     expect(JSON.parse(cardDataJson(CARDS, HELD, LEVEL_LIMITS))).toStrictEqual({ formatVersion: 1, levelLimits: LEVEL_LIMITS, cards: CARDS, held: HELD });
@@ -35,4 +51,8 @@ describe("published card data", () => {
   test("is served at the path the other project fetches, which names format version 1", () => {
     expect(CARD_DATA_PATH).toBe("data/cards.v1.json");
   });
+
+  test("the build writes exactly this text at that path, from the generated data", async () => {
+    expect(await builtAsset(CARD_DATA_PATH)).toBe(cardDataJson(CARDS, HELD, LEVEL_LIMITS));
+  }, 30_000);
 });
