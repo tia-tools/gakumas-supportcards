@@ -4,6 +4,10 @@ import { join } from "node:path";
 import preact from "@preact/preset-vite";
 import tailwindcss from "@tailwindcss/vite";
 import { defineConfig, type Plugin } from "vite";
+import { CARD_DATA_PATH, cardDataJson } from "./data/card-data-file.ts";
+import { CARDS } from "./data/cards.generated.ts";
+import { HELD } from "./data/held.generated.ts";
+import { LEVEL_LIMITS } from "./data/levelLimits.generated.ts";
 import { imageKey } from "./infra/worker/img.ts";
 
 /**
@@ -30,6 +34,20 @@ function localImageLibrary(dir: string): Plugin {
 }
 
 /**
+ * Build only: writes the published card data, dist/data/cards.v1.json, from the same generated
+ * modules the page bundles (data/card-data-file.ts, docs/adr/0010).
+ */
+function cardDataFile(): Plugin {
+  return {
+    name: "card-data-file",
+    apply: "build",
+    generateBundle() {
+      this.emitFile({ type: "asset", fileName: CARD_DATA_PATH, source: cardDataJson(CARDS, HELD, LEVEL_LIMITS) });
+    },
+  };
+}
+
+/**
  * The commit the page is built from, attached to feedback so a report names the exact build
  * (src/app/feedback.ts). Read from git rather than GITHUB_SHA, which under deploy.yml's
  * `workflow_call` is the caller's commit, not the checked-out `main`.
@@ -45,7 +63,7 @@ function buildCommit(): string {
 // Served at the root of gakumas-supportcards.tia.run (docs/adr/0003, plan D7), so no `base`.
 export default defineConfig({
   define: { __BUILD_COMMIT__: JSON.stringify(buildCommit()) },
-  plugins: [preact(), tailwindcss(), localImageLibrary(join(import.meta.dirname, "scripts/images/out"))],
+  plugins: [preact(), tailwindcss(), localImageLibrary(join(import.meta.dirname, "scripts/images/out")), cardDataFile()],
   build: {
     // The card data (data/cards.generated.ts, 1.7 MB source) ships inline in the one
     // chunk by design: it is 58 KB gzipped (plan D28), so the default 500 KB warning
