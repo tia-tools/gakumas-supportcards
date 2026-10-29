@@ -5,6 +5,7 @@ One Cloudflare Worker serves the whole app: the built page as static assets, the
 | Route | Serves |
 |---|---|
 | `https://gakumas-supportcards.tia.run/` | the page built by `bun run build` (`dist/`) |
+| `https://gakumas-supportcards.tia.run/data/cards.v1.json` | the card data published for `tia-tools/gmks-hif-final-stats`, written into `dist/` by the same build (per `docs/adr/0010-the-card-data-is-published-as-a-versioned-file-another-project-reads.md`) |
 | `https://gakumas-supportcards.tia.run/img/w192/img_general_{assetId}_full.webp` | the 192 × 108 card thumbnail from R2, `Cache-Control: public, max-age=31536000, immutable` |
 | `https://gakumas-supportcards.tia.run/img/w48/img_general_pitem_{r}-{nnn}.webp` | the 48 × 48 P-item icon from R2, same caching (Milestone 4 of `docs/plans/EXECPLAN_SCORE_ADJUSTMENTS.md`) |
 | any other `/img/...` path, including `/img/master/...`, or a thumbnail not in the bucket | 404 with `Cache-Control: no-store` |
@@ -87,6 +88,8 @@ Then upload the images (see `scripts/images/README.md` § Upload; use `--assume-
 
     curl -sI https://gakumas-supportcards.tia.run/ | head -3
     # -> HTTP/2 200, content-type: text/html
+    curl -s https://gakumas-supportcards.tia.run/data/cards.v1.json | jq '.formatVersion, (.cards | length)'
+    # -> 1, then the number of cards in data/cards.generated.ts
     curl -sI https://gakumas-supportcards.tia.run/img/w192/img_general_csprt-3-0016_full.webp
     # -> HTTP/2 200, content-type: image/webp, cache-control: public, max-age=31536000, immutable
     curl -sI https://gakumas-supportcards.tia.run/img/master/img_general_csprt-3-0016_full.webp
