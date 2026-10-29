@@ -193,7 +193,9 @@ jobs:
           fi
 
   # Deploys whenever the data merged into main, also when a later step of update failed; a job's
-  # outputs reach the jobs that need it whatever its result. Not on a cancelled run.
+  # outputs reach the jobs that need it whatever its result. Not on a cancelled run, deliberately:
+  # a cancel is a person stopping the run, and always() would make a merged update's deploy
+  # unstoppable; notify reports the cancel, and deploy.yml can be run by hand to publish main.
   deploy:
     needs: update
     if: "!cancelled() && needs.update.outputs.merged == 'true'"
