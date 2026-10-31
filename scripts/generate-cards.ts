@@ -62,11 +62,15 @@ async function main(): Promise<void> {
     process.exit(1);
   }
 
-  await Bun.write(CARDS_PATH, emitCards(cards));
-  await Bun.write(HELD_PATH, emitHeld(held));
-  await Bun.write(LIMITS_PATH, emitLevelLimits(levelLimits));
-  await Bun.write(SCORES_PATH, emitSnapshot(buildSnapshot(cards, held, ALL_SCENARIOS, levelLimits, sha)));
-  await Bun.write(SKILLCARDS_PATH, emitSkillCards(skillCards));
+  // Every text is made before the first write, so a step that throws leaves every file as it was.
+  const outputs: readonly (readonly [string, string])[] = [
+    [CARDS_PATH, emitCards(cards)],
+    [HELD_PATH, emitHeld(held)],
+    [LIMITS_PATH, emitLevelLimits(levelLimits)],
+    [SCORES_PATH, emitSnapshot(buildSnapshot(cards, held, ALL_SCENARIOS, levelLimits, sha))],
+    [SKILLCARDS_PATH, emitSkillCards(skillCards)],
+  ];
+  for (const [path, text] of outputs) await Bun.write(path, text);
 
   const withEffects = cards.filter((c) => c.breakpoints.some((b) => b.effects.length > 0)).length;
   console.log(`Wrote ${CARDS_PATH}: ${cards.length} cards (${withEffects} with parameter effects${before === null ? "" : `, previously ${before}`})`);
