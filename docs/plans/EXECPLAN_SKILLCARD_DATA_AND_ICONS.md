@@ -32,7 +32,8 @@ The requirements come from gkms-memomemo's plan, `docs/plans/EXECPLAN_MEMORY_MEM
 - [x] (2026-10-31 11:50Z) This plan written.
 - [x] (2026-10-31 11:55Z) Milestone 1, code: the seven tables declared in `scripts/lib/tables.ts`; the contract `data/skillcard-data-file.ts`; the builder `scripts/lib/build-skillcards.ts` with 17 tests, each of its 28 rules seen to turn a test red when broken; the emitter, `bun run generate` writing `data/skillcards.generated.ts` (13 idols, 181 + 180 cards, 115 abilities; a second run byte-identical; no support card file changed); the build plugin writing `dist/data/skillcards.v1.json` (192,178 bytes, 13,823 gzipped) with its tests, each seen to fail with its rule broken. `bun test` (354 pass), `bun run type-check`, `bun run lint`, `bun scripts/check-score-stability.ts` (0 unexplained moves) and `bun run build` exit 0. Commits `43006a1`, `fa5aa26`, `1684a89`.
 - [x] (2026-10-31 11:58Z) Milestone 1, docs: ADR 0010 addendum, `CLAUDE.md`, the header of `update-data.yml`.
-- [ ] Milestone 1, remaining: `/codex-review` of the branch, the pull request into `develop`, the user's merge and release to `main`, and the live `curl`.
+- [x] (2026-10-31 12:03Z) Milestone 1, Codex review (codex-cli 0.150.1, read-only, in a snapshot; the repository was not written): CHANGES REQUESTED with five findings; two fixed (K15 typed loading, K16 duplicate rows and the sort), one fixed in tests only and two declined (K8, K17), each new test seen to fail with its rule broken; the real tables load and the module is unchanged.
+- [ ] Milestone 1, remaining: a second Codex run over the fixes, the pull request into `develop`, the user's merge and release to `main`, and the live `curl`.
 - [ ] Milestone 2: the Worker serves `w112/` icons, `sheet112/` sheets and the sheet index, and so does the dev server.
 - [ ] Milestone 3: the single icons — extraction and upload of every pool card's icon in every variant.
 - [ ] Milestone 4: the sprite sheets and their index — builder, staleness rule, upload order, quality measured, the daily workflow's image step.
@@ -98,9 +99,9 @@ The requirements come from gkms-memomemo's plan, `docs/plans/EXECPLAN_MEMORY_MEM
   Rationale: the issue asks for a stop when an id does not resolve to a pool card; gkms-memomemo's requirements also say the list holds abilities "whose card is released", so an unreleased card is the one case that is expected, not broken.
   Date/Author: 2026-10-31, agent.
 
-- Decision: K8 — any other surprise in the eight tables also stops the run, writing nothing: a missing field, a plan, rarity or category value the code does not know, a customization or grow-effect id that resolves to nothing, a step with no label, or a playable idol whose `order` repeats another's.
-  Rationale: the existing generator's rule for a dump that looks broken (`CLAUDE.md` § Build and Test, `bun run generate`), applied to the new tables; with K2 it makes a person look before anything is published.
-  Date/Author: 2026-10-31, agent.
+- Decision: K8 — any other surprise in the eight tables also stops the run, writing nothing: a missing field or one of another type (K15), a plan, rarity or category value the code does not know on a row the pool would otherwise hold (released, at level 0 or 1, not P-idol unique, support-card event or starter), a customization or grow-effect id that resolves to nothing, a step with no label, a row the pool would hold twice (K16), or a playable idol whose `order` repeats another's. An unknown enum value on a row the source rules already leave out does not stop the run.
+  Rationale: the existing generator's rule for a dump that looks broken (`CLAUDE.md` § Build and Test, `bun run generate`), applied to the new tables; with K2 it makes a person look before anything is published. The exception is deliberate: under K2 a stop also holds back the support card update, and a value on a row that can never reach the file changes nothing that is published. The Codex review of Milestone 1 asked for every row to be checked; that was declined for this reason.
+  Date/Author: 2026-10-31, agent; the scope sentence added after the Codex review the same day.
 
 - Decision: K9 — the icon rendition keeps the name `w112/`: the textures are 256 × 256, wider than 112 (Surprises & Discoveries). Each icon is stored as a lossless master `master/<asset name>.webp` with its transparency and no reshape (like the P-item icons of `docs/adr/0003`'s 2026-09-29 addendum) and a lossy 112 × 112 rendition with alpha `w112/<asset name>.webp`, where `<asset name>` is the bundle name without `.unity3d`.
   Rationale: gkms-memomemo's D35 chose 112 as twice its 56-pixel icon; the rule to rename the prefix applied only to narrower textures.
@@ -124,6 +125,18 @@ The requirements come from gkms-memomemo's plan, `docs/plans/EXECPLAN_MEMORY_MEM
 
 - Decision: K14 — the index `sheet112/index.v1.json` is stored and served with `Cache-Control: no-cache` and `Content-Type: application/json`; sheets and icons are immutable like every other public image. Sheets the index no longer names are left in the bucket.
   Rationale: the pipeline reads the index through this Worker to plan, so a cached copy could hide a fresh one; gkms-memomemo's Worker reads the bucket directly and sets its own one-hour cache. An old sheet costs a fraction of a megabyte of storage and deleting it could break a page that loaded the previous index a moment earlier.
+  Date/Author: 2026-10-31, agent.
+
+- Decision: K15 — the skill card tables are loaded by `loadTypedTable` in `scripts/lib/tables.ts`, which checks that every declared field of every row has its YAML type (`string`, `number`, `boolean` or a list of strings) and otherwise stops, naming the table, the row and the field. The support card tables keep `loadTable`, which checks only that the keys exist.
+  Rationale: found by the Codex review of Milestone 1. A wrongly typed value that reaches the generated module is caught by `bun run type-check`, a gate of the daily update, but some would silently fail a comparison instead: an `upgradeCount` of `"1"` drops the card from the pool, a `produceGroupIds` given as a string drops every ability, a string `Character.order` leaves the idols unsorted. The support card tables have the same gap, but it predates this plan and is outside its scope; it is named as residual risk in the pull request.
+  Date/Author: 2026-10-31, agent, from the Codex review.
+
+- Decision: K16 — the pool is sorted by `order`, then card id, then upgrade level, and a `(id, upgradeCount)` the pool would hold twice stops the run.
+  Rationale: found by the Codex review of Milestone 1: two cards sharing an `order` would otherwise be listed base, base, +, +, and a duplicated row would be published twice. Neither happens in today's data (181 distinct orders).
+  Date/Author: 2026-10-31, agent, from the Codex review.
+
+- Decision: K17 — two findings of the Codex review of Milestone 1 were declined. A customization step with a description and no grow effect is accepted, because grow effects are read only to label a step that has no description and none is published. An H.I.F. ability whose skill has several level rows is accepted when every level names the same card, because the published pair is then still right; levels naming different cards stop the run, now under a test.
+  Rationale: stopping the daily update (and with it the support card data, K2) for a row whose published value is fully determined would cost a day's update for nothing.
   Date/Author: 2026-10-31, agent.
 
 ## Outcomes & Retrospective

@@ -82,7 +82,7 @@ export interface SkillCardDataFile {
   formatVersion: typeof SKILLCARD_DATA_FORMAT_VERSION;
   /** In the game's order (Character.order). */
   idols: readonly Idol[];
-  /** In the game's order, base before + for each card. */
+  /** In the game's order (by `order`, then id), base before + for each card. */
   cards: readonly SkillCard[];
   /** By id. */
   hifAbilities: readonly HifAbility[];

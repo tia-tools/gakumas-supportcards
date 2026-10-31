@@ -68,7 +68,7 @@ describe("the generated module", () => {
   });
 
   test("holds each card once per upgrade level, in the game's order, base before +", () => {
-    const keys = SKILL_CARD_DATA.cards.map((c) => `${c.order}:${c.upgrade}:${c.id}`);
+    const keys = SKILL_CARD_DATA.cards.map((c) => `${c.order}:${c.id}:${c.upgrade}`);
     expect(new Set(keys).size).toBe(keys.length);
     expect(keys).toEqual([...keys].sort());
   });

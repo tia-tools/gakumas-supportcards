@@ -125,6 +125,12 @@ describe("the pool", () => {
     expect(orders).toEqual([...orders].sort());
   });
 
+  test("keeps a card's base and + together when another card shares its order", () => {
+    const shared = { order: "21010020000001" };
+    const cards = build((f) => f.tables.cards.unshift(card("p_card-02-men-2_009", 1, shared), card("p_card-02-men-2_009", 0, shared))).cards;
+    expect(cards.filter((c) => c.order === shared.order).map((c) => `${c.id}:${c.upgrade}`)).toEqual(["p_card-02-men-2_001:0", "p_card-02-men-2_001:1", "p_card-02-men-2_009:0", "p_card-02-men-2_009:1"]);
+  });
+
   test("maps plan, rarity, type and art, and keeps the game's name and order", () => {
     const sr = build().cards.find((c) => c.id === "p_card-02-men-2_001" && c.upgrade === 1);
     expect(sr).toEqual({
@@ -208,6 +214,12 @@ describe("H.I.F. abilities", () => {
     expect(() => build((f) => f.skills.splice(0, 1))).toThrow(/memory_ability-hif-a: missing ProduceSkill/);
   });
 
+  test("accept a skill with several levels naming one card, and stop when its levels name different cards", () => {
+    const levelTwo = (cardId: string): RawProduceSkill => ({ ...skill("sk-hif-a", hifEffect(cardId)), level: 2 });
+    expect(build((f) => f.skills.push(levelTwo("p_card-01-act-1_002"))).hifAbilities).toContainEqual({ id: "memory_ability-hif-a", card: "p_card-01-act-1_002" });
+    expect(() => build((f) => f.skills.push(levelTwo("p_card-02-men-2_001")))).toThrow(/memory_ability-hif-a: its skill's levels name different cards/);
+  });
+
   test("stop, naming the ability, when the card does not exist or is released outside the pool", () => {
     expect(() => build((f) => f.skills.splice(0, 1, skill("sk-hif-a", hifEffect("p_card-09-act-9_999"))))).toThrow(/memory_ability-hif-a: names p_card-09-act-9_999, which is not a ProduceCard/);
     expect(() => build((f) => f.skills.splice(0, 1, skill("sk-hif-a", hifEffect("p_card-01-ido-3_001"))))).toThrow(/memory_ability-hif-a: names p_card-01-ido-3_001 .*released but not in the pool/);
@@ -223,6 +235,10 @@ describe("a dump that looks broken stops the run", () => {
 
   test("but not an unknown value on a card the pool leaves out anyway", () => {
     expect(() => build((f) => f.tables.cards.push(card("p_card-01-ido-3_050", 0, { searchTag: "idol-unique", rarity: "ProduceCardRarity_Ur" })))).not.toThrow();
+  });
+
+  test("a row the pool would hold twice", () => {
+    expect(() => build((f) => f.tables.cards.push(card("p_card-01-act-1_002", 1)))).toThrow(/ProduceCard p_card-01-act-1_002 level 1 appears twice/);
   });
 
   test("a customization kind that resolves to nothing", () => {

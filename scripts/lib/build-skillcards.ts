@@ -169,11 +169,20 @@ function cardSources(tables: SkillCardTables): CardSources {
   };
 }
 
-/** The pool, in the game's order and base before +. */
+/**
+ * The pool, in the game's order (`order`, then id, so two cards sharing an order stay apart) and
+ * base before +. A row the pool would hold twice means the dump is broken.
+ */
 export function buildPool(tables: SkillCardTables, now: number): SkillCard[] {
   const sources = cardSources(tables);
   const pool = tables.cards.filter((card) => passesSourceRules(card, now)).flatMap((card) => toSkillCard(card, sources) ?? []);
-  return pool.sort((a, b) => byCodeUnit(a.order, b.order) || a.upgrade - b.upgrade);
+  const seen = new Set<string>();
+  for (const card of pool) {
+    const key = `${card.id} level ${card.upgrade}`;
+    if (seen.has(key)) throw new Error(`ProduceCard ${key} appears twice`);
+    seen.add(key);
+  }
+  return pool.sort((a, b) => byCodeUnit(a.order, b.order) || byCodeUnit(a.id, b.id) || a.upgrade - b.upgrade);
 }
 
 /** The playable P-idols in the game's order. */
