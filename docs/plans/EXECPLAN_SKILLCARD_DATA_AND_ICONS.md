@@ -44,7 +44,12 @@ The requirements come from gkms-memomemo's plan, `docs/plans/EXECPLAN_MEMORY_MEM
 - [x] (2026-10-31 13:11Z) The note that the data file is live posted on tia-tools/gkms-memomemo#4 at the user's request. Final `/codex-review` of the second pull request's whole diff (`origin/develop...276029e`): CHANGES REQUESTED, one finding (an index entry was checked against the whole pool rather than its own sheet), fixed (K19); 64 Python tests, the new one seen to fail under the old rule; the real index still vouches for all 1,693 icons.
 - [x] (2026-10-31 13:41Z) Milestones 2–4 merged: PR #68 into `develop` (`1b41012`), #65 closed as Done on the board; at the user's go the release PR #69 merged `develop` into `main` (`35812e7`) and `deploy.yml` deployed; the live Worker answers the new paths with 404 `no-store` until they are stored, and existing card art still with 200.
 - [x] (2026-10-31 13:41Z) Milestone 5, first upload, run by the user: `uv run upload.py --assume-empty` stopped after 10 of 1,693 icons on one R2 API error (Surprises & Discoveries); the bucket stayed consistent. At the user's choice a retry was added first (K20), as issue #70 on branch `issue/70-r2-put-retry`.
-- [ ] Milestone 5, remaining: the user's rerun of `uv run upload.py --assume-empty` and `uv run sheets.py`; the live acceptance checks; the pull request for #70; the close-out.
+- [x] (2026-10-31 17:21Z) Milestone 5, first publication accepted: the user reran `uv run upload.py --assume-empty` and `uv run sheets.py` from this worktree with the retry of `486a735`, and both finished. On the live site:
+  - `/img/sheet112/index.v1.json` answers 200 `application/json`, `no-cache`, `formatVersion` 1, and lists 39 sheets naming 1,693 distinct icons.
+  - Every one of the 39 sheets answers 200 `image/webp`, `public, max-age=31536000, immutable` (116,718–123,916 bytes; `HEAD` of `sheet112/sense-hski-60cb780d.webp` 200), and the first 8 hex digits of each downloaded sheet's SHA-256 equal its name.
+  - A `HEAD` of every one of the 1,693 icons the index names under `/img/w112/` answers 200; `/img/master/…` answers 404.
+  - Against the live `/data/skillcards.v1.json` (`formatVersion` 1, 13 idols, 361 cards, 115 abilities), `desired_sheets` and `is_stale` find no stale sheet, and the pool's icons equal the index's.
+- [ ] Milestone 5, remaining: the pull request for #70; the close-out.
 - [ ] Milestone 5: release and first publication — pull request into `develop`, release, the first bulk upload with the user's go, the acceptance checks, ADR 0003 addendum, close-out.
 
 ## Surprises & Discoveries
