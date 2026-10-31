@@ -87,6 +87,68 @@ export interface RawProduceItemEffect {
   produceEffectId: string;
 }
 
+/** One skill card at one upgrade level (ProduceCard.yaml has one row per id and upgradeCount). */
+export interface RawProduceCard {
+  id: string;
+  upgradeCount: number;
+  name: string;
+  assetId: string;
+  isCharacterAsset: boolean;
+  rarity: string;
+  planType: string;
+  category: string;
+  searchTag: string;
+  originSupportCardId: string;
+  produceCardCustomizeIds: string[];
+  maxCustomizeCount: number;
+  /** Epoch milliseconds as a string, or "0" for always. */
+  viewStartTime: string;
+  order: string;
+}
+/** One step of a customization kind; the kind's rows share its id. */
+export interface RawCardCustomize {
+  id: string;
+  customizeCount: number;
+  description: string;
+  overwriteProduceCardGrowEffectType: string;
+  produceCardGrowEffectIds: string[];
+}
+export interface RawGrowEffect {
+  id: string;
+  effectType: string;
+}
+export interface RawGrowEffectDescription {
+  type: string;
+  produceCardCustomizeDescription: string;
+}
+export interface RawMemoryAbility {
+  id: string;
+  skillId: string;
+  produceGroupIds: string[];
+}
+export interface RawGuideCategory {
+  label: string;
+  produceCardIds: string[];
+}
+export interface RawCharacter {
+  id: string;
+  lastName: string;
+  firstName: string;
+  isPlayable: boolean;
+  order: number;
+}
+
+/** The tables the skill card data (data/skillcards.generated.ts) is built from, besides ProduceSkill. */
+export interface SkillCardTables {
+  cards: RawProduceCard[];
+  customizes: RawCardCustomize[];
+  growEffects: RawGrowEffect[];
+  growEffectDescriptions: RawGrowEffectDescription[];
+  memoryAbilities: RawMemoryAbility[];
+  guideCategories: RawGuideCategory[];
+  characters: RawCharacter[];
+}
+
 export interface Tables {
   cards: RawSupportCard[];
   skillLevels: RawSkillLevel[];
@@ -127,6 +189,49 @@ async function readTableText(name: string, opts: LoadOptions): Promise<string> {
   return text;
 }
 
+/** The YAML type a field must have, checked by `loadTypedTable`. */
+export type FieldType = "string" | "number" | "boolean" | "string[]";
+export type FieldTypes<T> = Readonly<Record<keyof T & string, FieldType>>;
+
+function hasType(value: unknown, type: FieldType): boolean {
+  if (type === "string[]") return Array.isArray(value) && value.every((v) => typeof v === "string");
+  return typeof value === type;
+}
+
+/** How an error names a row: its id, else its type (the key of ProduceDescriptionProduceCardGrowEffect). */
+function rowName(row: Record<string, unknown>): string {
+  const name = row["id"] ?? row["type"];
+  return typeof name === "string" ? name : "no id";
+}
+
+/** The first field of the first row whose value lacks its type, described for an error; null when every row is well typed. */
+export function firstMistyped(rows: readonly unknown[], fields: Readonly<Record<string, FieldType>>): string | null {
+  for (const [i, row] of rows.entries()) {
+    if (!isRecord(row)) return `row ${i} is not a mapping`;
+    for (const [field, type] of Object.entries(fields)) {
+      if (!hasType(row[field], type)) return `row ${i} (${rowName(row)}): ${field} should be ${type}, is ${JSON.stringify(row[field]) ?? "missing"}`;
+    }
+  }
+  return null;
+}
+
+function isTypedRows<T>(rows: unknown, fields: FieldTypes<T>): rows is T[] {
+  return Array.isArray(rows) && firstMistyped(rows, fields) === null;
+}
+
+/**
+ * Like `loadTable`, but every row must also give each declared field its type. For the tables of
+ * the skill card data (data/skillcards.generated.ts), where a value of another type would not fail
+ * a comparison but silently fail it: an upgradeCount of "1" would drop the card from the pool
+ * (decision K15 of docs/plans/EXECPLAN_SKILLCARD_DATA_AND_ICONS.md).
+ */
+export async function loadTypedTable<T>(name: string, fields: FieldTypes<T>, opts: LoadOptions = {}): Promise<T[]> {
+  const parsed: unknown = loadYaml(await readTableText(name, opts));
+  if (!Array.isArray(parsed)) throw new Error(`${name}.yaml: expected a list of rows`);
+  if (!isTypedRows<T>(parsed, fields)) throw new Error(`${name}.yaml: ${firstMistyped(parsed, fields) ?? "malformed"}`);
+  return parsed;
+}
+
 export async function loadTable<T>(name: string, keys: readonly (keyof T & string)[], opts: LoadOptions = {}): Promise<T[]> {
   const parsed: unknown = loadYaml(await readTableText(name, opts));
   if (!isRowsOf<T>(parsed, keys)) {
@@ -165,4 +270,39 @@ export async function loadTables(opts: LoadOptions = {}): Promise<Tables> {
     items,
     itemEffects,
   };
+}
+
+const PRODUCE_CARD_FIELDS: FieldTypes<RawProduceCard> = {
+  id: "string",
+  upgradeCount: "number",
+  name: "string",
+  assetId: "string",
+  isCharacterAsset: "boolean",
+  rarity: "string",
+  planType: "string",
+  category: "string",
+  searchTag: "string",
+  originSupportCardId: "string",
+  produceCardCustomizeIds: "string[]",
+  maxCustomizeCount: "number",
+  viewStartTime: "string",
+  order: "string",
+};
+
+/**
+ * The skill card tables (docs/plans/EXECPLAN_SKILLCARD_DATA_AND_ICONS.md), each field typed.
+ * ProduceSkill is not among them: `loadTables` already reads it, with the fields the H.I.F.
+ * abilities need.
+ */
+export async function loadSkillCardTables(opts: LoadOptions = {}): Promise<SkillCardTables> {
+  const [cards, customizes, growEffects, growEffectDescriptions, memoryAbilities, guideCategories, characters] = await Promise.all([
+    loadTypedTable<RawProduceCard>("ProduceCard", PRODUCE_CARD_FIELDS, opts),
+    loadTypedTable<RawCardCustomize>("ProduceCardCustomize", { id: "string", customizeCount: "number", description: "string", overwriteProduceCardGrowEffectType: "string", produceCardGrowEffectIds: "string[]" }, opts),
+    loadTypedTable<RawGrowEffect>("ProduceCardGrowEffect", { id: "string", effectType: "string" }, opts),
+    loadTypedTable<RawGrowEffectDescription>("ProduceDescriptionProduceCardGrowEffect", { type: "string", produceCardCustomizeDescription: "string" }, opts),
+    loadTypedTable<RawMemoryAbility>("MemoryAbility", { id: "string", skillId: "string", produceGroupIds: "string[]" }, opts),
+    loadTypedTable<RawGuideCategory>("ProduceGuideProduceCardCategory", { label: "string", produceCardIds: "string[]" }, opts),
+    loadTypedTable<RawCharacter>("Character", { id: "string", lastName: "string", firstName: "string", isPlayable: "boolean", order: "number" }, opts),
+  ]);
+  return { cards, customizes, growEffects, growEffectDescriptions, memoryAbilities, guideCategories, characters };
 }
