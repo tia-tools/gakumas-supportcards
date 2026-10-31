@@ -15,24 +15,55 @@ from __future__ import annotations
 import hashlib
 import io
 import json
+import re
 from typing import Any
 
 from PIL import Image
 
 from skillcards import icon_stems_of, idol_ids
+from thumbnail import SKILLCARD_OBJECT_NAME
 
 INDEX_FORMAT_VERSION = 1
+PLANS = ("sense", "logic", "anomaly")
+CELL = 112
+COLUMNS = 10
+SHEET_PREFIX = "sheet112/"
+INDEX_KEY = f"{SHEET_PREFIX}index.v{INDEX_FORMAT_VERSION}.json"
+# Lossy with an exact alpha channel; chosen by measuring all 39 sheets (decision K18).
+SHEET_QUALITY = 80
+IDOL_ID = re.compile(r"^[a-z0-9]{4}$")
+
+
+def _sheet_problem(sheet: Any) -> str | None:
+    """What is wrong with one index entry, or None. Every name must be one this module could have written."""
+    if not isinstance(sheet, dict):
+        return "not a mapping"
+    plan, idol, file, columns, assets = (sheet.get(k) for k in ("plan", "idol", "file", "columns", "assets"))
+    if plan not in PLANS or not isinstance(idol, str) or not IDOL_ID.match(idol):
+        return "unknown plan or idol"
+    if not isinstance(file, str) or not re.fullmatch(rf"{SHEET_PREFIX}{plan}-{idol}-[0-9a-f]{{8}}\.webp", file):
+        return "a file name this pipeline does not write"
+    if not isinstance(columns, int) or isinstance(columns, bool) or columns < 1:
+        return "columns is not a positive integer"
+    if not isinstance(assets, list) or not all(isinstance(a, str) and SKILLCARD_OBJECT_NAME.match(f"{a}.unity3d") for a in assets):
+        return "assets is not a list of skill card icon names"
+    return None
 
 
 def parse_index(text: str) -> dict[str, Any]:
-    """The stored index, checked for the shape this module writes; raises on anything else, so a
-    damaged index is never read as "nothing is stored"."""
+    """The stored index, checked entry by entry against what this module writes; raises on anything
+    else, so a damaged index is never read as "nothing is stored", nor any name in it as a stored icon."""
     index = json.loads(text)
-    if not isinstance(index, dict) or index.get("formatVersion") != INDEX_FORMAT_VERSION or not isinstance(index.get("sheets"), list):
-        raise ValueError(f"sheet index: expected formatVersion {INDEX_FORMAT_VERSION} with a list of sheets")
+    if not isinstance(index, dict) or index.get("formatVersion") != INDEX_FORMAT_VERSION or not isinstance(index.get("cell"), int) or not isinstance(index.get("sheets"), list):
+        raise ValueError(f"sheet index: expected formatVersion {INDEX_FORMAT_VERSION}, a cell size and a list of sheets")
+    seen: set[tuple[str, str]] = set()
     for sheet in index["sheets"]:
-        if not isinstance(sheet, dict) or not all(isinstance(sheet.get(k), str) for k in ("plan", "idol", "file")) or not isinstance(sheet.get("assets"), list):
-            raise ValueError(f"sheet index: malformed sheet entry {json.dumps(sheet)[:200]}")
+        problem = _sheet_problem(sheet)
+        if problem is None and (sheet["plan"], sheet["idol"]) in seen:
+            problem = "a second sheet for the same plan and idol"
+        if problem is not None:
+            raise ValueError(f"sheet index: {problem}: {json.dumps(sheet, ensure_ascii=False)[:200]}")
+        seen.add((sheet["plan"], sheet["idol"]))
     return index
 
 
@@ -42,15 +73,6 @@ def stored_icon_names(index: dict[str, Any] | None) -> set[str]:
     if index is None:
         return set()
     return {f"{asset}.webp" for sheet in index["sheets"] for asset in sheet["assets"]}
-
-
-PLANS = ("sense", "logic", "anomaly")
-CELL = 112
-COLUMNS = 10
-SHEET_PREFIX = "sheet112/"
-INDEX_KEY = f"{SHEET_PREFIX}index.v{INDEX_FORMAT_VERSION}.json"
-# Lossy with an exact alpha channel; chosen in Milestone 4 by measuring all 39 sheets (decision K10).
-SHEET_QUALITY = 80
 
 
 def desired_sheets(data: dict[str, Any]) -> list[dict[str, Any]]:

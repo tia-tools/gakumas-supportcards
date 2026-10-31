@@ -124,3 +124,28 @@ def test_the_index_text_reads_back_as_the_entries_it_names():
     entries = [{**d, "file": f"sheet112/{d['plan']}-{d['idol']}-0000000{i}.webp"} for i, d in enumerate(desired_sheets(DATA))]
     index = parse_index(index_text(entries))
     assert index["cell"] == 112 and index["sheets"] == entries
+
+
+@pytest.mark.parametrize(
+    "field, value",
+    [
+        ("plan", "free"),
+        ("idol", "HSKI"),
+        ("file", "sheet112/sense-ttmr-1a2b3c4d.webp"),
+        ("file", "sheet112/sense-hski-1a2b3c4.webp"),
+        ("file", "master/img_general_skillcard_act-1_001.webp"),
+        ("columns", 0),
+        ("columns", True),
+        ("assets", ["img_general_csprt-3-0016_full"]),
+        ("assets", ["../img_general_skillcard_act-1_001"]),
+    ],
+)
+def test_an_entry_naming_anything_this_pipeline_does_not_write_stops_the_run(field, value):
+    sheet = {**INDEX["sheets"][0], field: value}
+    with pytest.raises(ValueError):
+        parse_index(json.dumps({**INDEX, "sheets": [sheet]}))
+
+
+def test_two_entries_for_one_plan_and_idol_stop_the_run():
+    with pytest.raises(ValueError, match="second sheet"):
+        parse_index(json.dumps({**INDEX, "sheets": [INDEX["sheets"][0], INDEX["sheets"][0]]}))
