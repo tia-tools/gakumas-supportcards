@@ -69,15 +69,15 @@ def parse_index(text: str) -> dict[str, Any]:
 
 def stored_icon_names(index: dict[str, Any] | None, desired: list[dict[str, Any]]) -> set[str]:
     """The library file names (`<asset>.webp`) of the icons the stored index vouches for: those of a
-    stored sheet whose plan and idol are among the `desired` sheets and whose every icon is an icon
-    of the current pool. Each of them is stored as a single icon too, because a sheet goes up only
-    after its icons (decision K12); an entry this data could not have produced vouches for nothing
-    (decision K19). Empty without an index."""
+    stored sheet whose plan and idol are among the `desired` sheets and whose every icon belongs on
+    that same sheet under the current data. Each of them is stored as a single icon too, because a
+    sheet goes up only after its icons (decision K12); an entry this data could not have produced
+    vouches for nothing (decision K19). A sheet that a new card has made stale still vouches, since
+    its icons are all still on it. Empty without an index."""
     if index is None:
         return set()
-    keys = {(d["plan"], d["idol"]) for d in desired}
-    pool = {asset for d in desired for asset in d["assets"]}
-    trusted = [s for s in index["sheets"] if (s["plan"], s["idol"]) in keys and set(s["assets"]) <= pool]
+    allowed = {(d["plan"], d["idol"]): set(d["assets"]) for d in desired}
+    trusted = [s for s in index["sheets"] if set(s["assets"]) <= allowed.get((s["plan"], s["idol"]), set())]
     return {f"{asset}.webp" for sheet in trusted for asset in sheet["assets"]}
 
 

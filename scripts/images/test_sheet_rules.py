@@ -37,6 +37,13 @@ def test_an_entry_this_data_could_not_have_produced_vouches_for_nothing():
     assert stored_icon_names(index, DESIRED) == {"img_general_skillcard_act-1_001.webp", "img_general_skillcard_act-2_009-hski.webp"}
 
 
+def test_an_entry_naming_an_icon_of_another_sheet_vouches_for_nothing_but_a_merely_stale_one_does():
+    wrong_sheet = {**INDEX["sheets"][0], "assets": ["img_general_skillcard_act-2_009-ttmr"]}  # ttmr's icon on hski's sheet
+    assert stored_icon_names(parse_index(json.dumps({**INDEX, "sheets": [wrong_sheet]})), DESIRED) == set()
+    older = {**INDEX["sheets"][0], "assets": ["img_general_skillcard_act-1_001"]}  # before a card was added to the sheet
+    assert stored_icon_names(parse_index(json.dumps({**INDEX, "sheets": [older]})), DESIRED) == {"img_general_skillcard_act-1_001.webp"}
+
+
 @pytest.mark.parametrize(
     "broken",
     [
