@@ -10,7 +10,7 @@ import { HELD } from "./data/held.generated.ts";
 import { LEVEL_LIMITS } from "./data/levelLimits.generated.ts";
 import { SKILLCARD_DATA_PATH, skillCardDataJson } from "./data/skillcard-data-file.ts";
 import { SKILL_CARD_DATA } from "./data/skillcards.generated.ts";
-import { imageKey } from "./infra/worker/img.ts";
+import { contentTypeFor, imageKey } from "./infra/worker/img.ts";
 
 /**
  * Dev server only: answers `/img/*` from the locally extracted thumbnails
@@ -28,7 +28,7 @@ function localImageLibrary(dir: string): Plugin {
         const key = imageKey((req.url ?? "").split("?")[0] ?? "");
         const file = key === null ? null : join(dir, key);
         if (file === null || !existsSync(file)) return next();
-        res.setHeader("Content-Type", "image/webp");
+        res.setHeader("Content-Type", contentTypeFor(key ?? ""));
         createReadStream(file).pipe(res);
       });
     },

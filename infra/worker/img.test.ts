@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { IMMUTABLE, imageKey, serveImage, type ImageBucket } from "./img.ts";
+import { IMMUTABLE, REVALIDATE, SHEET_INDEX_KEY, imageKey, serveImage, type ImageBucket } from "./img.ts";
 
 const FILE = "img_general_csprt-3-0016_full.webp";
 const KEY = `w192/${FILE}`;
@@ -39,6 +39,41 @@ describe("imageKey", () => {
   });
 });
 
+const SKILL_ICON = "w112/img_general_skillcard_act-3_029-hski.webp";
+const SKILL_SINGLE = "w112/img_general_skillcard_men-0_003.webp";
+const SHEET = "sheet112/sense-hski-1a2b3c4d.webp";
+
+describe("imageKey for gkms-memomemo's skill card art", () => {
+  test("accepts skill card icons under w112/, single or per idol, the sheets and their index under sheet112/", () => {
+    for (const key of [SKILL_ICON, SKILL_SINGLE, "w112/img_general_skillcard_ido-100_039.webp", SHEET, "sheet112/anomaly-hrnm-00ff00ff.webp", SHEET_INDEX_KEY]) {
+      expect(imageKey(`/img/${key}`)).toBe(key);
+    }
+  });
+
+  test("refuses masters, other renditions' names under these prefixes, and near misses", () => {
+    for (const path of [
+      `/img/master/${SKILL_ICON.slice(5)}`,
+      `/img/w192/${SKILL_ICON.slice(5)}`,
+      `/img/w112/${FILE}`,
+      `/img/w112/${ICON}`,
+      "/img/w112/img_general_skillcard_act-3_029-HSKI.webp",
+      "/img/w112/img_general_skillcard_act-3_029-hski-ttmr.webp",
+      "/img/w112/img_general_skillcard_act-3_29.webp",
+      "/img/w112/img_general_skillcard_acc-0_002.webp",
+      "/img/sheet112/sense-hski-1a2b3c4.webp",
+      "/img/sheet112/sense-hski-1A2B3C4D.webp",
+      "/img/sheet112/free-hski-1a2b3c4d.webp",
+      "/img/sheet112/sense-hski.webp",
+      "/img/sheet112/index.v2.json",
+      "/img/sheet112/index.json",
+      `/img/w112/${SHEET.slice(9)}`,
+      `/img/sheet112/${SKILL_ICON.slice(5)}`,
+    ]) {
+      expect(imageKey(path)).toBeNull();
+    }
+  });
+});
+
 describe("serveImage", () => {
   test("GET serves the object as immutable webp", async () => {
     const b = bucket({ [KEY]: "webp-bytes" });
@@ -57,6 +92,27 @@ describe("serveImage", () => {
     expect(res.status).toBe(200);
     expect(res.headers.get("Content-Length")).toBe("10");
     expect(b.calls).toEqual([`head ${KEY}`]);
+  });
+
+  test("serves a skill card icon and a sheet as immutable webp", async () => {
+    for (const key of [SKILL_ICON, SHEET]) {
+      const res = await serveImage(new Request(`https://gakumas-supportcards.tia.run/img/${key}`), bucket({ [key]: "webp" }));
+      expect(res.status).toBe(200);
+      expect(res.headers.get("Content-Type")).toBe("image/webp");
+      expect(res.headers.get("Cache-Control")).toBe(IMMUTABLE);
+    }
+  });
+
+  test("serves the sheet index as JSON that every use revalidates, on GET and HEAD", async () => {
+    const url = `https://gakumas-supportcards.tia.run/img/${SHEET_INDEX_KEY}`;
+    const b = bucket({ [SHEET_INDEX_KEY]: '{"formatVersion":1}' });
+    for (const method of ["GET", "HEAD"]) {
+      const res = await serveImage(new Request(url, { method }), b);
+      expect(res.status).toBe(200);
+      expect(res.headers.get("Content-Type")).toBe("application/json");
+      expect(res.headers.get("Cache-Control")).toBe(REVALIDATE);
+    }
+    expect(await (await serveImage(new Request(url), b)).text()).toBe('{"formatVersion":1}');
   });
 
   test("a missing image is a 404 that must not be cached", async () => {
