@@ -79,3 +79,33 @@ def test_only_released_art_the_site_lacks_is_missing():
 
     assert missing_file_names(offered, allowed, exists) == ["released-missing.webp"]
     assert "unreleased.webp" not in asked  # the site is not even asked about art that must not go out
+
+
+def test_skill_card_keys_come_from_the_skill_card_module_and_join_the_published_keys():
+    from test_skillcards import DATA, module_text
+    from uploads import published_keys, skill_card_keys
+
+    skill = module_text(DATA)
+    assert skill_card_keys(skill) == {"img_general_skillcard_act-1_001.webp", "img_general_skillcard_act-2_009-hski.webp", "img_general_skillcard_act-2_009-ttmr.webp"}
+    cards = '{"id":"s_card-3-0016","assetId":"csprt-3-0016"}'
+    assert published_keys(cards, skill) == skill_card_keys(skill) | {"img_general_csprt-3-0016_full.webp"}
+
+
+def test_an_icon_the_stored_sheet_index_names_is_not_asked_about():
+    from uploads import known_or_served
+
+    asked = []
+
+    def served(name):
+        asked.append(name)
+        return name == "c.webp"
+
+    exists = known_or_served({"a.webp"}, served)
+    assert [exists(n) for n in ["a.webp", "b.webp", "c.webp"]] == [True, False, True]
+    assert asked == ["b.webp", "c.webp"]
+
+
+def test_a_w112_upload_keeps_each_icons_master():
+    keys = ["master/s.webp", "w112/s.webp"]
+    assert select_renditions(keys, "w112", "master/", "w192/", "w48/", "w112/") == keys
+    assert select_renditions(keys, "w48", "master/", "w192/", "w48/", "w112/") == []
