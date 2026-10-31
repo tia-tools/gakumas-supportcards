@@ -7,7 +7,8 @@ from r2 import RETRY_WAITS, put
 
 
 class Wrangler:
-    """Fails the first `failures` calls with a non-zero exit, then succeeds; records each command."""
+    """Fails the first `failures` calls, then succeeds; records each command. Each failure exits with
+    its attempt's number, so a test can tell which attempt's error was raised."""
 
     def __init__(self, failures):
         self.failures = failures
@@ -17,7 +18,7 @@ class Wrangler:
         assert check is True
         self.commands.append(command)
         if len(self.commands) <= self.failures:
-            raise subprocess.CalledProcessError(1, command)
+            raise subprocess.CalledProcessError(len(self.commands), command)
 
 
 def put_with(wrangler, slept):
@@ -42,7 +43,8 @@ def test_a_transient_failure_is_tried_again_after_a_wait():
 
 def test_a_put_that_keeps_failing_raises_after_its_last_attempt():
     wrangler, slept = Wrangler(99), []
-    with pytest.raises(subprocess.CalledProcessError):
+    with pytest.raises(subprocess.CalledProcessError) as raised:
         put_with(wrangler, slept)
+    assert raised.value.returncode == len(RETRY_WAITS) + 1  # the last attempt's error, not an earlier one
     assert len(wrangler.commands) == len(RETRY_WAITS) + 1
     assert slept == list(RETRY_WAITS)
