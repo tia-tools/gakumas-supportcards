@@ -25,7 +25,8 @@ from pathlib import Path
 from deployed_site import DEFAULT_BASE_URL, served_by, stored_sheet_index
 
 from r2 import put
-from sheet_rules import parse_index, stored_icon_names
+from sheet_rules import desired_sheets, parse_index, stored_icon_names
+from skillcards import read_skill_card_data
 from thumbnail import ICON_PREFIX, MASTER_PREFIX, SKILLCARD_PREFIX, THUMBNAIL_PREFIX, public_prefix_for
 from uploads import cache_control_for, known_or_served, plan_uploads, publishable, published_keys, select_renditions, upload_order
 
@@ -56,14 +57,16 @@ def main() -> int:
         + [p.name for p in (args.dir / ICON_PREFIX).glob("img_general_pitem_*.webp")]
         + [p.name for p in (args.dir / SKILLCARD_PREFIX).glob("img_general_skillcard_*.webp")]
     )
-    keys, held = publishable(found, published_keys(args.cards.read_text(encoding="utf-8"), args.skillcards.read_text(encoding="utf-8")))
+    skillcards_source = args.skillcards.read_text(encoding="utf-8")
+    keys, held = publishable(found, published_keys(args.cards.read_text(encoding="utf-8"), skillcards_source))
     if held:
         print(f"holding back {len(held)} image(s) of cards not in the published data: {', '.join(held[:20])}{', …' if len(held) > 20 else ''}")
     if args.assume_empty:
         exists = nothing_stored
     else:
         index_text = stored_sheet_index(args.base_url)
-        exists = known_or_served(stored_icon_names(parse_index(index_text) if index_text is not None else None), served_by(args.base_url))
+        index = parse_index(index_text) if index_text is not None else None
+        exists = known_or_served(stored_icon_names(index, desired_sheets(read_skill_card_data(skillcards_source))), served_by(args.base_url))
     plan = plan_uploads(keys, exists)
     print(f"{len(plan.present)} already served, {len(plan.missing)} missing")
 

@@ -14,13 +14,27 @@ INDEX = {
 }
 
 
-def test_the_icons_of_every_stored_sheet_count_as_stored():
-    assert stored_icon_names(parse_index(json.dumps(INDEX))) == {
+DESIRED = [
+    {"plan": "sense", "idol": "hski", "columns": 10, "assets": ["img_general_skillcard_act-1_001", "img_general_skillcard_act-2_009-hski"]},
+    {"plan": "sense", "idol": "ttmr", "columns": 10, "assets": ["img_general_skillcard_act-1_001", "img_general_skillcard_act-2_009-ttmr"]},
+]
+
+
+def test_the_icons_of_every_stored_sheet_this_data_calls_for_count_as_stored():
+    assert stored_icon_names(parse_index(json.dumps(INDEX)), DESIRED) == {
         "img_general_skillcard_act-1_001.webp",
         "img_general_skillcard_act-2_009-hski.webp",
         "img_general_skillcard_act-2_009-ttmr.webp",
     }
-    assert stored_icon_names(None) == set()
+    assert stored_icon_names(None, DESIRED) == set()
+
+
+def test_an_entry_this_data_could_not_have_produced_vouches_for_nothing():
+    # Only pool icons, and one that no trusted entry names, so only its unknown idol can exclude it.
+    stranger = {"plan": "sense", "idol": "zzzz", "file": "sheet112/sense-zzzz-00000000.webp", "columns": 10, "assets": ["img_general_skillcard_act-2_009-ttmr"]}
+    outside_pool = {**INDEX["sheets"][1], "assets": ["img_general_skillcard_act-2_009-ttmr", "img_general_skillcard_act-3_999"]}
+    index = parse_index(json.dumps({**INDEX, "sheets": [INDEX["sheets"][0], outside_pool, stranger]}))
+    assert stored_icon_names(index, DESIRED) == {"img_general_skillcard_act-1_001.webp", "img_general_skillcard_act-2_009-hski.webp"}
 
 
 @pytest.mark.parametrize(

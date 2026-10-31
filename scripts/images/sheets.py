@@ -93,7 +93,7 @@ def run(args: argparse.Namespace, stored_text: str | None, served: Callable[[str
     if args.dry_run:
         print(f"would upload {len(built)} sheet(s), then {INDEX_KEY} ({index_path})")
         return 0
-    publish(built, index_path, known_or_served(stored_icon_names(stored), served), put_object)
+    publish(built, index_path, known_or_served(stored_icon_names(stored, desired), served), put_object)
     return 0
 
 

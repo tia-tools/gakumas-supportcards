@@ -79,8 +79,9 @@ def wanted_files(manifest, args: argparse.Namespace) -> set[str]:
     allowed = published_keys(args.cards.read_text(encoding="utf-8"), skillcards_source)
     index_text = stored_sheet_index(args.base_url)
     index = parse_index(index_text) if index_text is not None else None
-    wanted = set(missing_file_names(files, allowed, known_or_served(stored_icon_names(index), served_by(args.base_url))))
-    stale = [d for d in desired_sheets(read_skill_card_data(skillcards_source)) if is_stale(d, index)]
+    desired = desired_sheets(read_skill_card_data(skillcards_source))
+    wanted = set(missing_file_names(files, allowed, known_or_served(stored_icon_names(index, desired), served_by(args.base_url))))
+    stale = [d for d in desired if is_stale(d, index)]
     print(f"{len(wanted)} file(s) of released cards are not served by {args.base_url}; {len(stale)} sprite sheet(s) are stale")
     return wanted | {f"{asset}.webp" for d in stale for asset in d["assets"]}
 
