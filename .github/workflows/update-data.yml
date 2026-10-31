@@ -1,8 +1,10 @@
 # Guards: the published numbers, during an update nobody watches. Every day it regenerates the
-# card data from vertesan/gakumasu-diff and publishes it WITHOUT a person reading the diff, which
-# is safe only because every gate below runs first, in this job, before anything is merged:
-#   - the generator stops on a broken upstream dump, and hides (never zeroes) a card it cannot
-#     score, listing it in data/held.generated.ts (docs/adr/0005);
+# card data from vertesan/gakumasu-diff, with the skill card data published for gkms-memomemo
+# (data/skillcards.generated.ts, docs/adr/0010), and publishes it WITHOUT a person reading the
+# diff, which is safe only because every gate below runs first, in this job, before anything is
+# merged:
+#   - the generator stops on a broken upstream dump, the skill card tables included, and hides
+#     (never zeroes) a card it cannot score, listing it in data/held.generated.ts (docs/adr/0005);
 #   - the unit tests, the type check and the lint pass;
 #   - scripts/check-score-stability.ts finds no card whose score moved although its own data did
 #     not (docs/adr/0006).
