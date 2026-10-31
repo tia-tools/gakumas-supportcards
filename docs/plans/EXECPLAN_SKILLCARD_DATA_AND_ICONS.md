@@ -37,8 +37,9 @@ The requirements come from gkms-memomemo's plan, `docs/plans/EXECPLAN_MEMORY_MEM
 - [x] (2026-10-31 12:32Z) Milestone 1, a third Codex run over `1a36cf9`: **CODEX VERDICT: LGTM**. Every gate passed on a clean clone of `1a36cf9` (361 tests; the page bundle holds no skill card data). With the user's go, `1a36cf9` was pushed alone and pull request #66 opened into `develop`; its `check.yml` run passed.
 - [ ] Milestone 1, remaining: the user's merge of #66 and release to `main`, and the live `curl`.
 - [x] (2026-10-31 12:32Z) Milestone 2: `infra/worker/img.ts` matches one pattern per rendition and also answers `w112/` skill card icons (single and per idol), `sheet112/<plan>-<idol>-<8 hex>.webp` (immutable webp) and `sheet112/index.v1.json` (`application/json`, `no-cache`, K14); the dev server takes the content type from the same rule; five new tests, each rule seen to fail when broken; committed locally as `fd6ffbb`, kept out of #66. The dev-server check waits for the local icons of Milestone 3.
-- [ ] Milestone 3: the single icons — extraction and upload of every pool card's icon in every variant.
-- [ ] Milestone 4: the sprite sheets and their index — builder, staleness rule, upload order, quality measured, the daily workflow's image step.
+- [x] (2026-10-31 12:48Z) Milestone 3, locally: `skillcards.py` reads the generated module; `thumbnail.py` names skill card icons and makes their lossless master and 112-pixel icon; `extract.py` and `upload.py` handle them, published only for the pool, planned from the stored sheet index first (K12); the upload command moved into `r2.py`. `uv run extract.py --only 'skillcard'` converted all 2,226 offered icons in about seven minutes (Surprises & Discoveries), every one of the 1,693 pool icons among them; `uv run upload.py --dry-run --assume-empty` plans 1,693 masters and 1,693 `w112/` icons, master first, holding back 533. The dev server answers `/img/w112/…`, a sheet and the index with their content types. Commits `cff3726`, `2d96629`.
+- [x] (2026-10-31 12:48Z) Milestone 4, locally: `sheet_rules.py` (layout, staleness, content name, index) and `sheets.py` (build stale sheets from the masters, check their icons are stored, upload sheets, then the index); `extract.py --only-missing` also fetches the icons of stale sheets (K13); the daily image step runs `uv run sheets.py` after `upload.py`, pinned by `scripts/lib/workflows.test.ts`. `uv run sheets.py --dry-run` built 39 sheets (68, 68 and 65 icons) of 118–124 KB at quality 80 and the index; quality chosen by measurement (K18). 46 Python tests, every new rule seen to fail when broken. Commits `dd0fd4a`, `2d96629`, `5a3dded`.
+- [ ] Milestones 2–4, remaining: docs (images and Worker READMEs, `CLAUDE.md`), `/codex-review` of the branch after #66 merges, and the second pull request.
 - [ ] Milestone 5: release and first publication — pull request into `develop`, release, the first bulk upload with the user's go, the acceptance checks, ADR 0003 addendum, close-out.
 
 ## Surprises & Discoveries
@@ -70,6 +71,21 @@ The requirements come from gkms-memomemo's plan, `docs/plans/EXECPLAN_MEMORY_MEM
 
 - Observation: `ProduceCard.order` is a 14-digit string, unique among pool cards and identical between levels of one id, so sorting the strings gives the game's order; `assetId` is also identical between levels. All pool asset ids have the form `img_general_skillcard_(act|men)-<digits>_<three digits>`.
   Evidence: `order lengths [ 14 ]`, `orders unique 181 of 181`, `order differs between levels 0`, `asset differs between levels 0`, `asset name shapes img_general_skillcard_act-#_# 94, img_general_skillcard_men-#_# 87`.
+
+- Observation: the 39 sprite sheets are far below the half-megabyte target at every quality tried, so quality 80, the one the other renditions use, costs nothing (K18). At 2× magnification quality 80 shows no visible blocking.
+  Evidence: all 39 sheets composed from the local masters (`$TMPDIR/skc/scripts/measure.py`, not kept), 2026-10-31:
+
+      quality 90: min 170,596 max 181,024 mean 175,811 total 6,856,654 bytes
+      quality 80: min 116,718 max 123,916 mean 120,187 total 4,687,324 bytes
+      quality 70: min  92,404 max  98,776 mean  95,685 total 3,731,742 bytes
+      quality 60: min  82,712 max  88,482 mean  85,602 total 3,338,512 bytes
+      quality 50: min  74,128 max  79,264 mean  76,672 total 2,990,208 bytes
+
+- Observation: the manifest offers 2,226 skill card icons that match the library's naming (2,290 `img_general_skillcard_*` assets in all, the rest being trouble cards' `acc-` and other kinds); 1,693 are the pool's and 533 are held back on upload (unreleased cards, P-idol unique and event cards, Legend cards, and the variants of 根緒亜紗里, who is not playable). A full local extraction took about seven minutes and wrote 9.2 MB of `w112/` icons (about 4 KB each) and 81 MB of masters. The vendored GkmasObjectManager's dependency `pydub` prints `SyntaxWarning: invalid escape sequence` for its own regular expressions on every run; it does not affect decoding.
+  Evidence: `uv run extract.py --only 'skillcard'` from 12:29:47Z to 12:36:52Z, `converted 2226 of 2226`; `du -sh out/w112` 9.2M; `uv run upload.py --dry-run --assume-empty`: `holding back 533 image(s)`, `0 already served, 1693 missing`.
+
+- Observation: the dev server answers a request for `/img/master/…` with 200 `text/html`. That is Vite's page fallback for a path no middleware takes, not the master: `localImageLibrary` passes such a path on, as it always has for `w192` masters.
+  Evidence: `curl` against `bun run dev --port 5199`: `master/img_general_skillcard_act-3_029-hski.webp -> 200 text/html`.
 
 ## Decision Log
 
@@ -140,6 +156,10 @@ The requirements come from gkms-memomemo's plan, `docs/plans/EXECPLAN_MEMORY_MEM
 - Decision: K17 — two findings of the Codex review of Milestone 1 were declined. A customization step with a description and no grow effect is accepted, because grow effects are read only to label a step that has no description and none is published. An H.I.F. ability whose skill has several level rows is accepted when every level names the same card, because the published pair is then still right; levels naming different cards stop the run, now under a test.
   Rationale: stopping the daily update (and with it the support card data, K2) for a row whose published value is fully determined would cost a day's update for nothing.
   Date/Author: 2026-10-31, agent.
+
+- Decision: K18 — sprite sheets are encoded at WebP quality 80 with an exact alpha channel (`SHEET_QUALITY` in `scripts/images/sheet_rules.py`): 118–124 KB per sheet, about 4.7 MB for all 39.
+  Rationale: measured against the half-megabyte target, every quality from 50 to 90 fits (Surprises & Discoveries); 80 is what the other renditions use and shows no visible artifacts at twice the display size, while a player loads at most three sheets per idol.
+  Date/Author: 2026-10-31, agent, from the measurement.
 
 ## Outcomes & Retrospective
 

@@ -58,7 +58,7 @@ def main() -> int:
     )
     keys, held = publishable(found, published_keys(args.cards.read_text(encoding="utf-8"), args.skillcards.read_text(encoding="utf-8")))
     if held:
-        print(f"holding back {len(held)} image(s) whose card is not in the data yet: {', '.join(held[:20])}{', …' if len(held) > 20 else ''}")
+        print(f"holding back {len(held)} image(s) of cards not in the published data: {', '.join(held[:20])}{', …' if len(held) > 20 else ''}")
     if args.assume_empty:
         exists = nothing_stored
     else:
