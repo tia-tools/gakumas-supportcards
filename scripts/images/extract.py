@@ -1,13 +1,15 @@
 """
-Downloads support card art and P-item icons from the game's asset servers and writes, per file,
-a lossless master (out/master/) and the served rendition — a 192 x 108 webp thumbnail
-(out/w192/) for a card, a 48 x 48 webp icon with transparency (out/w48/) for an item — named
-for the owned image library (docs/adr/0003; items: Milestone 4 of
-docs/plans/EXECPLAN_SCORE_ADJUSTMENTS.md).
+Downloads support card art, P-item icons and skill card icons from the game's asset servers and
+writes, per file, a lossless master (out/master/) and the served rendition — a 192 x 108 webp
+thumbnail (out/w192/) for a card, a 48 x 48 webp icon with transparency (out/w48/) for an item, a
+112 x 112 webp icon with transparency (out/w112/) for a skill card, per idol where its art varies —
+named for the owned image library (docs/adr/0003; items: Milestone 4 of
+docs/plans/EXECPLAN_SCORE_ADJUSTMENTS.md; skill cards: docs/plans/EXECPLAN_SKILLCARD_DATA_AND_ICONS.md).
 
     uv run extract.py                       # every card or item that lacks a master or its served rendition
     uv run extract.py --only 'csprt-3-0016' --force
     uv run extract.py --only 'pitem_2-004'
+    uv run extract.py --only 'skillcard'    # every skill card icon the game offers
     uv run extract.py --only-missing        # only files of cards in the data that the deployed site lacks
 
 GkmasObjectManager (GPL-3.0, not a package) is used only for what it does well: fetching and
@@ -24,12 +26,15 @@ import sys
 from pathlib import Path
 
 from decode import DecodeError, decode_texture
-from deployed_site import DEFAULT_BASE_URL, served_by
-from thumbnail import ICON_PREFIX, ITEM_PATTERN, MASTER_PREFIX, OBJECT_PATTERN, THUMBNAIL_PREFIX, file_name_for, master_rendition, public_prefix_for, public_rendition
-from uploads import library_keys, missing_file_names
+from deployed_site import DEFAULT_BASE_URL, served_by, stored_sheet_index
+from sheet_rules import desired_sheets, is_stale, parse_index, stored_icon_names
+from skillcards import read_skill_card_data
+from thumbnail import ICON_PREFIX, ITEM_PATTERN, MASTER_PREFIX, OBJECT_PATTERN, SKILLCARD_PATTERN, SKILLCARD_PREFIX, THUMBNAIL_PREFIX, file_name_for, master_rendition, public_prefix_for, public_rendition
+from uploads import known_or_served, missing_file_names, published_keys
 
 HERE = Path(__file__).resolve().parent
 CARDS = HERE.parent.parent / "data" / "cards.generated.ts"
+SKILLCARDS = HERE.parent.parent / "data" / "skillcards.generated.ts"
 VENDOR = HERE / "vendor" / "GkmasObjectManager"
 
 
@@ -43,8 +48,8 @@ def load_manifest():
 
 
 def offered(manifest) -> list[str]:
-    """Manifest names of every card art and item icon the game offers."""
-    return [o.name for pattern in (OBJECT_PATTERN, ITEM_PATTERN) for o in manifest.search(pattern) if file_name_for(o.name)]
+    """Manifest names of every card art, item icon and skill card icon the game offers."""
+    return [o.name for pattern in (OBJECT_PATTERN, ITEM_PATTERN, SKILLCARD_PATTERN) for o in manifest.search(pattern) if file_name_for(o.name)]
 
 
 def rendition_paths(out: Path, file_name: str) -> tuple[Path, Path]:
@@ -65,6 +70,22 @@ def select(manifest, only: str | None, limit: int | None, out: Path, force: bool
     return names[:limit] if limit else names
 
 
+def wanted_files(manifest, args: argparse.Namespace) -> set[str]:
+    """What an unattended run downloads: files of released cards the deployed site does not serve,
+    and the icons of every stale sprite sheet, which this machine needs to build it (decision K13 of
+    docs/plans/EXECPLAN_SKILLCARD_DATA_AND_ICONS.md; extraction skips those already on disk)."""
+    files = [str(file_name_for(n)) for n in offered(manifest)]
+    skillcards_source = args.skillcards.read_text(encoding="utf-8")
+    allowed = published_keys(args.cards.read_text(encoding="utf-8"), skillcards_source)
+    index_text = stored_sheet_index(args.base_url)
+    index = parse_index(index_text) if index_text is not None else None
+    desired = desired_sheets(read_skill_card_data(skillcards_source))
+    wanted = set(missing_file_names(files, allowed, known_or_served(stored_icon_names(index, desired), served_by(args.base_url))))
+    stale = [d for d in desired if is_stale(d, index)]
+    print(f"{len(wanted)} file(s) of released cards are not served by {args.base_url}; {len(stale)} sprite sheet(s) are stale")
+    return wanted | {f"{asset}.webp" for d in stale for asset in d["assets"]}
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--out", type=Path, default=HERE / "out", help="working directory (default: scripts/images/out)")
@@ -74,18 +95,15 @@ def main() -> int:
     ap.add_argument("--only-missing", action="store_true", help="process only files of released cards that the deployed site does not serve (what an unattended run needs)")
     ap.add_argument("--base-url", default=DEFAULT_BASE_URL, help="the deployed site asked by --only-missing")
     ap.add_argument("--cards", type=Path, default=CARDS, help="generated card data; --only-missing never fetches art or an icon of a card that is not in it")
+    ap.add_argument("--skillcards", type=Path, default=SKILLCARDS, help="generated skill card data; --only-missing never fetches an icon of a skill card that is not in it")
     args = ap.parse_args()
 
     raw_dir = args.out / "raw"
-    for prefix in (MASTER_PREFIX, THUMBNAIL_PREFIX, ICON_PREFIX):
+    for prefix in (MASTER_PREFIX, THUMBNAIL_PREFIX, ICON_PREFIX, SKILLCARD_PREFIX):
         (args.out / prefix.rstrip("/")).mkdir(parents=True, exist_ok=True)
 
     manifest = load_manifest()
-    wanted = None
-    if args.only_missing:
-        files = [str(file_name_for(n)) for n in offered(manifest)]
-        wanted = set(missing_file_names(files, library_keys(args.cards.read_text(encoding="utf-8")), served_by(args.base_url)))
-        print(f"{len(wanted)} file(s) of released cards are not served by {args.base_url}")
+    wanted = wanted_files(manifest, args) if args.only_missing else None
     names = select(manifest, args.only, args.limit, args.out, args.force, wanted)
     print(f"manifest {manifest.version}: {len(names)} image(s) to process")
     if not names:
@@ -105,7 +123,7 @@ def main() -> int:
         except (OSError, DecodeError) as e:
             failures.append(f"{name}: {type(e).__name__}: {e}")
 
-    print(f"converted {len(names) - len(failures)} of {len(names)} into {args.out / MASTER_PREFIX.rstrip('/')}, {args.out / THUMBNAIL_PREFIX.rstrip('/')} and {args.out / ICON_PREFIX.rstrip('/')}")
+    print(f"converted {len(names) - len(failures)} of {len(names)} into {', '.join(str(args.out / p.rstrip('/')) for p in (MASTER_PREFIX, THUMBNAIL_PREFIX, ICON_PREFIX, SKILLCARD_PREFIX))}")
     for f in failures:
         print("FAILED", f, file=sys.stderr)
     return 1 if failures else 0

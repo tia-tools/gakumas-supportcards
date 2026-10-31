@@ -6,6 +6,8 @@ import re
 from dataclasses import dataclass
 from typing import Callable, Iterable
 
+from skillcards import icon_file_names, read_skill_card_data
+
 ASSET_ID = re.compile(r'"assetId":"(csprt-\d-\d{4})"')
 # A card's granted P-items carry the icon's asset id, which already starts with `img_general_`
 # (Milestone 4 of docs/plans/EXECPLAN_SCORE_ADJUSTMENTS.md).
@@ -44,6 +46,25 @@ def library_keys(cards_source: str) -> set[str]:
     return card_keys(cards_source) | item_keys(cards_source)
 
 
+def skill_card_keys(skillcards_source: str) -> set[str]:
+    """Library keys of the skill card icons the pool in `data/skillcards.generated.ts` uses, per
+    playable idol where the art varies; the same released-only rule as for card art."""
+    return icon_file_names(read_skill_card_data(skillcards_source))
+
+
+def published_keys(cards_source: str, skillcards_source: str) -> set[str]:
+    """Every file the library may publish: support card art, P-item icons and skill card icons."""
+    return library_keys(cards_source) | skill_card_keys(skillcards_source)
+
+
+def known_or_served(known: set[str], served: Callable[[str], bool]) -> Callable[[str], bool]:
+    """`exists(file_name)` that asks the site only about files the stored sheet index does not name.
+    An icon a stored sheet holds is stored itself, because icons are uploaded before the sheets
+    built from them and the index last; so a run whose icons are all in sheets sends no HEAD at all
+    (decision K12 of docs/plans/EXECPLAN_SKILLCARD_DATA_AND_ICONS.md)."""
+    return lambda file_name: file_name in known or served(file_name)
+
+
 def publishable(keys: Iterable[str], allowed: set[str]) -> tuple[list[str], list[str]]:
     """(keys to consider, keys held back because no card in the data uses them), both sorted."""
     ks = sorted(set(keys))
@@ -58,10 +79,10 @@ def upload_order(file_name: str, master_prefix: str, public_prefix: str) -> list
     return [f"{master_prefix}{file_name}", f"{public_prefix}{file_name}"]
 
 
-def select_renditions(keys: list[str], rendition: str, master_prefix: str, thumbnail_prefix: str, icon_prefix: str) -> list[str]:
+def select_renditions(keys: list[str], rendition: str, master_prefix: str, thumbnail_prefix: str, icon_prefix: str, skillcard_prefix: str = "w112/") -> list[str]:
     """Keeps the order and drops the keys of the renditions that were not asked for. `rendition`
-    is "all", "master", "w192" or "w48". "master" re-sends only masters, what a change of the
-    master rule needs. A public rendition is never sent without its master: "w192" and "w48"
+    is "all", "master", "w192", "w48" or "w112". "master" re-sends only masters, what a change of the
+    master rule needs. A public rendition is never sent without its master: "w192", "w48" and "w112"
     keep the master step of every file served under that prefix, because a file the site lacks
     would otherwise end up public with no master stored, and a master cannot be checked from
     outside (Codex review of Milestone 4, decision A23 of docs/plans/EXECPLAN_SCORE_ADJUSTMENTS.md)."""
@@ -69,7 +90,7 @@ def select_renditions(keys: list[str], rendition: str, master_prefix: str, thumb
         return list(keys)
     if rendition == "master":
         return [k for k in keys if k.startswith(master_prefix)]
-    public_prefix = {"w192": thumbnail_prefix, "w48": icon_prefix}[rendition]
+    public_prefix = {"w192": thumbnail_prefix, "w48": icon_prefix, "w112": skillcard_prefix}[rendition]
     names = {k[len(public_prefix):] for k in keys if k.startswith(public_prefix)}
     return [k for k in keys if k.startswith(public_prefix) or (k.startswith(master_prefix) and k[len(master_prefix):] in names)]
 
