@@ -67,6 +67,10 @@ A static web page for 学園アイドルマスター players showing the サポ�
 
 - Enforced by `bun run lint` (per `docs/adr/0007`; `docs/plans/EXECPLAN_OXLINT.md`, complete 2026-09-28, carrying out `docs/plans/EXECPLAN_SUPPORT_CARD_SCORE_TABLE.md` decision D45): a function has at most 60 lines (120 in `*.test.ts`), cyclomatic complexity 15, blocks nested 4 deep, callbacks nested 4 deep and 6 parameters; no `any`, no `x!`, no `x as T` (`as const` is fine — use a type guard or a value typed correctly from the start), no promise handed to a `void` callback or left unhandled, no empty `catch`; the `security/*` rules are on, with file reads by path allowed only in `scripts/` and `vite.config.ts`. A test that reaches into a fixture uses a throwing helper (`must(value, what)`) rather than `!`.
 
+## Tasks
+
+Tasks live on the GitHub board tia-tools project 8 (`.task-board.json`); work them with the `task-board` skill. Changes merge through pull requests into `develop`. `main` stays the repository's default branch, because GitHub runs scheduled workflows only from the default branch (per `docs/adr/0008`), so `Closes #N` in a pull request into `develop` closes nothing. Once the user has merged a branch's pull request into `develop`, close its issue with the skill's `done` step, naming the merge commit and the checks that passed.
+
 ## Commit Discipline
 
 - Follow Git-flow: `main` is production and `develop` is development (per `docs/adr/0008`; `docs/plans/EXECPLAN_SUPPORT_CARD_SCORE_TABLE.md` decision D40). Branch features from `develop` and merge them back with merge commits; a release is a merge of `develop` into `main`. Merging into `main` deploys the site (`.github/workflows/deploy.yml`), so nothing unfinished goes there. The daily data update is the only thing that enters `main` directly, and it merges `main` back into `develop` afterwards.
