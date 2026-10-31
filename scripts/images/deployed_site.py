@@ -1,4 +1,5 @@
-"""Asks the deployed site which thumbnails and icons it serves. The only module here that talks to it."""
+"""Asks the deployed site which thumbnails and icons it serves, and reads the stored sprite sheet
+index. The only module here that talks to it."""
 
 from __future__ import annotations
 
@@ -27,3 +28,20 @@ def served_by(base_url: str) -> Callable[[str], bool]:
             raise
 
     return exists
+
+
+SHEET_INDEX_PATH = "sheet112/index.v1.json"
+
+
+def stored_sheet_index(base_url: str) -> str | None:
+    """The text of the sprite sheet index the site serves, or None when it has none yet (404). Any
+    other status raises, so a server error never reads as "nothing is stored" and triggers a full
+    re-upload."""
+    req = urllib.request.Request(f"{base_url.rstrip('/')}/img/{SHEET_INDEX_PATH}", headers={"User-Agent": "gakumas-supportcards-images/0.1", "Cache-Control": "no-cache"})
+    try:
+        with urllib.request.urlopen(req, timeout=20) as res:
+            return res.read().decode("utf-8")
+    except urllib.error.HTTPError as e:
+        if e.code == 404:
+            return None
+        raise

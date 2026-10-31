@@ -168,6 +168,14 @@ describe("update-data.yml", () => {
     expect(String(notify?.with?.title)).toContain("needs.update.outputs.images == 'failure' && ', images failure'");
   });
 
+  test("the image step uploads icons before the sprite sheets built from them, which upload their index last", () => {
+    // An icon the stored sheet index names is taken as stored without asking the site (decision K12
+    // of docs/plans/EXECPLAN_SKILLCARD_DATA_AND_ICONS.md), which holds only while sheets follow their icons.
+    const run = steps.find((s) => s.name === "Images for cards the site does not show yet")?.run ?? "";
+    const commands = run.split("\n").map((line) => line.trim()).filter((line) => line !== "");
+    expect(commands).toEqual(["./fetch-vendor.sh", "uv sync --frozen", "uv run extract.py --only-missing", "uv run upload.py", "uv run sheets.py"]);
+  });
+
   test("merges with a merge commit, never a squash or a rebase, and never pushes to main directly", () => {
     const scripts = steps.map((s) => s.run ?? "").join("\n");
     expect(scripts).toContain("gh pr merge");

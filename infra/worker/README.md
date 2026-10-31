@@ -1,6 +1,6 @@
 # gakumas-supportcards.tia.run Worker
 
-One Cloudflare Worker serves the whole app: the built page as static assets, the owned image library's card thumbnails at `/img/w192/*` and P-item icons at `/img/w48/*` from the R2 bucket `tia-assets` (per `docs/adr/0003-owned-image-library-on-r2-served-through-the-app-worker.md`), and the feedback form's `POST /feedback` (§ Feedback). `wrangler.toml` routes only `/img/*` and `/feedback` through the Worker code (`run_worker_first`); every other path is answered by the assets directly.
+One Cloudflare Worker serves the whole app: the built page as static assets, the owned image library's card thumbnails at `/img/w192/*`, P-item icons at `/img/w48/*`, and, for `tia-tools/gkms-memomemo`, skill card icons at `/img/w112/*` and their sprite sheets and index at `/img/sheet112/*` from the R2 bucket `tia-assets` (per `docs/adr/0003-owned-image-library-on-r2-served-through-the-app-worker.md`), and the feedback form's `POST /feedback` (§ Feedback). `wrangler.toml` routes only `/img/*` and `/feedback` through the Worker code (`run_worker_first`); every other path is answered by the assets directly.
 
 | Route | Serves |
 |---|---|
@@ -8,6 +8,9 @@ One Cloudflare Worker serves the whole app: the built page as static assets, the
 | `https://gakumas-supportcards.tia.run/data/cards.v1.json` | the card data published for `tia-tools/gmks-hif-final-stats`, written into `dist/` by the same build (per `docs/adr/0010-the-card-data-is-published-as-a-versioned-file-another-project-reads.md`) |
 | `https://gakumas-supportcards.tia.run/img/w192/img_general_{assetId}_full.webp` | the 192 × 108 card thumbnail from R2, `Cache-Control: public, max-age=31536000, immutable` |
 | `https://gakumas-supportcards.tia.run/img/w48/img_general_pitem_{r}-{nnn}.webp` | the 48 × 48 P-item icon from R2, same caching (Milestone 4 of `docs/plans/EXECPLAN_SCORE_ADJUSTMENTS.md`) |
+| `https://gakumas-supportcards.tia.run/img/w112/img_general_skillcard_{kind}-{n}_{nnn}[-{idol id}].webp` | the 112 × 112 skill card icon from R2, same caching (`docs/plans/EXECPLAN_SKILLCARD_DATA_AND_ICONS.md`) |
+| `https://gakumas-supportcards.tia.run/img/sheet112/{plan}-{idol id}-{8 hex digits}.webp` | a skill card sprite sheet from R2, same caching |
+| `https://gakumas-supportcards.tia.run/img/sheet112/index.v1.json` | the sprite sheets' index from R2, `Content-Type: application/json`, `Cache-Control: no-cache` |
 | any other `/img/...` path, including `/img/master/...`, or a thumbnail not in the bucket | 404 with `Cache-Control: no-store` |
 | `POST https://gakumas-supportcards.tia.run/feedback` | creates an issue in the private `tia-tools/feedback` repository; JSON `{"ok": true}` or `{"ok": false}` with 400, 405, 413, 429, 502 or 503 |
 
@@ -90,6 +93,10 @@ Then upload the images (see `scripts/images/README.md` § Upload; use `--assume-
     # -> HTTP/2 200, content-type: text/html
     curl -s https://gakumas-supportcards.tia.run/data/cards.v1.json | jq '.formatVersion, (.cards | length)'
     # -> 1, then the number of cards in data/cards.generated.ts
+    curl -s https://gakumas-supportcards.tia.run/data/skillcards.v1.json | jq '.formatVersion, (.cards | length)'
+    # -> 1, then the number of entries in data/skillcards.generated.ts
+    curl -s https://gakumas-supportcards.tia.run/img/sheet112/index.v1.json | jq '.sheets | length'
+    # -> 39 (3 plans × 13 idols), once scripts/images/sheets.py has run
     curl -sI https://gakumas-supportcards.tia.run/img/w192/img_general_csprt-3-0016_full.webp
     # -> HTTP/2 200, content-type: image/webp, cache-control: public, max-age=31536000, immutable
     curl -sI https://gakumas-supportcards.tia.run/img/master/img_general_csprt-3-0016_full.webp

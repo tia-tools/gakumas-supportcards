@@ -97,3 +97,39 @@ def test_master_keeps_alpha_only_when_it_carries_something():
     assert Image.open(io.BytesIO(to_master(opaque))).mode == "RGB"
     see_through = Image.new("RGBA", (8, 4), (10, 20, 30, 128))
     assert Image.open(io.BytesIO(to_master(see_through))).mode == "RGBA"
+
+
+def test_skill_card_icons_keep_the_game_stem_per_idol_variant_and_live_under_w112():
+    from thumbnail import SKILLCARD_PREFIX, is_skillcard
+
+    assert file_name_for("img_general_skillcard_act-3_029-hski.unity3d") == "img_general_skillcard_act-3_029-hski.webp"
+    assert file_name_for("img_general_skillcard_men-0_003.unity3d") == "img_general_skillcard_men-0_003.webp"
+    assert file_name_for("img_general_skillcard_ido-100_039.unity3d") == "img_general_skillcard_ido-100_039.webp"
+    for name in [
+        "img_general_skillcard_acc-0_002.unity3d",  # a trouble card: never in the pool
+        "img_general_skillcard_act-3_29.unity3d",
+        "img_general_skillcard_act-3_029-HSKI.unity3d",
+        "img_general_skillcard_act-3_029-hski-ttmr.unity3d",
+        "../img_general_skillcard_act-3_029.unity3d",
+    ]:
+        assert file_name_for(name) is None, name
+    assert SKILLCARD_PREFIX == "w112/"
+    assert is_skillcard("img_general_skillcard_act-3_029-hski.webp") and not is_skillcard("img_general_pitem_2-004.webp")
+    assert public_prefix_for("img_general_skillcard_act-3_029-hski.webp") == SKILLCARD_PREFIX
+
+
+def test_a_skill_card_icon_is_mastered_losslessly_as_stored_and_served_at_112_with_transparency():
+    from thumbnail import SKILLCARD_ICON_SIZE, skillcard_cell
+
+    stored = Image.new("RGBA", (256, 256), (255, 0, 0, 0))
+    stored.paste((10, 200, 30, 255), (16, 16, 240, 240))
+    name = "img_general_skillcard_act-3_029-hski.webp"
+
+    master = Image.open(io.BytesIO(master_rendition(name, stored)))
+    assert master.size == (256, 256) and master.mode == "RGBA"
+    assert master.getpixel((128, 128)) == (10, 200, 30, 255) and master.getpixel((0, 0))[3] == 0  # lossless, corners still clear
+
+    icon = Image.open(io.BytesIO(public_rendition(name, stored)))
+    assert icon.format == "WEBP" and icon.size == SKILLCARD_ICON_SIZE == (112, 112) and icon.mode == "RGBA"
+    assert icon.getpixel((0, 0))[3] == 0 and icon.getpixel((56, 56))[3] == 255
+    assert skillcard_cell(stored).size == SKILLCARD_ICON_SIZE

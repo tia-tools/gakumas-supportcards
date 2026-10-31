@@ -121,6 +121,7 @@ jobs:
           uv sync --frozen
           uv run extract.py --only-missing
           uv run upload.py
+          uv run sheets.py
 
       - name: Describe the update
         id: report
