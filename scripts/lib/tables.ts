@@ -87,6 +87,68 @@ export interface RawProduceItemEffect {
   produceEffectId: string;
 }
 
+/** One skill card at one upgrade level (ProduceCard.yaml has one row per id and upgradeCount). */
+export interface RawProduceCard {
+  id: string;
+  upgradeCount: number;
+  name: string;
+  assetId: string;
+  isCharacterAsset: boolean;
+  rarity: string;
+  planType: string;
+  category: string;
+  searchTag: string;
+  originSupportCardId: string;
+  produceCardCustomizeIds: string[];
+  maxCustomizeCount: number;
+  /** Epoch milliseconds as a string, or "0" for always. */
+  viewStartTime: string;
+  order: string;
+}
+/** One step of a customization kind; the kind's rows share its id. */
+export interface RawCardCustomize {
+  id: string;
+  customizeCount: number;
+  description: string;
+  overwriteProduceCardGrowEffectType: string;
+  produceCardGrowEffectIds: string[];
+}
+export interface RawGrowEffect {
+  id: string;
+  effectType: string;
+}
+export interface RawGrowEffectDescription {
+  type: string;
+  produceCardCustomizeDescription: string;
+}
+export interface RawMemoryAbility {
+  id: string;
+  skillId: string;
+  produceGroupIds: string[];
+}
+export interface RawGuideCategory {
+  label: string;
+  produceCardIds: string[];
+}
+export interface RawCharacter {
+  id: string;
+  lastName: string;
+  firstName: string;
+  isPlayable: boolean;
+  order: number;
+}
+
+/** The tables the skill card data (data/skillcards.generated.ts) is built from, besides ProduceSkill. */
+export interface SkillCardTables {
+  cards: RawProduceCard[];
+  customizes: RawCardCustomize[];
+  growEffects: RawGrowEffect[];
+  growEffectDescriptions: RawGrowEffectDescription[];
+  memoryAbilities: RawMemoryAbility[];
+  guideCategories: RawGuideCategory[];
+  characters: RawCharacter[];
+}
+
 export interface Tables {
   cards: RawSupportCard[];
   skillLevels: RawSkillLevel[];
@@ -165,4 +227,22 @@ export async function loadTables(opts: LoadOptions = {}): Promise<Tables> {
     items,
     itemEffects,
   };
+}
+
+/**
+ * The skill card tables (docs/plans/EXECPLAN_SKILLCARD_DATA_AND_ICONS.md). ProduceSkill is not
+ * among them: `loadTables` already reads it, with the fields the H.I.F. abilities need.
+ */
+export async function loadSkillCardTables(opts: LoadOptions = {}): Promise<SkillCardTables> {
+  const cardKeys = ["id", "upgradeCount", "name", "assetId", "isCharacterAsset", "rarity", "planType", "category", "searchTag", "originSupportCardId", "produceCardCustomizeIds", "maxCustomizeCount", "viewStartTime", "order"] as const;
+  const [cards, customizes, growEffects, growEffectDescriptions, memoryAbilities, guideCategories, characters] = await Promise.all([
+    loadTable<RawProduceCard>("ProduceCard", cardKeys, opts),
+    loadTable<RawCardCustomize>("ProduceCardCustomize", ["id", "customizeCount", "description", "overwriteProduceCardGrowEffectType", "produceCardGrowEffectIds"], opts),
+    loadTable<RawGrowEffect>("ProduceCardGrowEffect", ["id", "effectType"], opts),
+    loadTable<RawGrowEffectDescription>("ProduceDescriptionProduceCardGrowEffect", ["type", "produceCardCustomizeDescription"], opts),
+    loadTable<RawMemoryAbility>("MemoryAbility", ["id", "skillId", "produceGroupIds"], opts),
+    loadTable<RawGuideCategory>("ProduceGuideProduceCardCategory", ["label", "produceCardIds"], opts),
+    loadTable<RawCharacter>("Character", ["id", "lastName", "firstName", "isPlayable", "order"], opts),
+  ]);
+  return { cards, customizes, growEffects, growEffectDescriptions, memoryAbilities, guideCategories, characters };
 }
