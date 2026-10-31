@@ -4,6 +4,7 @@
  * unchanged upstream data produces no diff.
  */
 
+import type { SkillCardDataFile } from "../../data/skillcard-data-file.ts";
 import type { Card, HeldCard, LevelLimits } from "../../src/engine/types.ts";
 
 const HEADER = (generator: string): string =>
@@ -21,4 +22,20 @@ export function emitHeld(held: readonly HeldCard[]): string {
 
 export function emitLevelLimits(limits: LevelLimits): string {
   return `${HEADER("scripts/generate-cards.ts")}import type { LevelLimits } from "../src/engine/types.ts";\n\nexport const LEVEL_LIMITS: LevelLimits = ${JSON.stringify(limits, null, 2)};\n`;
+}
+
+/** A JSON array with one element per line, indented under a two-space key. */
+function jsonLines(items: readonly unknown[]): string {
+  return items.length === 0 ? "[]" : `[\n${items.map((item) => `    ${JSON.stringify(item)}`).join(",\n")}\n  ]`;
+}
+
+/**
+ * data/skillcards.generated.ts. The object literal is also valid JSON, one card or ability per
+ * line: scripts/images reads it with a JSON parser after cutting the text from the first `{` after
+ * `export const SKILL_CARD_DATA` to the last `}` (scripts/images/skillcards.py), so the object
+ * must never gain a comment or a trailing comma, nor anything follow it but `;`.
+ */
+export function emitSkillCards(data: SkillCardDataFile): string {
+  const json = `{\n  "formatVersion": ${data.formatVersion},\n  "idols": ${jsonLines(data.idols)},\n  "cards": ${jsonLines(data.cards)},\n  "hifAbilities": ${jsonLines(data.hifAbilities)}\n}`;
+  return `${HEADER("scripts/generate-cards.ts")}import type { SkillCardDataFile } from "./skillcard-data-file.ts";\n\n/** The skill card data published at /data/skillcards.v1.json (data/skillcard-data-file.ts). */\nexport const SKILL_CARD_DATA: SkillCardDataFile = ${json};\n`;
 }
