@@ -1,7 +1,9 @@
 /**
  * Generates data/cards.generated.ts, data/held.generated.ts,
  * data/levelLimits.generated.ts and data/scores.generated.json from the
- * upstream tables and every scenario in the code, published or not (`ALL_SCENARIOS`).
+ * upstream tables and every scenario in the code, published or not (`ALL_SCENARIOS`),
+ * and data/skillcards.generated.ts, the skill card data published for gkms-memomemo
+ * (scripts/lib/build-skillcards.ts; docs/plans/EXECPLAN_SKILLCARD_DATA_AND_ICONS.md).
  *
  * Usage: bun scripts/generate-cards.ts [--allow-fewer]
  *
@@ -13,22 +15,25 @@
  * committed one through scripts/check-score-stability.ts. Exits 1 (writing nothing) when the upstream dump
  * itself looks broken: a schema error, an unknown enum value, a dangling id, or
  * a card count below the committed file's (pass --allow-fewer to accept a
- * genuine removal).
+ * genuine removal). The skill card data is built before anything is written, so
+ * a surprise there stops the support card data too (decision K2 of that plan).
  */
 
 import { createHash } from "node:crypto";
 import { existsSync } from "node:fs";
 import { ALL_SCENARIOS } from "../data/scenarios/index.ts";
 import { buildCards, buildLevelLimits } from "./lib/build-cards.ts";
-import { emitCards, emitHeld, emitLevelLimits } from "./lib/emit.ts";
+import { buildSkillCardData } from "./lib/build-skillcards.ts";
+import { emitCards, emitHeld, emitLevelLimits, emitSkillCards } from "./lib/emit.ts";
 import { heldForMissingNumbers, mergeHeld } from "./lib/profile-gate.ts";
 import { buildSnapshot, emitSnapshot } from "./lib/score-snapshot.ts";
-import { loadTables } from "./lib/tables.ts";
+import { loadSkillCardTables, loadTables } from "./lib/tables.ts";
 
 const CARDS_PATH = "data/cards.generated.ts";
 const HELD_PATH = "data/held.generated.ts";
 const LIMITS_PATH = "data/levelLimits.generated.ts";
 export const SCORES_PATH = "data/scores.generated.json";
+const SKILLCARDS_PATH = "data/skillcards.generated.ts";
 
 export function sha(text: string): string {
   return createHash("sha256").update(text).digest("hex").slice(0, 16);
@@ -43,11 +48,13 @@ async function committedCardCount(): Promise<number | null> {
 
 async function main(): Promise<void> {
   const allowFewer = process.argv.includes("--allow-fewer");
-  const tables = await loadTables();
+  const [tables, skillCardTables] = await Promise.all([loadTables(), loadSkillCardTables()]);
 
   const { cards, report } = buildCards(tables);
   const levelLimits = buildLevelLimits(tables);
   const held = mergeHeld(report.held, heldForMissingNumbers(cards, ALL_SCENARIOS));
+  // Release is decided now (decision K4): the committed module is what the build publishes.
+  const skillCards = buildSkillCardData(skillCardTables, tables.skills, Date.now());
 
   const before = await committedCardCount();
   if (before !== null && cards.length < before && !allowFewer) {
@@ -55,10 +62,15 @@ async function main(): Promise<void> {
     process.exit(1);
   }
 
-  await Bun.write(CARDS_PATH, emitCards(cards));
-  await Bun.write(HELD_PATH, emitHeld(held));
-  await Bun.write(LIMITS_PATH, emitLevelLimits(levelLimits));
-  await Bun.write(SCORES_PATH, emitSnapshot(buildSnapshot(cards, held, ALL_SCENARIOS, levelLimits, sha)));
+  // Every text is made before the first write, so a step that throws leaves every file as it was.
+  const outputs: readonly (readonly [string, string])[] = [
+    [CARDS_PATH, emitCards(cards)],
+    [HELD_PATH, emitHeld(held)],
+    [LIMITS_PATH, emitLevelLimits(levelLimits)],
+    [SCORES_PATH, emitSnapshot(buildSnapshot(cards, held, ALL_SCENARIOS, levelLimits, sha))],
+    [SKILLCARDS_PATH, emitSkillCards(skillCards)],
+  ];
+  for (const [path, text] of outputs) await Bun.write(path, text);
 
   const withEffects = cards.filter((c) => c.breakpoints.some((b) => b.effects.length > 0)).length;
   console.log(`Wrote ${CARDS_PATH}: ${cards.length} cards (${withEffects} with parameter effects${before === null ? "" : `, previously ${before}`})`);
@@ -66,6 +78,8 @@ async function main(): Promise<void> {
   for (const h of held) for (const reason of h.reasons) console.log(`  HELD ${h.id} ${h.name} — ${reason}`);
   console.log(`Wrote ${LIMITS_PATH}: ${JSON.stringify(levelLimits)}`);
   console.log(`Wrote ${SCORES_PATH}: ${cards.length - held.length} cards × ${ALL_SCENARIOS.reduce((n, sc) => n + sc.profiles.length, 0)} route profiles`);
+  const atLevel = (upgrade: number): number => skillCards.cards.filter((c) => c.upgrade === upgrade).length;
+  console.log(`Wrote ${SKILLCARDS_PATH}: ${skillCards.idols.length} idols, ${atLevel(0)} cards at level 0 and ${atLevel(1)} at level 1, ${skillCards.hifAbilities.length} H.I.F. abilities`);
   console.log(`Occasions used: ${[...report.occasionsUsed].sort().join(", ")}`);
   const skipped = [...report.skippedByType].sort((a, b) => b[1] - a[1]).map(([t, n]) => `${t.replace("ProduceEffectType_", "")}×${n}`);
   console.log(`Skipped non-parameter effects: ${skipped.join(", ")}`);

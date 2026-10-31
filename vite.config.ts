@@ -8,6 +8,8 @@ import { CARD_DATA_PATH, cardDataJson } from "./data/card-data-file.ts";
 import { CARDS } from "./data/cards.generated.ts";
 import { HELD } from "./data/held.generated.ts";
 import { LEVEL_LIMITS } from "./data/levelLimits.generated.ts";
+import { SKILLCARD_DATA_PATH, skillCardDataJson } from "./data/skillcard-data-file.ts";
+import { SKILL_CARD_DATA } from "./data/skillcards.generated.ts";
 import { imageKey } from "./infra/worker/img.ts";
 
 /**
@@ -48,6 +50,21 @@ function cardDataFile(): Plugin {
 }
 
 /**
+ * Build only: writes the skill card data gkms-memomemo reads, dist/data/skillcards.v1.json, from
+ * data/skillcards.generated.ts (data/skillcard-data-file.ts; docs/adr/0010, addendum 2026-10-31).
+ * The page never imports that module, so it adds nothing to the bundle.
+ */
+function skillCardDataFile(): Plugin {
+  return {
+    name: "skillcard-data-file",
+    apply: "build",
+    generateBundle() {
+      this.emitFile({ type: "asset", fileName: SKILLCARD_DATA_PATH, source: skillCardDataJson(SKILL_CARD_DATA) });
+    },
+  };
+}
+
+/**
  * The commit the page is built from, attached to feedback so a report names the exact build
  * (src/app/feedback.ts). Read from git rather than GITHUB_SHA, which under deploy.yml's
  * `workflow_call` is the caller's commit, not the checked-out `main`.
@@ -63,7 +80,7 @@ function buildCommit(): string {
 // Served at the root of gakumas-supportcards.tia.run (docs/adr/0003, plan D7), so no `base`.
 export default defineConfig({
   define: { __BUILD_COMMIT__: JSON.stringify(buildCommit()) },
-  plugins: [preact(), tailwindcss(), localImageLibrary(join(import.meta.dirname, "scripts/images/out")), cardDataFile()],
+  plugins: [preact(), tailwindcss(), localImageLibrary(join(import.meta.dirname, "scripts/images/out")), cardDataFile(), skillCardDataFile()],
   build: {
     // The card data (data/cards.generated.ts, 1.7 MB source) ships inline in the one
     // chunk by design: it is 58 KB gzipped (plan D28), so the default 500 KB warning
