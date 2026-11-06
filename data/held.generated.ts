@@ -4,4 +4,5 @@ import type { HeldCard } from "../src/engine/types.ts";
 
 /** Cards the table must not show: one of their effects cannot be counted (docs/adr/0005). Empty when every effect can. */
 export const HELD: readonly HeldCard[] = [
+  {"id":"s_card-3-0114","name":"みんなも読んでみてっ！","reasons":["item pitem_02-3-357-0 過激め？チョイス: trigger p_trigger-get_produce_card-0000_0000-p_card_search-plan2-deck_all-vocal-0900_0000 has a piece of unknown kind: plan2"]},
 ];
