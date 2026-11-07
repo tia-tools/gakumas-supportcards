@@ -2,7 +2,7 @@
  * The card data this site publishes for other projects to read at runtime, served at
  * https://gakumas-supportcards.tia.run/data/cards.v2.json (docs/adr/0010). `bun run build` writes
  * it into dist/ from the generated modules (vite.config.ts), so every deploy publishes the data it
- * deploys. The file is a contract with tia-tools/gmks-hif-final-stats, which copies `Card`,
+ * deploys. The file is a contract with tia-tools/gkms-hif-final-stats, which copies `Card`,
  * `ClassifiedEffect`, `ParsedTrigger`, `ItemGrant`, `LevelLimits` and `HeldCard` from
  * src/engine/types.ts: a change to the shape of the file or of any type it carries bumps
  * `CARD_DATA_FORMAT_VERSION`, and with it the file name, so a new format can be published beside
