@@ -36,6 +36,7 @@ const MEMBER_LABEL: Readonly<Record<string, Readonly<Record<string, string>>>> =
   cardType: { mental: "メンタル", active: "アクティブ" },
   rarity: { ssr: "SSR" },
   cardName: { starter: "名前に「基本」" },
+  plan: { sense: "センス", logic: "ロジック", anomaly: "アノマリー" },
   effectGroup: {
     parameter_buff: "好調",
     lesson_buff: "集中",
@@ -54,6 +55,7 @@ const FAMILY_LABEL: Readonly<Record<string, string>> = {
   rarity: "レアリティ",
   cardName: "カード名",
   effectGroup: "効果",
+  plan: "プラン",
 };
 
 const STAT_KIND: Readonly<Record<string, string>> = { vocal: "ボーカル", dance: "ダンス", visual: "ビジュアル" };

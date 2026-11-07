@@ -5,6 +5,7 @@ import preact from "@preact/preset-vite";
 import tailwindcss from "@tailwindcss/vite";
 import { defineConfig, type Plugin } from "vite";
 import { CARD_DATA_PATH, cardDataJson } from "./data/card-data-file.ts";
+import { CARD_DATA_V1_PATH, cardDataV1Json } from "./data/card-data-file-v1.ts";
 import { CARDS } from "./data/cards.generated.ts";
 import { HELD } from "./data/held.generated.ts";
 import { LEVEL_LIMITS } from "./data/levelLimits.generated.ts";
@@ -36,8 +37,10 @@ function localImageLibrary(dir: string): Plugin {
 }
 
 /**
- * Build only: writes the published card data, dist/data/cards.v1.json, from the same generated
- * modules the page bundles (data/card-data-file.ts, docs/adr/0010).
+ * Build only: writes the published card data, dist/data/cards.v2.json, from the same generated
+ * modules the page bundles (data/card-data-file.ts, docs/adr/0010), and beside it the same data in
+ * format 1, dist/data/cards.v1.json, while tia-tools/gkms-hif-final-stats still reads that
+ * (data/card-data-file-v1.ts; ADR 0010 addendum 2026-11-08).
  */
 function cardDataFile(): Plugin {
   return {
@@ -45,6 +48,7 @@ function cardDataFile(): Plugin {
     apply: "build",
     generateBundle() {
       this.emitFile({ type: "asset", fileName: CARD_DATA_PATH, source: cardDataJson(CARDS, HELD, LEVEL_LIMITS) });
+      this.emitFile({ type: "asset", fileName: CARD_DATA_V1_PATH, source: cardDataV1Json(CARDS, HELD, LEVEL_LIMITS) });
     },
   };
 }
