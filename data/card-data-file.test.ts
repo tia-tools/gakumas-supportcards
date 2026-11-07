@@ -26,16 +26,16 @@ const HELD_ENTRY: HeldCard = { id: "s_card-x", name: "保留カード", reasons:
 
 describe("published card data", () => {
   test("round-trips the generated data: every card, the held list and the level limits", () => {
-    expect(JSON.parse(cardDataJson(CARDS, HELD, LEVEL_LIMITS))).toStrictEqual({ formatVersion: 1, levelLimits: LEVEL_LIMITS, cards: CARDS, held: HELD });
+    expect(JSON.parse(cardDataJson(CARDS, HELD, LEVEL_LIMITS))).toStrictEqual({ formatVersion: 2, levelLimits: LEVEL_LIMITS, cards: CARDS, held: HELD });
   });
 
   test("a held card stays among the cards, and its reasons sit in the held list", () => {
     const parsed: unknown = JSON.parse(cardDataJson([HELD_CARD], [HELD_ENTRY], LEVEL_LIMITS));
-    expect(parsed).toStrictEqual({ formatVersion: 1, levelLimits: LEVEL_LIMITS, cards: [HELD_CARD], held: [HELD_ENTRY] });
+    expect(parsed).toStrictEqual({ formatVersion: 2, levelLimits: LEVEL_LIMITS, cards: [HELD_CARD], held: [HELD_ENTRY] });
   });
 
-  test("is served at the path the other project fetches, which names format version 1", () => {
-    expect(CARD_DATA_PATH).toBe("data/cards.v1.json");
+  test("is served at a path that names format version 2", () => {
+    expect(CARD_DATA_PATH).toBe("data/cards.v2.json");
   });
 
   test("the build writes exactly this text at that path, from the generated data", async () => {

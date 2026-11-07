@@ -42,8 +42,20 @@ The requirements come from gkms-memomemo's plan, `docs/plans/EXECPLAN_MEMORY_MEM
 - [x] (2026-10-31 12:53Z) Milestones 2–4: docs (images and Worker READMEs, `CLAUDE.md`) committed as `147c033`. `/codex-review` of `1a36cf9..c0fb937`: CHANGES REQUESTED with three findings, all acted on (K19): the stored index is now checked entry by entry, `--rebuild` trusts nothing stored, and `sheets.py`'s flow runs as `run()` under end-to-end tests with a faked site and bucket. 62 Python tests, each new rule seen to fail when broken; the real index of 39 sheets and 1,693 icons parses.
 - [x] (2026-10-31 12:56Z) Codex follow-up over `92c1a3b`: CHANGES REQUESTED, one finding (an entry for an idol the data does not have would still vouch for its icons); fixed by trusting only entries the current data could produce, and the rest of the point declined (K19). 63 Python tests, both new conditions seen to fail when removed; the real index still vouches for all 1,693 pool icons. ADR 0003 addendum drafted.
 - [x] (2026-10-31 13:11Z) The note that the data file is live posted on tia-tools/gkms-memomemo#4 at the user's request. Final `/codex-review` of the second pull request's whole diff (`origin/develop...276029e`): CHANGES REQUESTED, one finding (an index entry was checked against the whole pool rather than its own sheet), fixed (K19); 64 Python tests, the new one seen to fail under the old rule; the real index still vouches for all 1,693 icons.
-- [ ] Milestones 2–4, remaining: the second pull request (with the user's go to push); Milestone 5's release and first upload.
-- [ ] Milestone 5: release and first publication — pull request into `develop`, release, the first bulk upload with the user's go, the acceptance checks, ADR 0003 addendum, close-out.
+- [x] (2026-10-31 13:41Z) Milestones 2–4 merged: PR #68 into `develop` (`1b41012`), #65 closed as Done on the board; at the user's go the release PR #69 merged `develop` into `main` (`35812e7`) and `deploy.yml` deployed; the live Worker answers the new paths with 404 `no-store` until they are stored, and existing card art still with 200.
+- [x] (2026-10-31 13:41Z) Milestone 5, first upload, run by the user: `uv run upload.py --assume-empty` stopped after 10 of 1,693 icons on one R2 API error (Surprises & Discoveries); the bucket stayed consistent. At the user's choice a retry was added first (K20), as issue #70 on branch `issue/70-r2-put-retry`.
+- [x] (2026-10-31 17:21Z) Milestone 5, first publication accepted: the user reran `uv run upload.py --assume-empty` and `uv run sheets.py` from this worktree with the retry of `486a735`, and both finished. On the live site:
+  - `/img/sheet112/index.v1.json` answers 200 `application/json`, `no-cache`, `formatVersion` 1, and lists 39 sheets naming 1,693 distinct icons.
+  - Every one of the 39 sheets answers 200 `image/webp`, `public, max-age=31536000, immutable` (116,718–123,916 bytes; `HEAD` of `sheet112/sense-hski-60cb780d.webp` 200), and the first 8 hex digits of each downloaded sheet's SHA-256 equal its name.
+  - A `HEAD` of every one of the 1,693 icons the index names under `/img/w112/` answers 200; `/img/master/…` answers 404.
+  - Against the live `/data/skillcards.v1.json` (`formatVersion` 1, 13 idols, 361 cards, 115 abilities), `desired_sheets` and `is_stale` find no stale sheet, and the pool's icons equal the index's.
+- [x] (2026-10-31 17:23Z) #70, `/codex-review` of `origin/develop...61619da` (codex-cli, read-only, in a snapshot; the repository was not written): CHANGES REQUESTED with one low finding, no production-code defect (retries are synchronous with the same command, keep the callers' order, and report success only when an attempt succeeds; a missing `bunx` still fails at once). The finding: the always-failing test did not check that the last attempt's error is the one raised; fixed in `496618b`, the test seen to fail when the first error is raised instead. Not re-run, as only a test changed. On `496618b`: `uv run pytest` 67 pass; `bun test` 366 pass; `bun run type-check`, `bun run lint`, the score stability check (0 moves) and `bun run build` exit 0.
+- [x] (2026-10-31 17:45Z) #70 merged: PR #72 into `develop` (`6b0d503`, its `check.yml` run passed), #70 closed as Done on the board. tia-tools/gkms-memomemo#16 tells that project the sheets, index and icons are live (`#4`, which the first note went to, was closed). The plan's acceptance, item by item:
+  - The index lists 39 sheets, with 68, 68 and 65 assets for each idol's sense, logic and anomaly sheet.
+  - A sheet it names answers 200 `image/webp` with the immutable header.
+  - `/img/w112/img_general_skillcard_act-3_029-hski.webp` answers 200, and its `/img/master/` path 404.
+  - `uv run sheets.py --dry-run` prints `39 sheet(s) current, 0 stale`.
+- [x] (2026-10-31 17:45Z) Milestone 5 complete, and with it the plan: close-out on branch `issue/73-close-out-skillcard-plan` (#73) — Outcomes & Retrospective written, evidence appended to `docs/adr/0003` and `docs/adr/0010`, `CLAUDE.md` updated. From here this plan is immutable history.
 
 ## Surprises & Discoveries
 
@@ -89,6 +101,9 @@ The requirements come from gkms-memomemo's plan, `docs/plans/EXECPLAN_MEMORY_MEM
 
 - Observation: the dev server answers a request for `/img/master/…` with 200 `text/html`. That is Vite's page fallback for a path no middleware takes, not the master: `localImageLibrary` passes such a path on, as it always has for `w192` masters.
   Evidence: `curl` against `bun run dev --port 5199`: `master/img_general_skillcard_act-3_029-hski.webp -> 200 text/html`.
+
+- Observation: the R2 API can fail a single object put with a transient server error. The first bulk upload stopped on its 22nd `wrangler r2 object put` (the `w112/` icon of the 11th file) with `500: Internal Server Error`, `{"code":10500,"message":"Internal authentication error: internal server error"}`, after 21 puts with the same Wrangler login had succeeded about two seconds apart. Thanks to the master-first order the bucket was consistent: the first 10 icons answered 200 live, the 11th 404.
+  Evidence: the user's paste of the run, the wrangler log of 13:36:01Z (the only one of the run with an error), and `HEAD` on the live site for files 1, 5, 10, 11 and 12 in upload order: 200, 200, 200, 404, 404.
 
 ## Decision Log
 
@@ -168,9 +183,42 @@ The requirements come from gkms-memomemo's plan, `docs/plans/EXECPLAN_MEMORY_MEM
   Rationale: the Codex review of Milestones 2–4 found that a damaged but plausibly shaped index would make the pipeline skip uploads of icons it names, and that `--rebuild` could not recover from an index that fails to parse, which this plan's Idempotence section claimed it could. Its follow-up run found that the entry check was syntactic, so an entry for an idol the data does not have would still vouch; that led to the narrowing to the current data. The final Codex run over the whole second pull request found the check compared an entry with the whole pool rather than with its own sheet; that was fixed. Its remaining point, proving each vouched icon exists, is declined for the reason above.
   Date/Author: 2026-10-31, agent, from two Codex runs.
 
+- Decision: K20 — every R2 put (`scripts/images/r2.py`, used by `upload.py` and `sheets.py`) is tried again after 5 and then 20 seconds before its failure is raised.
+  Rationale: a transient API error stopped a run of about 3,400 puts after 22 (Surprises & Discoveries); rerunning by hand each time would also cost about 1,700 `HEAD` requests once real progress had been made. Writing the same key from the same file is idempotent, and a put returns only once the object is written, so the upload order of K12 holds through retries; a permanent error costs 25 seconds before it surfaces.
+  Date/Author: 2026-10-31, user's choice of adding a retry before rerunning; the waits are the agent's.
+
 ## Outcomes & Retrospective
 
-Nothing yet; Milestone 1 is next.
+Complete on 2026-10-31. All three things in Purpose are live, and the acceptance in Validation and Acceptance passed on the live site (Progress, 17:21Z and 17:45Z).
+
+**Achieved:**
+- **Data file:** `https://gakumas-supportcards.tia.run/data/skillcards.v1.json` since release #67 (PR #66): 13 idols, 181 cards at level 0 and 180 at level 1, 115 H.I.F. abilities. `bun run generate` keeps it current under K2 and K4.
+- **Images:** the Worker serves `w112/` and `sheet112/` since release #69 (PR #68). After the first upload, the bucket holds:
+  - 1,693 icons, each with its master;
+  - 39 sheets of 116,718–123,916 bytes;
+  - the index.
+
+  The daily image step builds the sheets a new card makes stale.
+- **The upload's retry:** every R2 put is retried (K20, issue #70, PR #72), after a transient API error stopped the first upload.
+- **gkms-memomemo told:** the data file on its #4, the images in its #16. Its #4, the data contract (its Milestone 2), closed the same day.
+
+**Not proven yet:**
+- **The runner path:** the daily update has not yet published a new skill card. The runner's half of the image step has run only in tests and in local runs. That half is `extract.py --only-missing` downloading every icon of each stale sheet (about 900 bundles for a new plan card, about 1,700 for a free one, K13), then `sheets.py` building them. The first release of a card after 2026-10-31 is its first real run, and the `notify` job reports `, images failure` if it fails.
+- **Support card tables:** they are still loaded without field types. K15 named this residual risk and left it out of scope.
+- **The sheet size figure:** K18 and the 2026-10-31 addendum of `docs/adr/0003` give 118–124 KB per sheet. The measurement in Surprises & Discoveries and the live sheets give 116,718–123,916 bytes. The range was rounded from memory instead of copied, and the evidence appended to the ADR states the measured bytes.
+- **What gkms-memomemo may ask next:** its #10 plans icons in the game's frame, built in that repository. It may then need a cell per card level. That would be a new index format under its own name, `index.v2.json`, as the version in the current name provides for.
+
+**Lessons:**
+- **State the trust rule for stored state against today's inputs from the start.** Trusting the stored index took three Codex rounds to narrow:
+  - first a shape check;
+  - then entries the current data could produce;
+  - then icons belonging to that same sheet (K19).
+
+  "An entry vouches only for what the current data would put on that same sheet" would have saved two rounds.
+- **A pipeline of thousands of API calls needs a per-call retry from its first run.** The master-first order made the stop harmless, but the rerun cost the user a second round.
+- **Copy numbers into documents from the measurement, not from memory** (the sheet size above).
+- **Fetch the review's base from the repository's remote-tracking branch.** The Codex snapshot once took its base from this repository's local `develop`, which was behind `origin/develop`, so the diff against it was not the pull request's. Fetching `+refs/remotes/origin/develop:refs/remotes/origin/develop` fixed it.
+- **Read the clock before every progress time.** Progress times were twice written without reading it and corrected afterwards; from then on `date` ran before each one.
 
 ## Context and Orientation
 

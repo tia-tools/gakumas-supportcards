@@ -57,6 +57,16 @@ describe("filters", () => {
     expect(parsed("p_trigger-change_produce_card-p_card_search-deck_all-starter", "ChangeProduceCard").filters).toEqual([{ family: "cardName", member: "starter" }]);
   });
 
+  test("a plan inside a card search, before a stat condition (issue #77)", () => {
+    expect(parsed("p_trigger-get_produce_card-0000_0000-p_card_search-plan2-deck_all-vocal-0900_0000", "GetProduceCard")).toEqual({
+      occasion: "GetProduceCard",
+      filters: [{ family: "plan", member: "logic" }],
+      conditions: [{ kind: "vocal", min: 900, max: 0 }],
+    });
+    expect(parsed("p_trigger-get_produce_card-0000_0000-p_card_search-plan1-deck_all", "GetProduceCard").filters).toEqual([{ family: "plan", member: "sense" }]);
+    expect(parsed("p_trigger-get_produce_card-0000_0000-p_card_search-plan3-deck_all", "GetProduceCard").filters).toEqual([{ family: "plan", member: "anomaly" }]);
+  });
+
   test("effect group", () => {
     expect(parsed("p_trigger-get_produce_card-0000_0000-p_card_search-deck_all-effect_group-visible-exam_review-000", "GetProduceCard").filters).toEqual([{ family: "effectGroup", member: "review" }]);
   });
@@ -125,6 +135,7 @@ describe("pieces never seen before: shape decides (C4, C12)", () => {
 
   test("a new word inside a card search has no family by position and is of unknown kind", () => {
     expect(unknownPiece("p_trigger-get_produce_card-0000_0000-p_card_search-trouble-deck_all", "GetProduceCard")).toBe("trouble");
+    expect(unknownPiece("p_trigger-get_produce_card-0000_0000-p_card_search-plan4-deck_all", "GetProduceCard")).toBe("plan4");
   });
 
   test("anything else is of unknown kind", () => {

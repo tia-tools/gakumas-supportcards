@@ -5,7 +5,8 @@ One Cloudflare Worker serves the whole app: the built page as static assets, the
 | Route | Serves |
 |---|---|
 | `https://gakumas-supportcards.tia.run/` | the page built by `bun run build` (`dist/`) |
-| `https://gakumas-supportcards.tia.run/data/cards.v1.json` | the card data published for `tia-tools/gmks-hif-final-stats`, written into `dist/` by the same build (per `docs/adr/0010-the-card-data-is-published-as-a-versioned-file-another-project-reads.md`) |
+| `https://gakumas-supportcards.tia.run/data/cards.v2.json` | the card data published for `tia-tools/gkms-hif-final-stats`, written into `dist/` by the same build (per `docs/adr/0010-the-card-data-is-published-as-a-versioned-file-another-project-reads.md`) |
+| `https://gakumas-supportcards.tia.run/data/cards.v1.json` | the same data in format 1, still written while that project reads it (same ADR, addendum 2026-11-08) |
 | `https://gakumas-supportcards.tia.run/img/w192/img_general_{assetId}_full.webp` | the 192 × 108 card thumbnail from R2, `Cache-Control: public, max-age=31536000, immutable` |
 | `https://gakumas-supportcards.tia.run/img/w48/img_general_pitem_{r}-{nnn}.webp` | the 48 × 48 P-item icon from R2, same caching (Milestone 4 of `docs/plans/EXECPLAN_SCORE_ADJUSTMENTS.md`) |
 | `https://gakumas-supportcards.tia.run/img/w112/img_general_skillcard_{kind}-{n}_{nnn}[-{idol id}].webp` | the 112 × 112 skill card icon from R2, same caching (`docs/plans/EXECPLAN_SKILLCARD_DATA_AND_ICONS.md`) |
@@ -91,8 +92,10 @@ Then upload the images (see `scripts/images/README.md` § Upload; use `--assume-
 
     curl -sI https://gakumas-supportcards.tia.run/ | head -3
     # -> HTTP/2 200, content-type: text/html
+    curl -s https://gakumas-supportcards.tia.run/data/cards.v2.json | jq '.formatVersion, (.cards | length)'
+    # -> 2, then the number of cards in data/cards.generated.ts
     curl -s https://gakumas-supportcards.tia.run/data/cards.v1.json | jq '.formatVersion, (.cards | length)'
-    # -> 1, then the number of cards in data/cards.generated.ts
+    # -> 1, the same number of cards
     curl -s https://gakumas-supportcards.tia.run/data/skillcards.v1.json | jq '.formatVersion, (.cards | length)'
     # -> 1, then the number of entries in data/skillcards.generated.ts
     curl -s https://gakumas-supportcards.tia.run/img/sheet112/index.v1.json | jq '.sheets | length'

@@ -8,7 +8,9 @@
  *   - nothing to count: `initial` / `no_description` right after the head, the
  *     unbounded range `0000_0000`, and `deck_all` / `1` inside a card search;
  *   - a filter: `lesson_{stat}`, `lesson_{stat}_{kind}`, `lesson_{kind}`; after
- *     `p_card_search`, `mental_skill` / `active_skill` / `ssr` / `starter`;
+ *     `p_card_search`, `mental_skill` / `active_skill` / `ssr` / `starter` /
+ *     `plan1` / `plan2` / `plan3` (センス / ロジック / アノマリー, as the game's
+ *     `ProducePlanType_Plan1`–`3`; issue #77);
  *     `effect_group-visible-exam_{group}-NNN`;
  *   - a condition: a name followed by a range `NNNN_NNNN` (minimum_maximum,
  *     0000 = unbounded), or `produce_card_search_count` + the card search that
@@ -45,6 +47,9 @@ const SEARCH_FILTERS: Readonly<Record<string, FilterRef>> = {
   active_skill: { family: "cardType", member: "active" },
   ssr: { family: "rarity", member: "ssr" },
   starter: { family: "cardName", member: "starter" },
+  plan1: { family: "plan", member: "sense" },
+  plan2: { family: "plan", member: "logic" },
+  plan3: { family: "plan", member: "anomaly" },
 };
 const LESSON_PREFIX = "lesson_";
 const LESSON_STATS: ReadonlySet<string> = new Set(["vocal", "dance", "visual"]);
