@@ -1,17 +1,21 @@
 /**
  * The card data this site publishes for other projects to read at runtime, served at
- * https://gakumas-supportcards.tia.run/data/cards.v1.json (docs/adr/0010). `bun run build` writes
+ * https://gakumas-supportcards.tia.run/data/cards.v2.json (docs/adr/0010). `bun run build` writes
  * it into dist/ from the generated modules (vite.config.ts), so every deploy publishes the data it
  * deploys. The file is a contract with tia-tools/gmks-hif-final-stats, which copies `Card`,
  * `ClassifiedEffect`, `ParsedTrigger`, `ItemGrant`, `LevelLimits` and `HeldCard` from
  * src/engine/types.ts: a change to the shape of the file or of any type it carries bumps
  * `CARD_DATA_FORMAT_VERSION`, and with it the file name, so a new format can be published beside
  * the old one.
+ *
+ * Format 2 (2026-11-08, issue #77) adds the filter family `plan` to `FilterFamily`. Format 1 is
+ * still written beside it, in its own shape, while tia-tools/gkms-hif-final-stats reads it
+ * (data/card-data-file-v1.ts).
  */
 
 import type { Card, HeldCard, LevelLimits } from "../src/engine/types.ts";
 
-export const CARD_DATA_FORMAT_VERSION = 1;
+export const CARD_DATA_FORMAT_VERSION = 2;
 
 /** Where the file sits under dist/, hence its path on the site. */
 export const CARD_DATA_PATH = `data/cards.v${CARD_DATA_FORMAT_VERSION}.json`;
