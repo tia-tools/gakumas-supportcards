@@ -105,6 +105,7 @@ const GENERIC_CONTEST: RouteProfile = {
       cardType: { members: { mental: 13, active: 7 } },
       effectGroup: { default: 10, members: { review: 14, block: 12 } },
       rarity: { members: { ssr: 7 } },
+      plan: { members: { sense: 20, logic: 20, anomaly: 20 } }, // a run picks up cards of its own plan, so each plan gets every pick-up (issue #77)
     },
   },
   // A contest deck is kept thin by deletion, so it never holds 20 skill cards at a lesson's end (user, 2026-10-05; decision C7 of docs/plans/EXECPLAN_COUNTING_MODEL.md).
@@ -153,6 +154,7 @@ export const HIF: Scenario = {
           cardType: { members: { mental: 13, active: 7 } },
           effectGroup: { default: 10, members: { review: 14, block: 12 } },
           rarity: { members: { ssr: 10 } },
+          plan: { members: { sense: 20, logic: 20, anomaly: 20 } }, // a run picks up cards of its own plan, so each plan gets every pick-up (issue #77)
         },
       },
     },
@@ -193,6 +195,7 @@ export const HIF: Scenario = {
           cardType: { members: { mental: 13, active: 7 } },
           effectGroup: { default: 10, members: { review: 14, block: 12 } },
           rarity: { members: { ssr: 10 } },
+          plan: { members: { sense: 20, logic: 20, anomaly: 20 } }, // a run picks up cards of its own plan, so each plan gets every pick-up (issue #77)
         },
       },
     },

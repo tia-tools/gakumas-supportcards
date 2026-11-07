@@ -89,6 +89,7 @@ export const HAJIME_LEGEND: Scenario = {
           cardType: { members: { mental: 8, active: 4 } },
           effectGroup: { default: 6 },
           rarity: { members: { ssr: 4 } },
+          plan: { members: { sense: 12, logic: 12, anomaly: 12 } }, // a run picks up cards of its own plan, so each plan gets every pick-up (issue #77)
         },
       },
     },

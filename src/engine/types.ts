@@ -24,9 +24,9 @@ export type EffectKind = "skill" | "event" | "item";
 /**
  * Which occurrences of an occasion qualify (docs/adr/0004; decision C0 of
  * docs/plans/EXECPLAN_COUNTING_MODEL.md): a Vocal lesson, an SP lesson, a
- * mental skill card, an SSR card, a card named 「基本」, a 好印象 card.
+ * mental skill card, an SSR card, a card named 「基本」, a 好印象 card, a ロジック card.
  */
-export const FILTER_FAMILIES = ["lessonStat", "lessonKind", "cardType", "rarity", "cardName", "effectGroup"] as const;
+export const FILTER_FAMILIES = ["lessonStat", "lessonKind", "cardType", "rarity", "cardName", "effectGroup", "plan"] as const;
 export type FilterFamily = (typeof FILTER_FAMILIES)[number];
 export function isFilterFamily(x: string): x is FilterFamily {
   return FILTER_FAMILIES.some((f) => f === x);
