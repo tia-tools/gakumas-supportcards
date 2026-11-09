@@ -162,10 +162,24 @@ describe("update-data.yml", () => {
     const images = steps.find((s) => s.name === "Images for cards the site does not show yet");
     expect(images?.id).toBe("images");
     expect(wf.jobs.update?.outputs?.images).toBe("${{ steps.images.outcome }}");
-    // The step runs only when data changed, which already makes notify speak.
-    expect(images?.if).toBe("steps.detect.outputs.changed == 'true'");
     const notify = stepsOf(wf, "notify").find((s) => actionName(s.uses ?? "") === "Taka499/nudge/actions/notify");
     expect(String(notify?.with?.title)).toContain("needs.update.outputs.images == 'failure' && ', images failure'");
+    // The step also runs when nothing changed, which otherwise keeps notify quiet.
+    expect(notify?.if ?? "").toContain("needs.update.outputs.images == 'failure'");
+  });
+
+  test("the image steps run on every run that passes the gates, so a failed or early one is tried again without a data change", () => {
+    // No condition of their own: a run that found nothing new retries what the site still lacks (#84).
+    const image = steps.findIndex((s) => s.name === "Images for cards the site does not show yet");
+    const uv = steps.findIndex((s) => actionName(s.uses ?? "") === "astral-sh/setup-uv");
+    for (const i of [uv, image]) {
+      expect(steps[i]?.if).toBeUndefined();
+    }
+    expect(uv).toBeLessThan(image);
+    // A failed gate still stops them: they come after every gate, which may not be skipped on failure.
+    for (const gate of ["bun run generate", "bun test", "bun run type-check", "bun run lint", "check-score-stability.ts --base HEAD"]) {
+      expect(indexOfRun(steps, gate)).toBeLessThan(uv);
+    }
   });
 
   test("the image step uploads icons before the sprite sheets built from them, which upload their index last", () => {

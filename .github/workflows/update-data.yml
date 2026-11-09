@@ -14,15 +14,17 @@
 # show: the built-in token's merge triggers no push deploy. Either way GitHub mails the failure, and
 # the last job, notify, posts to the owner's Discord through Nudge (github.com/Taka499/nudge; an
 # OIDC token, no stored secret) whenever the update or the deploy failed or was cancelled, data was
-# published or the run was started by hand, and on Monday mornings even when nothing changed, so a
-# schedule that stopped running is noticed (D43, D46). Its title also names a failed image step,
-# which by design does not fail the job and so would otherwise read as a success. It is a job of
-# its own, after deploy, so a failed deploy is reported too, and so it is the only job that can
-# mint an OIDC token.
+# published, the image step failed or the run was started by hand, and on Monday mornings even when
+# nothing changed, so a schedule that stopped running is noticed (D43, D46). Its title also names a
+# failed image step, which by design does not fail the job and so would otherwise read as a
+# success. It is a job of its own, after deploy, so a failed deploy is reported too, and so it is
+# the only job that can mint an OIDC token.
 # The gates run here rather than as pull-request checks because a pull request opened with the
 # built-in token triggers no workflows. Held cards open (or update) one issue labelled
 # `held-cards`; they do not block the other cards. Images for new cards are fetched and uploaded
-# on a best-effort basis and can never block the data (first plan, decisions D34, D40, D41).
+# on a best-effort basis and can never block the data (first plan, decisions D34, D40, D41), on
+# every run that passes the gates, also when the data did not change, so images a failed run left
+# out, or art the game shipped after its card, are tried again by the next run (#84).
 name: Update data
 
 on:
@@ -105,12 +107,14 @@ jobs:
       # runner, or a decoder that needs a new engine version, leaves a card showing its name
       # instead of its art, and must not stop the data (D41). Its outcome (failure, while the job's
       # conclusion stays success) goes out as the job output `images` for notify to report.
+      # They run also when nothing changed, on the data main already holds: images a failed run left
+      # out, or art the game shipped after its card, would otherwise wait for the next data change
+      # (#84). Asking costs little: at most a few hundred HEADs, since the stored sprite sheet index
+      # vouches for every skill card icon it names. A failed gate still stops them, as any step.
       - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
-        if: steps.detect.outputs.changed == 'true'
         continue-on-error: true
       - name: Images for cards the site does not show yet
         id: images
-        if: steps.detect.outputs.changed == 'true'
         continue-on-error: true
         working-directory: scripts/images
         env:
@@ -209,7 +213,9 @@ jobs:
 
   # Runs after everything, whatever happened: a failed gate or deploy is the message that matters
   # most. A scheduled run that found nothing stays quiet except the Monday 11:30 one, the weekly
-  # sign that the schedule still runs, said once a week rather than by both Monday runs (D46).
+  # sign that the schedule still runs, said once a week rather than by both Monday runs (D46), and
+  # one whose image step failed, which now runs whether or not anything changed (#84), so an image
+  # failure is reported by every run until it is fixed.
   # deploy is "skipped" when nothing changed, which is not a failure.
   notify:
     needs: [update, deploy]
@@ -223,7 +229,7 @@ jobs:
         id: when
         run: echo "weekday=$(TZ=Asia/Tokyo date +%u)" >> "$GITHUB_OUTPUT"
       - name: Tell Discord how it went
-        if: needs.update.result != 'success' || (needs.deploy.result != 'success' && needs.deploy.result != 'skipped') || needs.update.outputs.changed == 'true' || github.event_name == 'workflow_dispatch' || (github.event.schedule == '30 11 * * *' && steps.when.outputs.weekday == '1')
+        if: needs.update.result != 'success' || (needs.deploy.result != 'success' && needs.deploy.result != 'skipped') || needs.update.outputs.changed == 'true' || needs.update.outputs.images == 'failure' || github.event_name == 'workflow_dispatch' || (github.event.schedule == '30 11 * * *' && steps.when.outputs.weekday == '1')
         uses: Taka499/nudge/actions/notify@d9f7f1ac185050506d526532a0e24861564422cf # v1.1.0
         with:
           endpoint: https://nudge.tia.run
