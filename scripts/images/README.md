@@ -45,6 +45,14 @@ The page does not load single icons: on the Workers Free plan every image reques
 
 A sheet is stale when the stored index (asked of the deployed site) has no entry for its plan and idol, or one with other icons or another layout; only stale sheets are rebuilt, under their new name. The bytes are never compared, so a different WebP encoder on another machine does not rebuild anything. The order of uploads is what lets planning skip most requests: a single icon (master first) before any sheet holding it, the sheets before the index. An icon the stored index names is therefore stored as a single icon too, so `upload.py` and `extract.py --only-missing` send a `HEAD` only for icons the index does not name, and `sheets.py` refuses to upload a sheet whose icons are not stored yet. The index is stored and served with `Cache-Control: no-cache`; sheets and icons are immutable. A stored index is checked entry by entry before it is trusted, and one that fails the check stops every script; `uv run sheets.py --rebuild` then replaces it, trusting nothing stored (it asks the site about every icon, about 1,700 requests). A missing master stops `sheets.py` before it uploads anything, since a sheet without that icon would be published as if complete. Sheets the index no longer names stay in the bucket.
 
+## Idols' SD faces (for gkms-memomemo)
+
+`tia-tools/gkms-memomemo` lets a player choose the idol whose skill card art it draws from a table of the idols' faces (its issue #86; this repository's #82). The face is the idol's SD face, the small cartoon face the game uses in its menus: the bundle `img_sd_{idol id}_face-{nn}.unity3d`, a 256 × 256 texture with transparency. Only `face-00`, the default smile, exists today, for 15 idols (the 13 playable ones and two that are not). `extract.py` keeps it as a lossless master under `out/master/` (`img_sd_hski_face-00.webp`) and nothing else: no served rendition, no upload, no sheet. gkms-memomemo builds its own sheet from these local masters on the user's machine.
+
+    uv run extract.py --only 'img_sd_'         # every idol's SD face, as a master only
+
+`extract.py --only-missing`, the unattended run, never fetches a face, since it keeps only the files of the cards in the data.
+
 ## Upload
 
     uv run upload.py --dry-run                 # what is missing; uploads nothing

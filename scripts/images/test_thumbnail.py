@@ -133,3 +133,33 @@ def test_a_skill_card_icon_is_mastered_losslessly_as_stored_and_served_at_112_wi
     assert icon.format == "WEBP" and icon.size == SKILLCARD_ICON_SIZE == (112, 112) and icon.mode == "RGBA"
     assert icon.getpixel((0, 0))[3] == 0 and icon.getpixel((56, 56))[3] == 255
     assert skillcard_cell(stored).size == SKILLCARD_ICON_SIZE
+
+
+def test_an_sd_face_keeps_the_game_stem_and_has_no_served_rendition():
+    import pytest
+
+    from thumbnail import has_public_rendition, is_sd_face
+
+    assert file_name_for("img_sd_hski_face-00.unity3d") == "img_sd_hski_face-00.webp"
+    assert file_name_for("img_sd_myu0_face-01.unity3d") == "img_sd_myu0_face-01.webp"
+    for name in [
+        "img_sd_hski_face-0.unity3d",
+        "img_sd_HSKI_face-00.unity3d",
+        "img_sd_hski_face-00",
+        "img_sd_hski_body-00.unity3d",
+        "../img_sd_hski_face-00.unity3d",
+    ]:
+        assert file_name_for(name) is None, name
+    face = "img_sd_hski_face-00.webp"
+    assert is_sd_face(face) and not is_sd_face("img_general_skillcard_act-3_029-hski.webp")
+    assert not has_public_rendition(face) and has_public_rendition("img_general_pitem_2-004.webp")
+    with pytest.raises(ValueError):
+        public_prefix_for(face)
+
+
+def test_an_sd_face_is_mastered_losslessly_as_stored():
+    stored = Image.new("RGBA", (256, 256), (255, 0, 0, 0))
+    stored.paste((200, 90, 80, 255), (40, 40, 216, 216))
+    master = Image.open(io.BytesIO(master_rendition("img_sd_hski_face-00.webp", stored)))
+    assert master.size == (256, 256) and master.mode == "RGBA"
+    assert master.getpixel((128, 128)) == (200, 90, 80, 255) and master.getpixel((0, 0))[3] == 0
