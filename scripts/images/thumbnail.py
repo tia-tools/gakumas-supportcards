@@ -27,6 +27,15 @@ SKILLCARD_OBJECT_NAME = re.compile(r"^(img_general_skillcard_(?:act|men|ido)-\d+
 SKILLCARD_PATTERN = r"img_general_skillcard_(?:act|men|ido)-\d+_\d{3}(?:-[a-z0-9]{4})?\.unity3d$"
 SKILLCARD_STEM = "img_general_skillcard_"
 
+# An idol's SD face, the small cartoon face the game uses in its menus, is
+# `img_sd_{idol id}_face-{nn}.unity3d`: a 256 x 256 RGBA texture (only `face-00`, the default
+# smile, exists today, for every idol including the non-playable). The library keeps the stem
+# (`img_sd_hski_face-00.webp`) as a master only: nothing here serves or uploads it;
+# gkms-memomemo builds its idol picker from the local masters (its issue #86, this repository's #82).
+SD_FACE_OBJECT_NAME = re.compile(r"^(img_sd_[a-z0-9]{4}_face-\d{2})\.unity3d$")
+SD_FACE_PATTERN = r"img_sd_[a-z0-9]{4}_face-\d{2}\.unity3d$"
+SD_FACE_STEM = "img_sd_"
+
 # One file name, one bucket prefix per rendition. `master/` is the lossless original and is
 # never served; `w192/` is the public card thumbnail, `w48/` the public item icon and `w112/` the
 # public skill card icon. A future size is a new prefix, never a rename.
@@ -51,9 +60,9 @@ WEBP_QUALITY = 80
 def file_name_for(object_name: str) -> str | None:
     """`img_general_csprt-3-0016_full.unity3d` -> `img_general_csprt-3-0016_full.webp`,
     `img_general_pitem_2-004.unity3d` -> `img_general_pitem_2-004.webp` and
-    `img_general_skillcard_act-3_029-hski.unity3d` -> `img_general_skillcard_act-3_029-hski.webp`;
-    None for anything else."""
-    m = OBJECT_NAME.match(object_name) or ITEM_OBJECT_NAME.match(object_name) or SKILLCARD_OBJECT_NAME.match(object_name)
+    `img_general_skillcard_act-3_029-hski.unity3d` -> `img_general_skillcard_act-3_029-hski.webp` and
+    `img_sd_hski_face-00.unity3d` -> `img_sd_hski_face-00.webp`; None for anything else."""
+    m = OBJECT_NAME.match(object_name) or ITEM_OBJECT_NAME.match(object_name) or SKILLCARD_OBJECT_NAME.match(object_name) or SD_FACE_OBJECT_NAME.match(object_name)
     return f"{m.group(1)}.webp" if m else None
 
 
@@ -67,9 +76,21 @@ def is_skillcard(file_name: str) -> bool:
     return file_name.startswith(SKILLCARD_STEM)
 
 
+def is_sd_face(file_name: str) -> bool:
+    """True for an idol's SD face's library file name."""
+    return file_name.startswith(SD_FACE_STEM)
+
+
+def has_public_rendition(file_name: str) -> bool:
+    """False for an SD face, which is kept as a master only; True for every file the site serves."""
+    return not is_sd_face(file_name)
+
+
 def public_prefix_for(file_name: str) -> str:
     """The bucket prefix the site serves this file from: `w48/` for an item icon, `w112/` for a skill
-    card icon, `w192/` for card art."""
+    card icon, `w192/` for card art. An SD face has none, and asking is a mistake."""
+    if not has_public_rendition(file_name):
+        raise ValueError(f"{file_name}: kept as a master only, never served")
     if is_skillcard(file_name):
         return SKILLCARD_PREFIX
     return ICON_PREFIX if is_item(file_name) else THUMBNAIL_PREFIX
@@ -133,8 +154,8 @@ def to_skillcard_icon(image: Image.Image) -> bytes:
 
 def master_rendition(file_name: str, image: Image.Image) -> bytes:
     """The private lossless rendition for this file: the reshaped card master, or an icon's master
-    for a P-item or a skill card."""
-    return to_item_master(image) if is_item(file_name) or is_skillcard(file_name) else to_master(image)
+    for a P-item, a skill card or an SD face."""
+    return to_item_master(image) if is_item(file_name) or is_skillcard(file_name) or is_sd_face(file_name) else to_master(image)
 
 
 def public_rendition(file_name: str, image: Image.Image) -> bytes:
