@@ -2,7 +2,8 @@
 Downloads support card art, P-item icons and skill card icons from the game's asset servers and
 writes, per file, a lossless master (out/master/) and the served rendition — a 192 x 108 webp
 thumbnail (out/w192/) for a card, a 48 x 48 webp icon with transparency (out/w48/) for an item, a
-112 x 112 webp icon with transparency (out/w112/) for a skill card, per idol where its art varies —
+112 x 112 webp icon with transparency (out/w112/) for a skill card, per idol where its art varies;
+and, as a master only, each idol's SD face (`img_sd_<idol id>_face-<nn>`) for gkms-memomemo —
 named for the owned image library (docs/adr/0003; items: Milestone 4 of
 docs/plans/EXECPLAN_SCORE_ADJUSTMENTS.md; skill cards: docs/plans/EXECPLAN_SKILLCARD_DATA_AND_ICONS.md).
 
@@ -10,6 +11,7 @@ docs/plans/EXECPLAN_SCORE_ADJUSTMENTS.md; skill cards: docs/plans/EXECPLAN_SKILL
     uv run extract.py --only 'csprt-3-0016' --force
     uv run extract.py --only 'pitem_2-004'
     uv run extract.py --only 'skillcard'    # every skill card icon the game offers
+    uv run extract.py --only 'img_sd_'      # every idol's SD face, as a master only
     uv run extract.py --only-missing        # only files of cards in the data that the deployed site lacks
 
 GkmasObjectManager (GPL-3.0, not a package) is used only for what it does well: fetching and
@@ -29,7 +31,7 @@ from decode import DecodeError, decode_texture
 from deployed_site import DEFAULT_BASE_URL, served_by, stored_sheet_index
 from sheet_rules import desired_sheets, is_stale, parse_index, stored_icon_names
 from skillcards import read_skill_card_data
-from thumbnail import ICON_PREFIX, ITEM_PATTERN, MASTER_PREFIX, OBJECT_PATTERN, SKILLCARD_PATTERN, SKILLCARD_PREFIX, THUMBNAIL_PREFIX, file_name_for, master_rendition, public_prefix_for, public_rendition
+from thumbnail import ICON_PREFIX, ITEM_PATTERN, MASTER_PREFIX, OBJECT_PATTERN, SD_FACE_PATTERN, SKILLCARD_PATTERN, SKILLCARD_PREFIX, THUMBNAIL_PREFIX, file_name_for, has_public_rendition, master_rendition, public_prefix_for, public_rendition
 from uploads import known_or_served, missing_file_names, published_keys
 
 HERE = Path(__file__).resolve().parent
@@ -48,13 +50,16 @@ def load_manifest():
 
 
 def offered(manifest) -> list[str]:
-    """Manifest names of every card art, item icon and skill card icon the game offers."""
-    return [o.name for pattern in (OBJECT_PATTERN, ITEM_PATTERN, SKILLCARD_PATTERN) for o in manifest.search(pattern) if file_name_for(o.name)]
+    """Manifest names of every card art, item icon, skill card icon and SD face the game offers.
+    An unattended run (--only-missing) never fetches a face: `published_keys` lists none."""
+    return [o.name for pattern in (OBJECT_PATTERN, ITEM_PATTERN, SKILLCARD_PATTERN, SD_FACE_PATTERN) for o in manifest.search(pattern) if file_name_for(o.name)]
 
 
-def rendition_paths(out: Path, file_name: str) -> tuple[Path, Path]:
-    """Where the master and the served rendition of `file_name` live under `out`."""
-    return out / MASTER_PREFIX / file_name, out / public_prefix_for(file_name) / file_name
+def rendition_paths(out: Path, file_name: str) -> list[Path]:
+    """Where the master and the served rendition of `file_name` live under `out`; only the master
+    for a file the site never serves (an SD face)."""
+    master = out / MASTER_PREFIX / file_name
+    return [master, out / public_prefix_for(file_name) / file_name] if has_public_rendition(file_name) else [master]
 
 
 def select(manifest, only: str | None, limit: int | None, out: Path, force: bool, wanted: set[str] | None = None) -> list[str]:
@@ -117,9 +122,10 @@ def main() -> int:
         try:
             image = decode_texture((raw_dir / name).read_bytes())
             file_name = str(file_name_for(name))
-            master_path, public_path = rendition_paths(args.out, file_name)
+            master_path, *public_path = rendition_paths(args.out, file_name)
             master_path.write_bytes(master_rendition(file_name, image))
-            public_path.write_bytes(public_rendition(file_name, image))
+            for path in public_path:
+                path.write_bytes(public_rendition(file_name, image))
         except (OSError, DecodeError) as e:
             failures.append(f"{name}: {type(e).__name__}: {e}")
 
