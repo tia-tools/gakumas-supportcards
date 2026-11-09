@@ -111,7 +111,7 @@ jobs:
       # out, or art the game shipped after its card, would otherwise wait for the next data change
       # (#84). Asking costs little: at most a few hundred HEADs, since the stored sprite sheet index
       # vouches for every skill card icon it names. A failed gate still stops them, as any step.
-      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
         continue-on-error: true
       - name: Images for cards the site does not show yet
         id: images
@@ -230,7 +230,7 @@ jobs:
         run: echo "weekday=$(TZ=Asia/Tokyo date +%u)" >> "$GITHUB_OUTPUT"
       - name: Tell Discord how it went
         if: needs.update.result != 'success' || (needs.deploy.result != 'success' && needs.deploy.result != 'skipped') || needs.update.outputs.changed == 'true' || needs.update.outputs.images == 'failure' || github.event_name == 'workflow_dispatch' || (github.event.schedule == '30 11 * * *' && steps.when.outputs.weekday == '1')
-        uses: Taka499/nudge/actions/notify@d9f7f1ac185050506d526532a0e24861564422cf # v1.1.0
+        uses: Taka499/nudge/actions/notify@ae2116bc8fd8229c5d30c495d7c89e5f05617c99 # v1.3.0
         with:
           endpoint: https://nudge.tia.run
           title: "Data update: update ${{ needs.update.result }}, deploy ${{ needs.deploy.result }}${{ needs.update.outputs.images == 'failure' && ', images failure' || '' }}"
