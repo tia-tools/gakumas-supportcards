@@ -18,7 +18,8 @@ export const SKILL_CARD_DATA: SkillCardDataFile = {
     {"id":"jsna","name":"十王星南"},
     {"id":"hmsz","name":"秦谷美鈴"},
     {"id":"hume","name":"花海佑芽"},
-    {"id":"hrnm","name":"姫崎莉波"}
+    {"id":"hrnm","name":"姫崎莉波"},
+    {"id":"hkne","name":"氷渡香名江"}
   ],
   "cards": [
     {"id":"p_card-01-act-0_005","upgrade":0,"name":"挑戦","plan":"sense","rarity":"N","type":"active","order":"11010010000005","guideLabels":[],"art":{"asset":"img_general_skillcard_act-0_005","perIdol":false},"customization":{"limit":0,"kinds":[]}},
