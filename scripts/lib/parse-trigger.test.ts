@@ -67,6 +67,13 @@ describe("filters", () => {
     expect(parsed("p_trigger-get_produce_card-0000_0000-p_card_search-plan3-deck_all", "GetProduceCard").filters).toEqual([{ family: "plan", member: "anomaly" }]);
   });
 
+  test("held trouble cards counted as a condition (issue #90)", () => {
+    expect(parsed("p_trigger-upgrade_produce_card-produce_card_search_count-p_card_search-trouble-deck_all-0001_0000", "UpgradeProduceCard")).toEqual({
+      occasion: "UpgradeProduceCard",
+      conditions: [{ kind: "produce_card_search_count", min: 1, max: 0, subject: [{ family: "cardType", member: "trouble" }] }],
+    });
+  });
+
   test("effect group", () => {
     expect(parsed("p_trigger-get_produce_card-0000_0000-p_card_search-deck_all-effect_group-visible-exam_review-000", "GetProduceCard").filters).toEqual([{ family: "effectGroup", member: "review" }]);
   });
@@ -134,7 +141,7 @@ describe("pieces never seen before: shape decides (C4, C12)", () => {
   });
 
   test("a new word inside a card search has no family by position and is of unknown kind", () => {
-    expect(unknownPiece("p_trigger-get_produce_card-0000_0000-p_card_search-trouble-deck_all", "GetProduceCard")).toBe("trouble");
+    expect(unknownPiece("p_trigger-get_produce_card-0000_0000-p_card_search-curse-deck_all", "GetProduceCard")).toBe("curse");
     expect(unknownPiece("p_trigger-get_produce_card-0000_0000-p_card_search-plan4-deck_all", "GetProduceCard")).toBe("plan4");
   });
 
