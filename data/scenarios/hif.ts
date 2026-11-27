@@ -88,7 +88,7 @@ const GENERIC_CONTEST: RouteProfile = {
     StartCustomize: 0, // 特別指導開始
     GetProduceCard: 20, // スキルカード獲得
     DeleteProduceCard: 9, // スキルカード削除
-    UpgradeProduceCard: 0, // スキルカード強化
+    UpgradeProduceCard: 3, // スキルカード強化: raised from the 0 the params line gives, to 3 (user, 2026-11-27; issue #90)
     ChangeProduceCard: 4, // スキルカードチェンジ
     CustomizeProduceCard: 2, // スキルカードカスタマイズ
     BuyShopItemProduceCard: 0, // 相談でスキルカード交換
@@ -98,7 +98,7 @@ const GENERIC_CONTEST: RouteProfile = {
   },
   filters: {
     EndLesson: { lessonKind: { members: { sp: 8, normal: 0 } } }, // every lesson is an SP lesson (docs/adr/0001)
-    UpgradeProduceCard: { cardType: { members: { mental: 0, active: 0 } }, effectGroup: { default: 0 } }, // effectGroup: carried over as every upgrade (C13)
+    UpgradeProduceCard: { cardType: { members: { mental: 3, active: 3 } }, effectGroup: { default: 3 } }, // each filter at every upgrade, as 初LEGEND; effectGroup carried over as every upgrade (C13)
     DeleteProduceCard: { cardType: { members: { mental: 9, active: 9 } } },
     ChangeProduceCard: { cardName: { members: { starter: 4 } } }, // 名前に「基本」を含む
     GetProduceCard: {
@@ -137,7 +137,7 @@ export const HIF: Scenario = {
         StartCustomize: 0, // 特別指導開始
         GetProduceCard: 20, // スキルカード獲得
         DeleteProduceCard: 6, // スキルカード削除
-        UpgradeProduceCard: 0, // スキルカード強化
+        UpgradeProduceCard: 3, // スキルカード強化: raised from the 0 the params line gives, to 3 (user, 2026-11-27; issue #90)
         ChangeProduceCard: 4, // スキルカードチェンジ
         CustomizeProduceCard: 2, // スキルカードカスタマイズ
         BuyShopItemProduceCard: 2, // 相談でスキルカード交換
@@ -147,7 +147,7 @@ export const HIF: Scenario = {
       },
       filters: {
         EndLesson: { lessonKind: { members: { sp: 8, normal: 0 } } }, // every lesson is an SP lesson (docs/adr/0001)
-        UpgradeProduceCard: { cardType: { members: { mental: 0, active: 0 } }, effectGroup: { default: 0 } }, // effectGroup: carried over as every upgrade (C13)
+        UpgradeProduceCard: { cardType: { members: { mental: 3, active: 3 } }, effectGroup: { default: 3 } }, // each filter at every upgrade, as 初LEGEND; effectGroup carried over as every upgrade (C13)
         DeleteProduceCard: { cardType: { members: { mental: 6, active: 6 } } },
         ChangeProduceCard: { cardName: { members: { starter: 4 } } }, // 名前に「基本」を含む
         GetProduceCard: {
@@ -178,7 +178,7 @@ export const HIF: Scenario = {
         StartCustomize: 0, // 特別指導開始
         GetProduceCard: 20, // スキルカード獲得
         DeleteProduceCard: 6, // スキルカード削除
-        UpgradeProduceCard: 0, // スキルカード強化
+        UpgradeProduceCard: 3, // スキルカード強化: raised from the 0 the params line gives, to 3 (user, 2026-11-27; issue #90)
         ChangeProduceCard: 4, // スキルカードチェンジ
         CustomizeProduceCard: 2, // スキルカードカスタマイズ
         BuyShopItemProduceCard: 0, // 相談でスキルカード交換
@@ -188,7 +188,7 @@ export const HIF: Scenario = {
       },
       filters: {
         EndLesson: { lessonKind: { members: { sp: 8, normal: 0 } } }, // every lesson is an SP lesson (docs/adr/0001)
-        UpgradeProduceCard: { cardType: { members: { mental: 0, active: 0 } }, effectGroup: { default: 0 } }, // effectGroup: carried over as every upgrade (C13)
+        UpgradeProduceCard: { cardType: { members: { mental: 3, active: 3 } }, effectGroup: { default: 3 } }, // each filter at every upgrade, as 初LEGEND; effectGroup carried over as every upgrade (C13)
         DeleteProduceCard: { cardType: { members: { mental: 6, active: 6 } } },
         ChangeProduceCard: { cardName: { members: { starter: 4 } } }, // 名前に「基本」を含む
         GetProduceCard: {
