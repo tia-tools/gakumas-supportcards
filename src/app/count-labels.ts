@@ -33,7 +33,7 @@ export const OCCASION_LABEL: Readonly<Record<string, string>> = {
 const MEMBER_LABEL: Readonly<Record<string, Readonly<Record<string, string>>>> = {
   lessonStat: { vocal: "ボーカル", dance: "ダンス", visual: "ビジュアル" },
   lessonKind: { sp: "SPレッスン", normal: "通常レッスン" },
-  cardType: { mental: "メンタル", active: "アクティブ" },
+  cardType: { mental: "メンタル", active: "アクティブ", trouble: "トラブル" },
   rarity: { ssr: "SSR" },
   cardName: { starter: "名前に「基本」" },
   plan: { sense: "センス", logic: "ロジック", anomaly: "アノマリー" },
